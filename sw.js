@@ -23,7 +23,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  const type = event.data && event.data.type;
+  if (type === 'SKIP_WAITING') self.skipWaiting();
+  // Lets the page tell the player which version is waiting to install.
+  if (type === 'GET_VERSION') event.ports[0]?.postMessage(self.PRECACHE.appVersion);
 });
 
 self.addEventListener('fetch', (event) => {

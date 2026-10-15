@@ -4,6 +4,7 @@ import { getSetting, setSetting, haptic } from './lib/settings.js';
 import { load, save } from './lib/storage.js';
 import { canPrompt, promptInstall, isIOS, isStandalone, onInstallChange } from './lib/install.js';
 import { track, trackPage, startAnalytics } from './lib/analytics.js';
+import { VERSION } from './version.js';
 
 const view = document.getElementById('view');
 let current = null; // { id, instance }
@@ -119,7 +120,7 @@ function renderHub() {
             </span>
           </div>`).join('')}
       </section>
-      <footer class="hub-foot">No accounts, no ads. Works offline.</footer>
+      <footer class="hub-foot">No accounts, no ads. Works offline.<span class="version">v${VERSION}</span></footer>
     </div>`;
 
   const paintTools = () => {
@@ -204,23 +205,65 @@ export function toast(msg, action) {
 
 // ---------------------------------------------------------- service worker
 
+// Ask a waiting service worker which version it would install.
+function versionOf(worker) {
+  return new Promise((resolve) => {
+    const ch = new MessageChannel();
+    const timer = setTimeout(() => resolve(null), 1500);
+    ch.port1.onmessage = (e) => {
+      clearTimeout(timer);
+      resolve(e.data);
+    };
+    worker.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+  });
+}
+
+// A bar that stays up (on any screen) until the player updates or says later.
+async function offerUpdate(worker) {
+  const next = await versionOf(worker);
+  if (next === VERSION) return;
+  document.querySelector('.update-bar')?.remove();
+  const bar = document.createElement('div');
+  bar.className = 'update-bar';
+  bar.setAttribute('role', 'alert');
+  bar.innerHTML = `
+    <span><b>New version${next ? ` ${next}` : ''}</b> is ready to install.<small>You have v${VERSION}.</small></span>
+    <button class="later">Later</button>
+    <button class="install-now">Update</button>`;
+  bar.querySelector('.later').onclick = () => bar.remove();
+  bar.querySelector('.install-now').onclick = () => {
+    bar.querySelector('.install-now').textContent = 'Updating…';
+    track('app_update', { from: VERSION, to: next || 'unknown' });
+    worker.postMessage({ type: 'SKIP_WAITING' });
+  };
+  document.body.appendChild(bar);
+}
+
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('sw.js');
-      const offer = (worker) => toast('A new version is ready.', {
-        label: 'Update',
-        run: () => worker.postMessage({ type: 'SKIP_WAITING' }),
+      const watch = (w) => w?.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
       });
-      if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
-      reg.addEventListener('updatefound', () => {
-        const w = reg.installing;
-        w?.addEventListener('statechange', () => {
-          if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w);
-        });
-      });
+      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
+      watch(reg.installing);
+      reg.addEventListener('updatefound', () => watch(reg.installing));
+      // Installed apps can stay open for days: look for new versions when the
+      // app comes back to the foreground, and hourly while it's open.
+      const check = () => navigator.onLine && reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check());
+      window.addEventListener('online', check);
+      setInterval(check, 60 * 60 * 1000);
+      // Reload into a new version once it takes over -- but not when the
+      // service worker first starts controlling a brand-new install.
+      let firstControl = !navigator.serviceWorker.controller;
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (firstControl) {
+          firstControl = false;
+          return;
+        }
         if (!reloading) {
           reloading = true;
           location.reload();

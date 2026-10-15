@@ -17,3 +17,10 @@ test('web app manifest is installable', () => {
   assert.ok(m.icons.some((i) => i.purpose === 'maskable'));
   for (const icon of m.icons) assert.ok(existsSync(`${root}${icon.src}`), icon.src);
 });
+
+test('app version is semver and has a changelog entry', () => {
+  const { version } = JSON.parse(readFileSync(`${root}package.json`, 'utf8'));
+  assert.match(version, /^\d+\.\d+\.\d+$/);
+  assert.match(readFileSync(`${root}js/version.js`, 'utf8'), new RegExp(`VERSION = '${version}'`));
+  assert.match(readFileSync(`${root}CHANGELOG.md`, 'utf8'), new RegExp(`## ${version.replace(/\./g, '\\.')}`));
+});

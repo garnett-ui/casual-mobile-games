@@ -20,9 +20,14 @@ const TYPES = {
   '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json',
 };
 
-function serve() {
+// overrides: path -> body served instead of the file (to fake a new deploy).
+function serve(overrides = new Map()) {
   const server = createServer(async (req, res) => {
     let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    if (overrides.has(path)) {
+      res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
+      return res.end(overrides.get(path));
+    }
     if (path.endsWith('/')) path += 'index.html';
     const file = normalize(join(root, path));
     if (!file.startsWith(root)) return res.writeHead(403).end();
@@ -256,6 +261,50 @@ test('analytics events recorded offline are sent once back online', { skip: !chr
     assert.ok(names.includes('app_open') && names.includes('level_start') && names.includes('page_view'), names.join());
     assert.equal(sent.find(([n]) => n === 'level_start')[1].game, 'car-jam');
     assert.ok(gtagLoads >= 1);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('home screen shows the version; a new deploy prompts the installed app to update', { skip: !chromium, timeout: 60000 }, async () => {
+  const { readFile: rf } = await import('node:fs/promises');
+  const { version } = JSON.parse(await rf(new URL('../package.json', import.meta.url), 'utf8'));
+  const overrides = new Map();
+  const server = await serve(overrides);
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`http://localhost:${server.address().port}/`);
+    assert.equal(await page.locator('.hub-foot .version').textContent(), `v${version}`);
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      }
+    });
+
+    // "Deploy" version 99.0.0: same files, new precache manifest.
+    const manifest = await rf(new URL('../sw-manifest.js', import.meta.url), 'utf8');
+    overrides.set('/sw-manifest.js', manifest
+      .replace(/"appVersion": "[^"]+"/, '"appVersion": "99.0.0"')
+      .replace(/"version": "[^"]+"/, '"version": "test-new-deploy"'));
+    overrides.set('/sw.js', (await rf(new URL('../sw.js', import.meta.url), 'utf8')) + '\n// new deploy\n');
+    // Coming back to the app triggers an update check.
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    const bar = page.locator('.update-bar');
+    await bar.waitFor({ timeout: 20000 });
+    assert.match(await bar.textContent(), /New version 99\.0\.0/);
+    assert.match(await bar.textContent(), new RegExp(`You have v${version.replace(/\./g, '\\.')}`));
+
+    // Update installs it and reloads into the new version.
+    await Promise.all([page.waitForEvent('load'), bar.locator('.install-now').click()]);
+    const active = await page.evaluate(() => new Promise((resolve) => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (e) => resolve(e.data);
+      navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+    }));
+    assert.equal(active, '99.0.0');
   } finally {
     await browser.close();
     server.close();

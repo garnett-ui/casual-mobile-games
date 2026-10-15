@@ -62,8 +62,17 @@ npm start             # serve at http://localhost:8080
 npm test              # unit tests + headless-browser play-through + offline check
 ```
 
-After changing any app file, run `npm run build` to refresh the service
-worker's precache list (`sw-manifest.js`); the tests fail if it is stale.
+After changing any app file, run `npm run build` to refresh the generated
+files (`sw-manifest.js` and `js/version.js`); the tests fail if they are stale.
+
+### Versions and updates
+
+The app version is `version` in `package.json` (semver: minor for new games
+and features, patch for fixes), shown at the bottom of the home screen and
+recorded in `CHANGELOG.md`. Bump it, add a changelog entry and run
+`npm run build` for each release. Installed apps check for a new version when
+they come back to the foreground (and hourly), then show a prompt naming the
+new version; **Update** installs it and reloads.
 
 Other scripts:
 
