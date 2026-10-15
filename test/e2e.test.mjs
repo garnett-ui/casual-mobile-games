@@ -618,6 +618,37 @@ test('jigsaw: pick a photo, it is saved, pieces snap into place, progress resume
     }, pair);
     assert.ok(together < 0.5, `still locked together after the drag (${together})`);
 
+    // Pinch with two fingers to zoom the table.
+    const box = await page.locator('.jg-screen canvas').boundingBox();
+    const cdp = await page.context().newCDPSession(page);
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const at = (d) => [{ x: cx - d, y: cy, id: 1 }, { x: cx + d, y: cy, id: 2 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(30) });
+    for (const d of [45, 60, 75, 90]) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(d) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    const zoom = await page.evaluate(() => window.__jigsaw.view.s);
+    assert.ok(zoom > 2.5 && zoom < 3.5, `zoomed in about 3x (${zoom})`);
+    // ...and back out.
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(90) });
+    for (const d of [60, 40, 25]) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(d) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.equal(await page.evaluate(() => window.__jigsaw.view.s), 1);
+
+    // The clock only counts time you're actually at it: it pauses after
+    // 30 seconds without a touch.
+    const paused = await page.evaluate(async () => {
+      const p = window.__jigsaw;
+      p.lastTouch = performance.now() - 31000;
+      const t0 = p.time();
+      await new Promise((r) => setTimeout(r, 400));
+      const still = p.time() === t0 && p.idle();
+      p.touch();
+      await new Promise((r) => setTimeout(r, 400));
+      return still && p.time() > t0;
+    });
+    assert.equal(paused, true);
+
     // The picture is hidden; Peek shows it only while held.
     const peekBox = await page.locator('[data-act=peek]').boundingBox();
     await page.mouse.move(peekBox.x + peekBox.width / 2, peekBox.y + peekBox.height / 2);
@@ -640,6 +671,7 @@ test('jigsaw: pick a photo, it is saved, pieces snap into place, progress resume
     });
     await page.locator('.dialog:not([hidden])').waitFor();
     assert.match(await page.locator('.dialog h3').textContent(), /Puzzle complete/);
+    assert.equal(await page.locator('.dialog .jg-chart path').count(), 2, 'a chart of progress over time');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

@@ -4,6 +4,17 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.17.0
+- Jigsaw: **pinch with two fingers to zoom** in on the table (up to 4×)
+  and move around it; pinch back out to see it all. Pieces re-render
+  sharp at the new size.
+- Jigsaw statistics: the clock now counts only the time you're actually
+  working on the puzzle. It pauses (⏸) after 30 seconds without a touch,
+  and while the app is in the background. Next to the pieces placed, you
+  can see how many loose pieces you've joined together.
+- When you finish: your time, moves, pieces per minute, and a chart of
+  pieces placed over time.
+
 ## 1.16.0
 - Lunar Lander: each mission opens with a fly-over. The whole course with
   the route to fly drawn on it, a zoom down to the base, then a swoop back

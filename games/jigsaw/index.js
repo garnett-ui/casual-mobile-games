@@ -176,8 +176,8 @@ export function mount(root, ctx) {
       <div class="screen play-screen jg-screen">
         <header class="bar">
           <button class="icon-btn" data-act="menu" aria-label="Back">${ICON.back}</button>
-          <span class="pill"><b data-placed>0</b>/<span data-total>0</span></span>
-          <span class="pill" data-time>0:00</span>
+          <span class="pill" title="Pieces placed in the picture"><b data-placed>0</b>/<span data-total>0</span><small class="jg-joined" data-joined hidden></small></span>
+          <span class="pill jg-time" data-time title="Time spent working on it (pauses after 30 s without a touch)">0:00</span>
           <span class="jg-tools">
             <button class="icon-btn jg-peek" data-act="peek" aria-label="Hold to peek at the picture" title="Hold to peek at the picture">${EYE}</button>
             <button class="icon-btn" data-act="edges" aria-label="Edge pieces only" title="Show only edge pieces">${EDGES}</button>
@@ -202,11 +202,18 @@ export function mount(root, ctx) {
     play = new Play(root.querySelector('canvas'), image, { pieces, seed, state }, {
       sfx: ctx.sfx,
       haptic: ctx.haptic,
-      onState: ({ placed, total }) => {
+      onState: ({ placed, joined, total }) => {
         root.querySelector('[data-placed]').textContent = placed;
         root.querySelector('[data-total]').textContent = total;
+        const j = root.querySelector('[data-joined]');
+        j.hidden = !joined;
+        j.textContent = ` · ${joined} joined`;
       },
-      onTime: (t) => (root.querySelector('[data-time]').textContent = fmtTime(t)),
+      onTime: (t, idle) => {
+        const el = root.querySelector('[data-time]');
+        el.textContent = `${idle ? '⏸ ' : ''}${fmtTime(t)}`;
+        el.classList.toggle('idle', idle);
+      },
       onChange: () => saveCurrent(),
       onWin: (res) => setTimeout(() => win(res), 400),
     });
@@ -233,6 +240,7 @@ export function mount(root, ctx) {
       btn.classList.toggle('on', play[key]);
       btn.onclick = () => {
         ctx.sfx('tap');
+        play.touch();
         play[key] = !play[key];
         play.dirty = true;
         btn.classList.toggle('on', play[key]);
@@ -244,6 +252,7 @@ export function mount(root, ctx) {
     peek.oncontextmenu = (e) => e.preventDefault();
     peek.onpointerdown = (e) => {
       e.preventDefault();
+      play.touch();
       peek.setPointerCapture?.(e.pointerId);
       play.peek = true;
       play.dirty = true;
@@ -261,6 +270,7 @@ export function mount(root, ctx) {
     // Shuffle: deal the loose pieces out again around the picture.
     root.querySelector('[data-act=scatter]').onclick = () => {
       ctx.sfx('tap');
+      play.touch();
       if (play.done || play.placedCount() === play.pieces.length) return ctx.toast('Every piece is in place.');
       play.scatter();
       ctx.toast('Loose pieces shuffled around the picture.');
@@ -278,7 +288,34 @@ export function mount(root, ctx) {
     });
   }
 
-  function win({ time, moves, pieces: n }) {
+  // A step chart of pieces placed against time spent.
+  function chart(history, total, time) {
+    const w = 300;
+    const h = 150;
+    const L = 34;
+    const B = 22;
+    const pw = w - L - 8;
+    const ph = h - B - 8;
+    const X = (t) => L + (pw * t) / Math.max(1, time);
+    const Y = (n) => 8 + ph - (ph * n) / total;
+    let d = `M${X(0)},${Y(0)}`;
+    let prev = 0;
+    for (const [t, n] of history) {
+      d += ` L${X(t).toFixed(1)},${Y(prev).toFixed(1)} L${X(t).toFixed(1)},${Y(n).toFixed(1)}`;
+      prev = n;
+    }
+    d += ` L${X(time)},${Y(prev)}`;
+    const ticks = [0, 0.5, 1].map((f) => `<text x="${L - 6}" y="${Y(total * f) + 4}" text-anchor="end">${Math.round(total * f)}</text>`).join('');
+    const tticks = [[0, 'start'], [0.5, 'middle'], [1, 'end']].map(([f, a]) => `<text x="${X(time * f)}" y="${h - 6}" text-anchor="${a}">${fmtTime(time * f)}</text>`).join('');
+    return `<svg class="jg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Pieces placed over time">
+      <rect x="${L}" y="8" width="${pw}" height="${ph}" fill="#f3f4fb"/>
+      <path d="${d} L${X(time)},${Y(0)} Z" fill="rgba(67,97,238,0.18)" stroke="none"/>
+      <path d="${d}" fill="none" stroke="#4361ee" stroke-width="2.2" stroke-linejoin="round"/>
+      <g font-size="10" fill="#6b6f93">${ticks}${tticks}</g>
+    </svg>`;
+  }
+
+  function win({ time, moves, pieces: n, history }) {
     if (!play) return;
     current = null;
     ctx.save('current', null);
@@ -293,7 +330,9 @@ export function mount(root, ctx) {
     }
     showDialog(root.querySelector('.dialog'), ctx, {
       title: 'Puzzle complete!',
-      text: `${n} pieces in <b>${fmtTime(time)}</b> with ${moves} moves.${isBest ? ' Your best time for this size!' : ` Best: ${fmtTime(best[n])}.`}`,
+      text: `${n} pieces in <b>${fmtTime(time)}</b> of puzzling (${moves} moves,
+        ${(n / Math.max(1 / 60, time / 60)).toFixed(1)} pieces a minute).${isBest ? ' Your best time for this size!' : ` Best: ${fmtTime(best[n])}.`}
+        <br><small>Pieces placed over time</small>${chart(history, n, time)}`,
       buttons: [
         { label: 'Admire it', act: 'admire', run: () => (root.querySelector('.dialog').hidden = true) },
         { label: 'New puzzle', act: 'new', primary: true, run: showMenu },

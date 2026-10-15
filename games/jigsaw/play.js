@@ -11,6 +11,8 @@ import { rng } from '../../js/lib/random.js';
 import { woodTable } from './table.js';
 
 const BORDER = 0.11; // share of each screen side kept free around the picture
+const IDLE = 30000; // ms without a touch before the clock pauses
+const MAX_ZOOM = 4;
 
 export class Play {
   // image: a decoded image. state (optional): a saved game to resume.
@@ -42,8 +44,14 @@ export class Play {
       }
     }
     this.nextGroup = 1 + Math.max(0, ...(saved?.pieces || []).map((p) => p.group || 0));
+    // Active time: the clock runs while you're working on the puzzle -- it
+    // pauses after 30 s without a touch (and while the app is hidden).
     this.elapsed = saved ? saved.elapsed : 0;
     this.moves = saved ? saved.moves : 0;
+    this.lastTouch = performance.now();
+    // Progress over time, for the chart at the end: [seconds, placed].
+    this.history = saved?.history || [[0, 0]];
+    this.view = { s: 1, x: 0, y: 0 }; // pinch zoom: screen = world * s + (x, y)
     this.resize();
     if (saved) {
       saved.pieces.forEach((p, i) => Object.assign(this.pieces[i], p, { rot: p.rot || 0, turn: p.rot || 0, group: p.group || 0 }));
@@ -58,13 +66,15 @@ export class Play {
       for (const p of this.pieces) p.rot = p.turn = Math.floor(r() * 4);
     }
     for (const p of this.pieces) if (p.rot || p.placed) this.renderPiece(p); // re-light
+    if (saved) this.history.push([this.elapsed, this.placedCount()]);
     this.bindInput();
-    this.started = performance.now();
-    this.tick = setInterval(() => this.hooks.onTime?.(this.time()), 1000);
+    this.tick = setInterval(() => this.hooks.onTime?.(this.time(), this.idle()), 1000);
     this.dirty = true;
     let last = performance.now();
     const loop = (now) => {
-      this.animate(Math.min(0.05, (now - last) / 1000));
+      const dt = Math.min(0.05, (now - last) / 1000);
+      this.animate(dt);
+      if (!this.done && !this.idle() && document.visibilityState === 'visible') this.elapsed += Math.min(1, (now - last) / 1000);
       last = now;
       if (this.dirty) this.draw();
       this.raf = requestAnimationFrame(loop);
@@ -80,7 +90,21 @@ export class Play {
   }
 
   time() {
-    return this.elapsed + (this.done ? 0 : (performance.now() - this.started) / 1000);
+    return this.elapsed;
+  }
+
+  idle() {
+    return performance.now() - this.lastTouch > IDLE;
+  }
+
+  // Any touch (on the table or a tool button) keeps the clock going.
+  touch() {
+    this.lastTouch = performance.now();
+  }
+
+  // Loose pieces locked to at least one other.
+  joinedCount() {
+    return this.pieces.filter((p) => !p.placed && p.group).length;
   }
 
   placedCount() {
@@ -88,12 +112,12 @@ export class Play {
   }
 
   report() {
-    this.hooks.onState?.({ placed: this.placedCount(), total: this.pieces.length });
+    this.hooks.onState?.({ placed: this.placedCount(), joined: this.joinedCount(), total: this.pieces.length });
   }
 
   state() {
     return {
-      seed: this.seed, rows: this.rows, cols: this.cols, elapsed: this.time(), moves: this.moves,
+      seed: this.seed, rows: this.rows, cols: this.cols, elapsed: this.time(), moves: this.moves, history: this.history,
       pieces: this.pieces.map(({ placed, fx, fy, rot, group }) => ({ placed, fx, fy, rot, group })), order: this.order,
     };
   }
@@ -126,6 +150,8 @@ export class Play {
     // Room round each piece for its tabs and the shadow it casts.
     this.pad = Math.ceil(Math.min(this.pw, this.ph) * (TAB + 0.05) + 6);
     this.table = woodTable(W, H, dpr);
+    this.rs = dpr;
+    if (this.view) this.view = { s: 1, x: 0, y: 0 };
     this.renderPieces();
     if (this.order) this.alignGroups(); // the screen's shape changed
     this.dirty = true;
@@ -144,7 +170,8 @@ export class Play {
   // turned -- even part way through a turn -- so the bevel and the shadow a
   // loose piece casts on the table are re-rendered for its current angle.
   renderPiece(p) {
-    const { pw, ph, pad, dpr } = this;
+    const { pw, ph, pad } = this;
+    const dpr = this.rs || this.dpr;
     const sx = this.image.width / this.board.w;
     const sy = this.image.height / this.board.h;
     const cw = Math.ceil((pw + 2 * pad) * dpr);
@@ -358,18 +385,48 @@ export class Play {
       }
       return null;
     };
-    const point = (e) => {
+    const screen = (e) => {
       const r = c.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
+    // Where on the table (unzoomed) a screen point is.
+    const point = (e) => {
+      const { x, y } = screen(e);
+      const v = this.view;
+      return { x: (x - v.x) / v.s, y: (y - v.y) / v.s };
+    };
+    // Two fingers pinch to zoom (and pan) the whole table.
+    const fingers = new Map();
+    let pinch = null;
+    const two = () => [...fingers.values()].slice(0, 2);
+    const spread = ([a, b]) => Math.hypot(a.x - b.x, a.y - b.y);
+    const middle = ([a, b]) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     const down = (e) => {
-      if (this.drag || this.done) return;
+      this.touch();
+      if (this.done) return;
       e.preventDefault();
+      fingers.set(e.pointerId, screen(e));
+      try {
+        c.setPointerCapture(e.pointerId);
+      } catch {
+        // (synthetic pointers can't be captured)
+      }
+      if (fingers.size === 2) {
+        // A second finger: stop dragging (the piece stays put) and pinch.
+        if (this.drag) {
+          const d = this.drag;
+          this.drag = null;
+          if (d.moved) this.drop(d.p);
+        }
+        const pts = two();
+        pinch = { d0: Math.max(10, spread(pts)), m0: middle(pts), view: { ...this.view } };
+        return;
+      }
+      if (fingers.size > 2 || this.drag || pinch) return;
       this.hooks.onInteract?.();
       const { x, y } = point(e);
       const p = pick(x, y);
       if (!p) return;
-      c.setPointerCapture?.(e.pointerId);
       const group = this.members(p);
       const ids = group.map((m) => this.pieces.indexOf(m));
       this.order = [...this.order.filter((i) => !ids.includes(i)), ...ids];
@@ -384,7 +441,21 @@ export class Play {
       this.dirty = true;
     };
     const move = (e) => {
+      if (fingers.has(e.pointerId)) fingers.set(e.pointerId, screen(e));
+      if (pinch && fingers.size >= 2) {
+        const pts = two();
+        const v0 = pinch.view;
+        const s = Math.max(1, Math.min(MAX_ZOOM, (v0.s * spread(pts)) / pinch.d0));
+        const m = middle(pts);
+        // Keep the table point that was under your fingers under them.
+        const wx = (pinch.m0.x - v0.x) / v0.s;
+        const wy = (pinch.m0.y - v0.y) / v0.s;
+        this.setView(s, m.x - wx * s, m.y - wy * s);
+        this.touch();
+        return;
+      }
       if (!this.drag || e.pointerId !== this.drag.id) return;
+      this.touch();
       const { x, y } = point(e);
       const p = this.drag.p;
       if (!this.drag.moved && Math.hypot(x - this.drag.x, y - this.drag.y) < 8) return;
@@ -398,6 +469,14 @@ export class Play {
       this.dirty = true;
     };
     const up = (e) => {
+      fingers.delete(e.pointerId);
+      if (pinch) {
+        if (fingers.size < 2) {
+          pinch = null;
+          this.sharpen();
+        }
+        return;
+      }
       if (!this.drag || e.pointerId !== this.drag.id) return;
       const { p, moved, t } = this.drag;
       this.drag = null;
@@ -416,6 +495,24 @@ export class Play {
       c.removeEventListener('pointerup', up);
       c.removeEventListener('pointercancel', up);
     };
+  }
+
+  // Zoom s about the table, offset (x, y) on screen; never past its edges.
+  setView(s, x, y) {
+    const { W, H } = this;
+    if (s < 1.03) s = 1;
+    this.view = { s, x: Math.min(0, Math.max(W - W * s, x)), y: Math.min(0, Math.max(H - H * s, y)) };
+    this.dirty = true;
+  }
+
+  // After zooming, re-render the pieces sharp enough for the new size.
+  sharpen() {
+    const rs = Math.round(Math.min(Math.max(this.dpr, 3), this.dpr * this.view.s) * 2) / 2;
+    if (rs !== this.rs) {
+      this.rs = rs;
+      this.renderPieces();
+      this.dirty = true;
+    }
   }
 
   // After a drop: lock onto any matching neighbour it's been put against,
@@ -452,6 +549,7 @@ export class Play {
       this.order = [...this.order.filter((i) => !ids.includes(i)), ...ids];
       this.hooks.sfx?.('snap');
       this.hooks.haptic?.(10);
+      this.report();
     }
     const at = this.pos(p);
     const home = this.home(p);
@@ -475,10 +573,10 @@ export class Play {
       this.hooks.haptic?.(15);
     }
     this.report();
+    this.history.push([Math.round(this.elapsed * 10) / 10, this.placedCount()]);
     if (this.placedCount() === this.pieces.length) {
-      this.elapsed = this.time();
       this.done = true;
-      this.hooks.onWin?.({ time: this.elapsed, moves: this.moves, pieces: this.pieces.length });
+      this.hooks.onWin?.({ time: this.elapsed, moves: this.moves, pieces: this.pieces.length, history: this.history });
     }
   }
 
@@ -489,6 +587,8 @@ export class Play {
     const { ctx, dpr, W, H, board } = this;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    const v = this.view;
+    ctx.setTransform(dpr * v.s, 0, 0, dpr * v.s, dpr * v.x, dpr * v.y);
     // Oak table, with the puzzle's spot pressed in slightly (lit top left).
     ctx.drawImage(this.table, 0, 0, W, H);
     ctx.fillStyle = 'rgba(80,45,12,0.22)';
@@ -526,7 +626,10 @@ export class Play {
         this.drawLoose(p, cw, ch);
       }
     }
-    if (this.peek) this.drawPeek();
+    if (this.peek) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.drawPeek();
+    }
   }
 
   drawLoose(p, cw, ch) {
@@ -546,8 +649,8 @@ export class Play {
       // Held up off the table: a wider, softer shadow further away.
       ctx.shadowColor = 'rgba(45,22,0,0.35)';
       ctx.shadowBlur = 16;
-      ctx.shadowOffsetX = 6 * this.dpr;
-      ctx.shadowOffsetY = 10 * this.dpr;
+      ctx.shadowOffsetX = 6 * this.dpr * this.view.s;
+      ctx.shadowOffsetY = 10 * this.dpr * this.view.s;
     }
     ctx.translate(cx, cy);
     ctx.rotate((p.turn * Math.PI) / 2);
