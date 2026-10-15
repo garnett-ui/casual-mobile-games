@@ -4,6 +4,14 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.11.1
+- Updates never switch versions by themselves any more, so nothing
+  interrupts a game. A new version downloads in the background (progress on
+  the home screen only: "Downloading update v… · n of m files"), then waits
+  for you to tap **Update to v…** on the home screen. Restarting the app
+  doesn't switch either. (The automatic takeover for apps stuck before
+  1.8.3 is gone.)
+
 ## 1.11.0
 - New game: **Night Driver**. Drive between the roadside lights, as in the
   1976 arcade game: drag the wheel with your left thumb and work GAS and

@@ -8,6 +8,7 @@ import { VERSION } from './version.js';
 
 const view = document.getElementById('view');
 let current = null; // { id, instance }
+let stale = false; // a newer version took over in another window
 
 // ------------------------------------------------------------------ routing
 
@@ -40,6 +41,8 @@ async function route() {
   const game = GAMES.find((g) => g.id === id);
   if (!game) {
     unmount();
+    // Back on the home screen after another window updated: load the new version now.
+    if (stale) return location.reload();
     renderHub();
     renderUpdateBar();
     return;
@@ -323,12 +326,6 @@ async function readyFrom(worker) {
 }
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  // Tell a new service worker this page can update itself (pages from before
-  // v1.8.3 can't, and get switched over automatically). Listen from the very
-  // start so no ping is missed.
-  navigator.serviceWorker.addEventListener('message', (e) => {
-    if (e.data?.type === 'PING_CLIENT') e.ports[0]?.postMessage({ version: VERSION });
-  });
   window.addEventListener('load', async () => {
     try {
       // updateViaCache 'none': update checks always ask the server, including
@@ -336,21 +333,9 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
       swReg = reg;
       const isUpdate = () => !!navigator.serviceWorker.controller;
-      // A version downloaded earlier is applied when the app starts, since
-      // nothing is in progress yet.
-      if (reg.waiting && isUpdate()) {
-        update.version = await versionOf(reg.waiting);
-        // Guard against a reload loop if a takeover ever fails.
-        let last = 0;
-        try {
-          last = Number(sessionStorage.getItem('pocket-arcade:auto-update') || 0);
-          sessionStorage.setItem('pocket-arcade:auto-update', String(Date.now()));
-        } catch {
-          // No session storage: just try once.
-        }
-        if (update.version !== VERSION && Date.now() - last > 30000) applyUpdate();
-        else if (update.version !== VERSION) readyFrom(reg.waiting);
-      }
+      // A version downloaded earlier waits for the player to tap Update on
+      // the home screen: the app never switches versions by itself.
+      if (reg.waiting && isUpdate()) readyFrom(reg.waiting);
       // Only updates get the bar; a first install just quietly goes offline-ready.
       const watch = (w) => {
         if (!w || !isUpdate()) return;
@@ -376,19 +361,18 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check());
       window.addEventListener('online', check);
       setInterval(check, 60 * 60 * 1000);
-      // Reload into a new version once it takes over -- but not when the
-      // service worker first starts controlling a brand-new install.
+      // Reload into the new version once it takes over after Update was
+      // tapped. (Not for a brand-new install's first worker. And if another
+      // window did the updating, wait until this one is back on the home
+      // screen rather than interrupt a game.)
       let firstControl = !navigator.serviceWorker.controller;
-      let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (firstControl) {
           firstControl = false;
           return;
         }
-        if (!reloading) {
-          reloading = true;
-          location.reload();
-        }
+        if (update.state === 'applying' || !current) location.reload();
+        else stale = true;
       });
     } catch (err) {
       console.warn('Service worker registration failed', err);

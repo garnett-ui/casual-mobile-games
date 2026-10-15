@@ -9,42 +9,11 @@ const CACHE = `pocket-arcade-${version}`;
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     await precache();
-    // First install takes over straight away; updates normally wait for the
-    // player to tap Update -- unless an open page is too old to do that.
-    installed = true;
-    if (!self.registration.active || (await legacyPagesOpen())) takeOver();
+    // A first install takes over straight away. An update waits until the
+    // player taps Update on the home screen -- never in the middle of a game.
+    if (!self.registration.active) self.skipWaiting();
   })());
 });
-
-// Pages from before v1.8.3 have an Update button that can fail to switch
-// versions, leaving the app stuck. Newer pages answer a ping with their
-// version; pages that don't answer are old, so we take over and reload them.
-let reloadOnActivate = false;
-let installed = false;
-let activated = false;
-
-function takeOver() {
-  reloadOnActivate = !!self.registration.active;
-  self.skipWaiting();
-}
-
-function ping(client) {
-  return new Promise((resolve) => {
-    const ch = new MessageChannel();
-    const timer = setTimeout(() => resolve(null), 1500);
-    ch.port1.onmessage = (e) => {
-      clearTimeout(timer);
-      resolve(e.data);
-    };
-    client.postMessage({ type: 'PING_CLIENT' }, [ch.port2]);
-  });
-}
-
-async function legacyPagesOpen() {
-  const pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  const answers = await Promise.all(pages.map(ping));
-  return answers.some((a) => !a);
-}
 
 // Download every file into the new cache a few at a time, telling open pages
 // how far along it is so they can show a progress bar for updates.
@@ -74,32 +43,18 @@ async function precache() {
 }
 
 self.addEventListener('activate', (event) => {
-  activated = true;
-  const ready = caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k.startsWith('pocket-arcade-') && k !== CACHE).map((k) => caches.delete(k))))
-    .then(() => self.clients.claim());
-  event.waitUntil(ready);
-  // Old pages may not reload themselves: send them to the new version. This
-  // must wait until activation finishes -- until then their page loads are
-  // held back, waiting on us.
-  if (reloadOnActivate) {
-    ready.then(async () => {
-      const pages = await self.clients.matchAll({ type: 'window' });
-      for (const c of pages) c.navigate(c.url).catch(() => {});
-    });
-  }
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('pocket-arcade-') && k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
 });
 
 self.addEventListener('message', (event) => {
   const type = event.data && event.data.type;
   if (type === 'SKIP_WAITING') self.skipWaiting();
   // Lets the page tell the player which version is waiting to install.
-  if (type === 'GET_VERSION') {
-    event.ports[0]?.postMessage(self.PRECACHE.appVersion);
-    // Only pages from before v1.8.3 ask without saying who they are: they're
-    // showing their old Update button, so switch them over now.
-    if (!event.data.client && installed && !activated) takeOver();
-  }
+  if (type === 'GET_VERSION') event.ports[0]?.postMessage(self.PRECACHE.appVersion);
 });
 
 self.addEventListener('fetch', (event) => {

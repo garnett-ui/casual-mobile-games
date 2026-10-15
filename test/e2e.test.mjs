@@ -269,7 +269,7 @@ test('analytics events recorded offline are sent once back online', { skip: !chr
   }
 });
 
-test('updates: progress on the home screen only, Update installs the newest, restart applies it', { skip: !chromium, timeout: 90000 }, async () => {
+test('updates: progress on the home screen only, Update installs the newest, nothing switches by itself', { skip: !chromium, timeout: 90000 }, async () => {
   const { readFile: rf } = await import('node:fs/promises');
   const { version } = JSON.parse(await rf(new URL('../package.json', import.meta.url), 'utf8'));
   const manifest = await rf(new URL('../sw-manifest.js', import.meta.url), 'utf8');
@@ -340,22 +340,29 @@ test('updates: progress on the home screen only, Update installs the newest, res
     await page.waitForFunction(() => navigator.serviceWorker.controller);
     assert.equal(await active(), '100.0.0');
 
-    // 3. Restarting the app installs an update that finished downloading.
+    // 3. A version that downloads while you play never interrupts the game,
+    //    and restarting the app doesn't switch either: it waits on the home
+    //    screen for you to tap Update.
+    await page.locator('[data-game=breakout]').click();
+    await page.locator('.bo-choice').first().waitFor();
+    await page.evaluate(() => (window.__stillHere = true));
     deploy('101.0.0');
-    await page.locator('.hub-foot .version').click();
-    await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 20000 });
-    await page.evaluate(() => sessionStorage.clear());
+    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    for (let k = 0; k < 100 && (await waiting()) !== '101.0.0'; k++) await page.waitForTimeout(200);
+    assert.equal(await waiting(), '101.0.0');
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => window.__stillHere), true, 'the game was not reloaded');
+    assert.equal(await page.locator('.update-bar').count(), 0);
     await page.reload();
-    await page.waitForFunction(async () => {
-      const c = navigator.serviceWorker.controller;
-      if (!c) return false;
-      const v = await new Promise((resolve) => {
-        const ch = new MessageChannel();
-        ch.port1.onmessage = (e) => resolve(e.data);
-        c.postMessage({ type: 'GET_VERSION', client: 'test' }, [ch.port2]);
-      });
-      return v === '101.0.0';
-    }, null, { timeout: 20000 });
+    await page.waitForFunction(() => navigator.serviceWorker.controller);
+    await page.waitForTimeout(800);
+    assert.equal(await active(), '100.0.0', 'restarting did not switch versions');
+    await page.goto(base);
+    await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 20000 });
+    assert.equal(await page.locator('.update-bar .install-now').textContent(), 'Update to v101.0.0');
+    await Promise.all([page.waitForEvent('load'), page.locator('.update-bar .install-now').click()]);
+    await page.waitForFunction(() => navigator.serviceWorker.controller);
+    assert.equal(await active(), '101.0.0');
   } finally {
     await browser.close();
     server.close();
