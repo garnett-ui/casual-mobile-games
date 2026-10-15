@@ -291,6 +291,21 @@ export function simulate(level, fuel = 2000, maxTime = 900) {
   return { kind: 'timeout', used: fuel - L.fuel };
 }
 
+// The way a careful pilot would fly it: points [x, y] every half second,
+// from the launch pad to the base (shown before each mission starts).
+export function flightPath(level) {
+  const L = newLander(level, 2000);
+  const dt = 1 / 30;
+  const path = [[L.x, L.y]];
+  for (let t = 0, k = 0; t < 900; t += dt, k++) {
+    const res = step(level, L, autopilot(level, L, 9), dt);
+    if (k % 15 === 0) path.push([L.x, L.y]);
+    if (res && res.kind !== 'touchdown') break;
+  }
+  path.push([L.x, L.y]);
+  return path;
+}
+
 // A level: terrain the autopilot has actually landed on (re-rolled until it
 // can), with a fuel budget of what it used plus a margin that shrinks as n
 // grows -- so every level is possible, and later ones leave little spare.

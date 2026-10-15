@@ -1,6 +1,6 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
-import { step, newLander, heightAt, G, SAFE, FEET } from './engine.js';
+import { step, newLander, heightAt, flightPath, G, SAFE, FEET } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const PHOSPHOR = '#3dff7a';
@@ -20,7 +20,7 @@ const TILE_M = 70; // metres of ground per surface tile
 const DEG = 180 / Math.PI;
 
 export class Play {
-  constructor(canvas, level, hooks) {
+  constructor(canvas, level, hooks, { intro = false } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.level = level;
@@ -32,6 +32,12 @@ export class Play {
     this.makeScenery();
     this.reset();
     this.resize();
+    // Before the first flight: a fly-over of the course, from the whole
+    // route, to the base, and back to the lander on its pad.
+    if (intro) {
+      this.intro = { t: 0, dur: 5.4 };
+      this.level.route ??= flightPath(this.level);
+    }
     this.last = performance.now();
     const loop = (now) => {
       const dt = Math.min(0.05, (now - this.last) / 1000) * this.timeScale;
@@ -86,7 +92,18 @@ export class Play {
 
   // ------------------------------------------------------------ simulation
 
+  skipIntro() {
+    if (!this.intro) return;
+    this.intro = null;
+    this.cam = null;
+  }
+
   update(dt) {
+    if (this.intro) {
+      this.intro.t += dt / this.timeScale;
+      if (this.intro.t >= this.intro.dur) this.skipIntro();
+      return;
+    }
     const L = this.L;
     if (!this.outcome || this.outcome.kind === 'touchdown') {
       const was = L.landed;
@@ -255,6 +272,7 @@ export class Play {
 
   // Camera follows the lander and zooms in as it gets close to the ground.
   camera() {
+    if (this.intro) return this.introCamera();
     const L = this.L;
     const ground = heightAt(this.level, L.x);
     const alt = Math.max(0, L.y - ground);
@@ -300,7 +318,7 @@ export class Play {
     ctx.globalAlpha = 1;
     // Earth hangs in the open sky left of the instrument panel.
     const free = W - Math.min(W * 0.66, 300) - 8;
-    const er = Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12);
+    const er = Math.max(4, Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12));
     this.drawEarth(free * 0.5 - cam.left * 0.01, Math.max(er + 16, H * 0.2), er);
     this.drawHorizon(cam, W, H);
 
@@ -393,7 +411,8 @@ export class Play {
       ctx.fillRect(-20, -20, W + 40, H + 40);
     }
 
-    this.drawBaseMarker(sx, sy, W, H);
+    if (this.intro) this.drawIntro(sx, sy, W, H);
+    else this.drawBaseMarker(sx, sy, W, H);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawPanel(W);
     if (this.message) this.drawMessage(this.message.text, W, H);
@@ -658,6 +677,88 @@ export class Play {
   }
 
   // When the base is off screen, an arrow at the edge points to it.
+  // Camera keyframes for the fly-over: the whole course, the base close up,
+  // then the lander on its pad (exactly where the flight's camera starts).
+  introCamera() {
+    const { level, L, cssW, cssH } = this;
+    const lo = Math.min(...level.terrain);
+    const hi = Math.max(level.maxH, ...level.route.map(([, y]) => y));
+    const fitW = (level.width * 1.04 * cssH) / cssW;
+    const fitH = (hi - lo + 25) / (1 - 0.27 - (this.panelBottom || 0) / cssH - 0.04);
+    const hA = Math.max(fitW, fitH);
+    // Keyframes as view centre (x, y) and height h, in metres.
+    const at = (x, h, bottom) => ({ x, h, y: bottom + h / 2 });
+    const A = at(level.width / 2, hA, lo - hA * 0.27);
+    const b = level.base;
+    const B = at((b.x0 + b.x1) / 2, 70, b.y - 70 * 0.27);
+    const ground = heightAt(level, L.x);
+    const C = at(L.x, 55, Math.min(ground, L.y) - 55 * 0.27);
+    const t = this.intro.t;
+    const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+    // Zoom in log scale; `swoop` pulls back out (toward the overview)
+    // part way, so the view rises over the mountains instead of through them.
+    const mix = (P, Q, u, swoop = 0) => {
+      const arc = swoop * Math.sin(Math.PI * u);
+      const h = Math.exp(Math.log(P.h) + (Math.log(Q.h) - Math.log(P.h)) * u);
+      if (!swoop) {
+        // Zooming in on Q: keep it gliding steadily to the middle of the
+        // screen (its offset in screen terms shrinks linearly) rather than
+        // letting it slide off the edge.
+        const k = (h * (1 - u)) / P.h;
+        return { x: Q.x - (Q.x - P.x) * k, y: Q.y - (Q.y - P.y) * k, h };
+      }
+      const y = P.y + (Q.y - P.y) * u;
+      return { x: P.x + (Q.x - P.x) * u, h: h + (A.h * 0.85 - h) * arc, y: y + (A.y - y) * arc };
+    };
+    const k = t < 1.8 ? A : t < 3.0 ? mix(A, B, ease((t - 1.8) / 1.2)) : t < 3.6 ? B : mix(B, C, ease((t - 3.6) / 1.6), 1);
+    k.bottom = k.y - k.h / 2;
+    const scale = cssH / k.h;
+    return { scale, left: k.x - cssW / scale / 2, bottom: k.bottom };
+  }
+
+  // The fly-over's route line and labels.
+  drawIntro(sx, sy, W, H) {
+    const { ctx, level } = this;
+    const t = this.intro.t;
+    const show = Math.min(1, t / 0.5) * Math.min(1, (this.intro.dur - t) / 0.6);
+    ctx.save();
+    ctx.globalAlpha = show;
+    // The route, drawn on progressively during the overview.
+    const n = Math.max(2, Math.floor(level.route.length * Math.min(1, t / 1.6)));
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(255,214,90,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    level.route.slice(0, n).forEach(([x, y], i) => (i ? ctx.lineTo(sx(x), sy(y + 2.6)) : ctx.moveTo(sx(x), sy(y + 2.6))));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const label = (text, x, y) => {
+      ctx.font = '800 13px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const w = ctx.measureText(text).width + 14;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(x - w / 2, y - 26, w, 20);
+      ctx.fillStyle = '#ffd65a';
+      ctx.fillText(text, x, y - 9);
+    };
+    label('START', sx((level.startPad.x0 + level.startPad.x1) / 2), sy(level.startPad.y + 7));
+    label('▼ BASE', sx((level.base.x0 + level.base.x1) / 2), sy(level.base.y + 4));
+    // Caption
+    const dist = Math.round((level.base.x0 + level.base.x1) / 2 - (level.startPad.x0 + level.startPad.x1) / 2);
+    ctx.font = '700 15px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const cap = `Mission ${level.n}: ${dist} m to the base · tap to skip`;
+    const w = ctx.measureText(cap).width + 24;
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    const cy = Math.min(H * 0.8, H - 150);
+    ctx.fillRect(W / 2 - w / 2, cy - 16, w, 32);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(cap, W / 2, cy);
+    ctx.restore();
+  }
+
   drawBaseMarker(sx, sy, W, H) {
     const b = this.level.base;
     const x = sx((b.x0 + b.x1) / 2);

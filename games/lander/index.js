@@ -75,7 +75,9 @@ export function mount(root, ctx, sub) {
       },
       onLanded: (res) => landed(n, res),
       onCrash: (res) => crashed(n, res),
-    });
+    }, { intro: true });
+    // Any touch ends the fly-over early.
+    root.querySelector('.stage').addEventListener('pointerdown', () => play?.skipIntro(), { capture: true });
     // Handle for the end-to-end tests (test/e2e.test.mjs).
     window.__lander = play;
     // Stability assist (on unless you've turned it off).
@@ -118,6 +120,7 @@ export function mount(root, ctx, sub) {
       const key = keys[e.key];
       if (!key || !play) return;
       e.preventDefault();
+      if (on) play.skipIntro();
       play.setInput(key, on);
       root.querySelector(`.ll-btn[data-key=${key}]`)?.classList.toggle('on', on);
     };
