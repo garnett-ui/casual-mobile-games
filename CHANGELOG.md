@@ -4,6 +4,14 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.11.0
+- New game: **Night Driver**. Drive between the roadside lights, as in the
+  1976 arcade game: drag the wheel with your left thumb and work GAS and
+  BRAKE with your right (multi-touch). LED score, time and mph. Later the
+  road forks under green signs with jokes and riddles; the wrong way ends in
+  a brick wall, a fire, a missing bridge, the Grand Canyon or a washed-out
+  road.
+
 ## 1.10.0
 - Jigsaw: the puzzle sits on a light-oak table. Loose pieces cast a shadow
   on the table, with a tight contact shadow at their edges, and a lifted

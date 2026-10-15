@@ -610,3 +610,63 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   .ctl { max-width: 160px; font-size: 14px; }
 }
 .jg-peek { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+
+/* Night Driver */
+.nd-screen { background: #000; }
+.nd-screen .bar { background: #050507; }
+.nd-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
+  pointer-events: none;
+}
+.nd-steer {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  flex: 0 1 300px;
+  min-width: 150px;
+  height: 140px;
+  border-radius: 22px;
+  border: 2px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .04);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  color: rgba(255, 255, 255, .85);
+}
+.nd-steer.on { border-color: rgba(255, 255, 255, .45); background: rgba(255, 255, 255, .08); }
+.nd-wheel { width: 96px; height: 96px; transition: transform .05s linear; }
+.nd-steer span { font: 700 10px ui-monospace, Menlo, monospace; letter-spacing: 1px; color: rgba(255, 255, 255, .45); }
+.nd-pedals { display: flex; gap: 10px; align-items: flex-end; }
+.nd-pedal {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, .3);
+  background: repeating-linear-gradient(0deg, #2a2a30 0 6px, #1b1b20 6px 12px);
+  color: #fff;
+  font: 800 14px ui-monospace, Menlo, monospace;
+  letter-spacing: 1px;
+}
+.nd-brake { width: 82px; height: 92px; }
+.nd-gas { width: 76px; height: 140px; }
+.nd-brake.on { border-color: #ff3b2f; box-shadow: 0 0 18px rgba(255, 59, 47, .7); color: #ff3b2f; }
+.nd-gas.on { border-color: #3dff7a; box-shadow: 0 0 18px rgba(61, 255, 122, .6); color: #3dff7a; }
+@media (max-height: 520px) {
+  .nd-steer { height: 96px; flex-basis: 220px; }
+  .nd-wheel { width: 64px; height: 64px; }
+  .nd-steer span { display: none; }
+  .nd-brake { width: 70px; height: 64px; }
+  .nd-gas { width: 64px; height: 96px; }
+}

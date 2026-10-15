@@ -570,3 +570,71 @@ test('jigsaw: pick a photo, it is saved, pieces snap into place, progress resume
     server.close();
   }
 });
+
+test('night driver: two thumbs at once, a fork read right, a wrong turn, game over', { skip: !chromium, timeout: 120000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 412, height: 860 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=night-driver]').click();
+    await page.locator('.dialog [data-act=start]').click();
+
+    // Right thumb holds GAS while the left thumb drags the wheel: real
+    // multi-touch, through the browser's touch input.
+    const gas = await page.locator('.nd-gas').boundingBox();
+    const wheel = await page.locator('.nd-steer').boundingBox();
+    const cdp = await page.context().newCDPSession(page);
+    const g = { x: gas.x + gas.width / 2, y: gas.y + gas.height / 2, id: 1 };
+    const w = { x: wheel.x + wheel.width / 2, y: wheel.y + wheel.height / 2, id: 2 };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [g] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [g, w] });
+    for (let i = 1; i <= 6; i++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [g, { ...w, x: w.x + i * 12 }] });
+    }
+    const held = await page.evaluate(() => ({ ...window.__nightDriver.input }));
+    assert.equal(held.gas, true);
+    assert.ok(held.steer > 0.5, `steering right (${held.steer})`);
+    await page.waitForFunction(() => window.__nightDriver.car.v > 3);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForFunction(() => !window.__nightDriver.input.gas && window.__nightDriver.input.steer === 0);
+
+    // Let it drive itself (fast) to the first fork: it reads the sign right.
+    await page.evaluate(() => {
+      const p = window.__nightDriver;
+      p.car.time = 900;
+      p.car.x = p.road.center(p.car.z);
+      p.autopilot = true;
+      p.timeScale = 6;
+    });
+    await page.waitForFunction(() => window.__nightDriver.road.forks[0]?.side, null, { timeout: 60000 });
+    assert.equal(await page.evaluate(() => window.__nightDriver.road.forks[0].side === window.__nightDriver.road.forks[0].safe), true);
+    assert.equal(await page.evaluate(() => window.__nightDriver.car.goodCalls), 1);
+
+    // Now take the wrong road: it ends in the hazard the sign warned of.
+    const hazard = await page.evaluate(() => {
+      const p = window.__nightDriver;
+      p.pilotOpts = { wrong: true };
+      p.road.extend(p.car.z + 6000);
+      return p.road.forks[1].hazard;
+    });
+    await page.waitForFunction(() => window.__nightDriver.car.crashes > 0, null, { timeout: 60000 });
+    const { CRASH_LINES } = await import('../games/night-driver/signs.js');
+    assert.equal(await page.evaluate(() => window.__nightDriver.message?.title), CRASH_LINES[hazard][0]);
+
+    // Out of time: coast to a stop and see the score.
+    await page.evaluate(() => {
+      const p = window.__nightDriver;
+      p.autopilot = false;
+      p.car.time = 0.5;
+    });
+    await page.locator('.dialog:not([hidden]) [data-act=again]').waitFor({ timeout: 60000 });
+    assert.match(await page.locator('.dialog p').textContent(), /Score \d+/);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

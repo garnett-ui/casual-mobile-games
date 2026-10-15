@@ -107,6 +107,34 @@ const SFX = {
   },
   star: () => tone('triangle', 880, 1320, 0.25, 0.2),
   win: () => [523, 659, 784, 1047].forEach((f, k) => tone('triangle', f, f, 0.3, 0.2, k * 0.11)),
+  // Night Driver
+  crash: () => {
+    thump(1, 0.9, 1800);
+    thump(0.6, 0.35, 5000);
+    tone('sawtooth', 160, 40, 0.6, 0.18, 0, 900);
+  },
+  screech: () => {
+    const t = ac.currentTime;
+    const src = ac.createBufferSource();
+    src.buffer = noise;
+    const f = ac.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 2400;
+    f.Q.value = 6;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.25, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+    src.connect(f);
+    f.connect(g);
+    g.connect(master);
+    src.start(t);
+    src.stop(t + 0.7);
+  },
+  splash: () => {
+    thump(0.7, 1.2, 1200);
+    thump(0.3, 0.8, 6000);
+  },
+  checkpoint: () => [784, 988, 1175].forEach((f, k) => tone('square', f, f, 0.12, 0.06, k * 0.09, 4000)),
 };
 
 // Continuous sounds that play while a control is held (engine rumble,
@@ -114,13 +142,52 @@ const SFX = {
 const LOOPS = {
   engine: { type: 'lowpass', freq: 340, vol: 0.35 },
   rcs: { type: 'highpass', freq: 2600, vol: 0.05 },
+  // A car engine: buzzy oscillators whose pitch follows loopLevel().
+  motor: { osc: true, vol: 0.09 },
 };
 const playing = {};
+
+// Set a looping sound's level, 0..1 (for the motor: revs).
+export function loopLevel(name, value) {
+  const cur = playing[name];
+  if (!cur || !cur.oscs) return;
+  const t = ac.currentTime;
+  const hz = 38 + value * 120;
+  cur.oscs[0].frequency.setTargetAtTime(hz, t, 0.05);
+  cur.oscs[1].frequency.setTargetAtTime(hz * 1.503, t, 0.05);
+  cur.filter.frequency.setTargetAtTime(300 + value * 1400, t, 0.05);
+}
+
+function startMotor(spec) {
+  const t = ac.currentTime;
+  const f = ac.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = 400;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(spec.vol, t + 0.15);
+  const oscs = ['sawtooth', 'square'].map((type, k) => {
+    const o = ac.createOscillator();
+    o.type = type;
+    o.frequency.value = k ? 57 : 38;
+    const og = ac.createGain();
+    og.gain.value = k ? 0.4 : 1;
+    o.connect(og);
+    og.connect(f);
+    o.start(t);
+    return o;
+  });
+  f.connect(g);
+  g.connect(master);
+  return { oscs, filter: f, g, src: { stop: (at) => oscs.forEach((o) => o.stop(at)) } };
+}
 
 export function setLoop(name, on) {
   if (!ac || !getSetting('sound')) on = false;
   const cur = playing[name];
-  if (on && !cur) {
+  if (on && !cur && LOOPS[name]?.osc) {
+    playing[name] = startMotor(LOOPS[name]);
+  } else if (on && !cur) {
     const spec = LOOPS[name];
     const t = ac.currentTime;
     const src = ac.createBufferSource();

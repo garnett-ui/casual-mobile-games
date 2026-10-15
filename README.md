@@ -81,6 +81,25 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   so it is always possible; fuel is what it needed plus a margin that shrinks
   from 2× to 1.25×, while mountains rise and the base narrows.
 
+### Night Driver
+
+The 1976 Atari arcade racer: at night, all you see of the road is the white
+posts along each side. Your left thumb drags the steering wheel and your right
+thumb holds **GAS** and **BRAKE**. Both work at once (multi-touch); on a
+keyboard, use the arrows or WASD.
+
+- Seven-segment LED score, time and speed (mph). The clock runs down; every
+  3 km adds time, a little less each time.
+- Bends tighten the further you go, so the sharpest ones need the brake. Hit a
+  post and you stop and lose time.
+- After the opening stretch the road starts to fork. A green overhead sign (with
+  a copy at the top of the screen) says where each branch goes, in jokes and
+  riddles: *FREE EGGS → take the EGGS-IT*, *EXIT 404: road not found*, *What
+  has a bed but never sleeps?* One branch ends in a hazard, drawn
+  realistically: a brick wall, a road on fire, a bridge that's out, the Grand
+  Canyon, or a road washed away. Brake to a stop in time and you're sent back
+  to the right road.
+
 ### Jigsaw
 
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo
@@ -153,6 +172,7 @@ games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
                             play.js, draw.js, index.js, worker.js
 games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
+games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback

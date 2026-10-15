@@ -35,6 +35,14 @@ export const GAMES = [
     art: () => import('../games/lander/art.js'),
   },
   {
+    id: 'night-driver',
+    title: 'Night Driver',
+    blurb: 'The 1976 arcade racer: stay between the lights in the dark. Later, read the road signs — one way is a dead end.',
+    color: '#ff3b2f',
+    load: () => import('../games/night-driver/index.js'),
+    art: () => import('../games/night-driver/art.js'),
+  },
+  {
     id: 'jigsaw',
     title: 'Jigsaw',
     blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',
