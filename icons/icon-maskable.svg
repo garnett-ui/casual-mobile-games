@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgfill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b2f8f"/>
+      <stop offset="1" stop-color="#171a45"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#6b5cff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#6b5cff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d6264f"/>
+      <stop offset="1" stop-color="#ef476f"/>
+    </linearGradient>
+    <linearGradient id="marquee" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe066"/>
+      <stop offset="1" stop-color="#ffb703"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101845"/>
+      <stop offset="1" stop-color="#060a24"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2f6e"/>
+      <stop offset="1" stop-color="#1c1f52"/>
+    </linearGradient>
+  </defs>
+  <rect id="bg" width="512" height="512" fill="url(#bgfill)"/>
+  <g id="art" transform="translate(40.96000000000001 40.96000000000001) scale(0.84)">
+    <circle cx="256" cy="215" r="230" fill="url(#glow)"/>
+    <!-- floor shadow -->
+    <ellipse cx="256" cy="472" rx="150" ry="16" fill="#000" opacity=".3"/>
+
+    <!-- cabinet side depth -->
+    <path d="M146 70 L160 58 L160 466 L146 474 Z" fill="#8f1235"/>
+    <path d="M366 70 L352 58 L352 466 L366 474 Z" fill="#8f1235"/>
+    <!-- cabinet body -->
+    <rect x="152" y="62" width="208" height="408" rx="14" fill="url(#body)"/>
+    <!-- marquee -->
+    <rect x="160" y="70" width="192" height="58" rx="10" fill="url(#marquee)"/>
+    <g fill="#e63946">
+      <path d="M200 99 l10 -16 l10 16 z"/>
+      <path d="M292 99 l10 -16 l10 16 z"/>
+    </g>
+    <rect x="228" y="84" width="56" height="12" rx="6" fill="#7b2cbf"/>
+    <rect x="236" y="102" width="40" height="8" rx="4" fill="#7b2cbf" opacity=".7"/>
+
+    <!-- screen bezel and screen -->
+    <rect x="168" y="138" width="176" height="160" rx="16" fill="#1b1d3f"/>
+    <rect x="182" y="150" width="148" height="134" rx="10" fill="url(#screen)"/>
+    <!-- pixel game: stars, score, two invaders, a little ship and its shot -->
+    <g fill="#ffffff" opacity=".7">
+      <rect x="196" y="190" width="4" height="4"/>
+      <rect x="306" y="206" width="4" height="4"/>
+      <rect x="250" y="228" width="4" height="4"/>
+      <rect x="212" y="244" width="4" height="4"/>
+      <rect x="314" y="252" width="4" height="4"/>
+    </g>
+    <g fill="#06d6a0">
+      <rect x="192" y="160" width="6" height="6"/><rect x="200" y="160" width="6" height="6"/>
+      <rect x="208" y="160" width="6" height="6"/>
+      <rect x="296" y="160" width="6" height="6"/><rect x="304" y="160" width="6" height="6"/>
+      <rect x="312" y="160" width="6" height="6"/>
+    </g>
+    <!-- invader 1 (cyan) -->
+    <g fill="#00e5ff" transform="translate(208 178)">
+      <rect x="6" y="0" width="6" height="6"/><rect x="30" y="0" width="6" height="6"/>
+      <rect x="0" y="6" width="42" height="6"/>
+      <rect x="0" y="12" width="6" height="6"/><rect x="12" y="12" width="18" height="6"/><rect x="36" y="12" width="6" height="6"/>
+      <rect x="0" y="18" width="42" height="6"/>
+      <rect x="6" y="24" width="6" height="6"/><rect x="30" y="24" width="6" height="6"/>
+    </g>
+    <!-- invader 2 (pink) -->
+    <g fill="#ff5ccd" transform="translate(264 190)">
+      <rect x="12" y="0" width="18" height="6"/>
+      <rect x="6" y="6" width="30" height="6"/>
+      <rect x="0" y="12" width="12" height="6"/><rect x="18" y="12" width="6" height="6"/><rect x="30" y="12" width="12" height="6"/>
+      <rect x="0" y="18" width="42" height="6"/>
+      <rect x="0" y="24" width="6" height="6"/><rect x="36" y="24" width="6" height="6"/>
+    </g>
+    <!-- shot -->
+    <rect x="253" y="226" width="6" height="16" fill="#ffe066"/>
+    <!-- player ship -->
+    <g fill="#ffd60a" transform="translate(235 252)">
+      <rect x="18" y="0" width="6" height="6"/>
+      <rect x="12" y="6" width="18" height="6"/>
+      <rect x="0" y="12" width="42" height="6"/>
+      <rect x="0" y="18" width="42" height="6"/>
+    </g>
+    <!-- screen glass sheen -->
+    <path d="M188 156 h60 l-40 50 h-20 z" fill="#fff" opacity=".07"/>
+
+    <!-- control panel (sticks out towards us) -->
+    <path d="M152 312 H360 L384 352 H128 Z" fill="url(#panel)"/>
+    <path d="M128 352 H384 V364 H128 Z" fill="#11133a"/>
+    <!-- joystick -->
+    <ellipse cx="204" cy="334" rx="20" ry="7" fill="#0b0d2b"/>
+    <rect x="199" y="292" width="10" height="42" rx="5" fill="#c9c9d6"/>
+    <circle cx="204" cy="288" r="18" fill="#e63946"/>
+    <circle cx="198" cy="282" r="6" fill="#fff" opacity=".55"/>
+    <!-- buttons -->
+    <ellipse cx="270" cy="336" rx="14" ry="7" fill="#7a5c00"/>
+    <ellipse cx="270" cy="332" rx="14" ry="7" fill="#ffd60a"/>
+    <ellipse cx="308" cy="336" rx="14" ry="7" fill="#007a8a"/>
+    <ellipse cx="308" cy="332" rx="14" ry="7" fill="#00e5ff"/>
+
+    <!-- lower cabinet: coin door -->
+    <rect x="218" y="386" width="76" height="62" rx="8" fill="#9d1239"/>
+    <rect x="232" y="398" width="12" height="22" rx="3" fill="#ffb703"/>
+    <rect x="268" y="398" width="12" height="22" rx="3" fill="#ffb703"/>
+    <rect x="235" y="402" width="6" height="12" rx="2" fill="#5a3a00"/>
+    <rect x="271" y="402" width="6" height="12" rx="2" fill="#5a3a00"/>
+    <!-- highlight down the body edge -->
+    <rect x="156" y="132" width="6" height="330" rx="3" fill="#fff" opacity=".18"/>
+  </g>
+</svg>
