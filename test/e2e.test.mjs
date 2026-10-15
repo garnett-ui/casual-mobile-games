@@ -151,3 +151,68 @@ test('after the first visit the app works fully offline', { skip: !chromium, tim
     server.close();
   }
 });
+
+// Tap the middle of an arrow's tail cell in Tap Maze.
+async function tapArrow(page, i) {
+  const pt = await page.evaluate((i) => {
+    const p = window.__tapMazePlay;
+    const [x, y] = p.board.arrows[i].cells[0];
+    const r = p.canvas.getBoundingClientRect();
+    return { x: r.left + p.ox + (x + 0.5) * p.T, y: r.top + p.oy + (y + 0.5) * p.T };
+  }, i);
+  await page.mouse.click(pt.x, pt.y);
+}
+
+test('tap maze: blocked arrows cost a heart, clearing the board wins', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=tap-maze]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__tapMazePlay);
+
+    // Find an arrow that is blocked right now and tap it.
+    const blocked = await page.evaluate(() => {
+      const p = window.__tapMazePlay;
+      for (let i = 0; i < p.alive.length; i++) {
+        const ray = [];
+        const { cells, dir } = p.board.arrows[i];
+        let [x, y] = cells[cells.length - 1];
+        for (x += dir[0], y += dir[1]; x >= 0 && y >= 0 && x < p.board.w && y < p.board.h; x += dir[0], y += dir[1]) ray.push(p.board.occ[y * p.board.w + x]);
+        if (ray.some((j) => j >= 0 && j !== i)) return i;
+      }
+      return -1;
+    });
+    assert.ok(blocked >= 0, 'level 1 starts with a blocked arrow');
+    await tapArrow(page, blocked);
+    await page.waitForFunction(() => window.__tapMazePlay.hearts === 2 && window.__tapMazePlay.anims.size === 0);
+    assert.equal(await page.locator('.hearts svg.lost').count(), 1, 'a bump costs a heart');
+    assert.equal(await page.evaluate(() => window.__tapMazePlay.alive.filter(Boolean).length),
+      await page.evaluate(() => window.__tapMazePlay.alive.length), 'blocked arrow stays');
+
+    // Now clear the board using the hint each time.
+    for (let guard = 0; guard < 200; guard++) {
+      if (await page.locator('.dialog:not([hidden])').count()) break;
+      const next = await page.evaluate(() => {
+        const p = window.__tapMazePlay;
+        if (p.anims.size || p.alive.every((a) => !a)) return -1;
+        p.showHint();
+        return p.hint ? p.hint.i : -1;
+      });
+      if (next >= 0) await tapArrow(page, next);
+      await page.waitForTimeout(150);
+    }
+    await page.locator('.dialog:not([hidden])').waitFor();
+    assert.equal(await page.locator('.dialog .stars i.on').count(), 2, 'stars = hearts left');
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:tap-maze:progress')));
+    assert.equal(saved.unlocked, 2);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

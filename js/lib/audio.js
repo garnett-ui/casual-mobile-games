@@ -77,6 +77,11 @@ const SFX = {
     tone('square', 466, 466, 0.18, 0.06, 0.27, 1800);
   },
   pop: () => tone('sine', 500, 1100, 0.12, 0.1),
+  whoosh: () => {
+    thump(0.25, 0.22, 2400);
+    tone('sine', 420, 980, 0.18, 0.12);
+  },
+  lose: () => [392, 330, 262].forEach((f, k) => tone('triangle', f, f * 0.97, 0.3, 0.18, k * 0.16)),
   star: () => tone('triangle', 880, 1320, 0.25, 0.2),
   win: () => [523, 659, 784, 1047].forEach((f, k) => tone('triangle', f, f, 0.3, 0.2, k * 0.11)),
 };

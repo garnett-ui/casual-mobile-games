@@ -330,6 +330,24 @@ svg { display: block; }
 .dialog-btns { display: flex; gap: 10px; }
 .dialog-btns .btn { flex: 1; }
 
+/* Tap Maze */
+.tm-screen { background: linear-gradient(180deg, #3b2f8f 0%, #5b3fa8 100%); }
+.tm-screen .stage.building { color: #fff; }
+.hearts { gap: 2px; padding: 6px 12px; }
+.hearts svg { width: 22px; height: 22px; fill: #ff4d6d; transition: opacity .3s, transform .3s; }
+.hearts svg.lost { opacity: .22; transform: scale(.8); }
+.left-count {
+  flex: 1;
+  max-width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.left-count b { color: var(--ink); font-size: 18px; }
+
 /* Toast */
 .toast {
   position: fixed;

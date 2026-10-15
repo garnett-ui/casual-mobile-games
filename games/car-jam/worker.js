@@ -3,6 +3,6 @@
 import { makeLevel } from './levels.js';
 
 self.onmessage = (e) => {
-  const { n, base } = e.data;
-  self.postMessage({ n, level: makeLevel(n, base) });
+  const { n } = e.data;
+  self.postMessage({ n, level: makeLevel(n) });
 };

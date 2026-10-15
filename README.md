@@ -29,6 +29,19 @@ out of each other's way to get everyone out. Clear every car to win.
   solver), plus **Undo**, **Restart** and a **Hint** button that always knows
   the best next move.
 
+### Tap Maze
+
+A board packed with non-crossing lines, each ending in an arrowhead. Tap an
+arrow (or swipe it the way it points) and it slithers along its own line and
+off the board, but only if nothing lies between its head and the edge. Tap a
+blocked arrow and it bumps and bounces back, costing one of your three hearts.
+Clear every arrow to win; hearts left are your stars.
+
+- **Endless seeded mazes**: boards grow to 10×14, lines get longer and
+  twistier, and the chain of arrows blocking other arrows gets deeper level by
+  level. Every maze is checked to be clearable.
+- **Hint** shows an arrow that is free to go; **Restart** resets the hearts.
+
 ## Installing on a device
 
 - **iPhone / iPad (Safari):** open the site, tap **Share**, then **Add to
@@ -70,6 +83,10 @@ games/car-jam/levels.js     seeded difficulty curve; worker.js builds levels off
 games/car-jam/play.js       simulation, input, rendering for a level
 games/car-jam/draw.js       vector sprites (cars, grannies, obstacles)
 games/car-jam/index.js      level select, HUD, win dialog
+games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
+                            play.js, draw.js, index.js, worker.js
+js/lib/campaign.js          shared level select, progress and dialogs
+js/lib/level-source.js      builds levels in a worker, prefetches and caches
 sw.js, sw-manifest.js       offline support
 tools/                      icon and service-worker generators
 test/                       node:test unit + Playwright end-to-end tests

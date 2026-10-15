@@ -10,6 +10,14 @@ export const GAMES = [
     load: () => import('../games/car-jam/index.js'),
     art: () => import('../games/car-jam/art.js'),
   },
+  {
+    id: 'tap-maze',
+    title: 'Tap Maze',
+    blurb: 'Tap arrows to send them flying off the board. Only the ones with a clear path can go!',
+    color: '#7b5cff',
+    load: () => import('../games/tap-maze/index.js'),
+    art: () => import('../games/tap-maze/art.js'),
+  },
 ];
 
 export const COMING_SOON = [
