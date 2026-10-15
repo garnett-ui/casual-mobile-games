@@ -4,6 +4,12 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.17.1
+- Breakout no longer switches to full screen when a game starts, so
+  Chrome's "To exit full screen, drag from the top…" notice no longer pops
+  up over the game. Where the phone can't lock the orientation, turning it
+  pauses the game, as before.
+
 ## 1.17.0
 - Jigsaw: **pinch with two fingers to zoom** in on the table (up to 4×)
   and move around it; pinch back out to see it all. Pieces re-render
