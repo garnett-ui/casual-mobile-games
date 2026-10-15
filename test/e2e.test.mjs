@@ -269,16 +269,26 @@ test('analytics events recorded offline are sent once back online', { skip: !chr
   }
 });
 
-test('home screen shows the version; a new deploy prompts the installed app to update', { skip: !chromium, timeout: 60000 }, async () => {
+test('updates: progress on the home screen only, Update installs the newest, restart applies it', { skip: !chromium, timeout: 90000 }, async () => {
   const { readFile: rf } = await import('node:fs/promises');
   const { version } = JSON.parse(await rf(new URL('../package.json', import.meta.url), 'utf8'));
+  const manifest = await rf(new URL('../sw-manifest.js', import.meta.url), 'utf8');
+  const swSource = await rf(new URL('../sw.js', import.meta.url), 'utf8');
   const overrides = new Map();
   const delays = new Map();
   const server = await serve(overrides, delays);
+  // "Deploy" a new version: same files, new precache manifest and worker.
+  const deploy = (v) => {
+    overrides.set('/sw-manifest.js', manifest
+      .replace(/"appVersion": "[^"]+"/, `"appVersion": "${v}"`)
+      .replace(/"version": "[^"]+"/, `"version": "deploy-${v}"`));
+    overrides.set('/sw.js', `${swSource}\n// deploy ${v}\n`);
+  };
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await page.goto(`http://localhost:${server.address().port}/`);
+    const base = `http://localhost:${server.address().port}/`;
+    await page.goto(base);
     assert.match(await page.locator('.hub-foot .version').textContent(), new RegExp(`^v${version.replace(/\./g, '\\.')}`));
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
@@ -286,36 +296,66 @@ test('home screen shows the version; a new deploy prompts the installed app to u
         await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
       }
     });
-
-    // "Deploy" version 99.0.0: same files, new precache manifest.
-    const manifest = await rf(new URL('../sw-manifest.js', import.meta.url), 'utf8');
-    overrides.set('/sw-manifest.js', manifest
-      .replace(/"appVersion": "[^"]+"/, '"appVersion": "99.0.0"')
-      .replace(/"version": "[^"]+"/, '"version": "test-new-deploy"'));
-    overrides.set('/sw.js', (await rf(new URL('../sw.js', import.meta.url), 'utf8')) + '\n// new deploy\n');
-    // Hold back one file so the download is still in progress when we look.
-    delays.set('/games/tap-maze/model.js', 2500);
-    // Tapping the version label checks for updates right away.
-    await page.locator('.hub-foot .version').click();
-    const bar = page.locator('.update-bar');
-    await page.locator('.update-bar[data-state=downloading] .progress-fill').waitFor({ timeout: 20000 });
-    assert.match(await bar.textContent(), /Downloading version 99\.0\.0/);
-    assert.match(await bar.textContent(), /\d+ of \d+ files/);
-    const width = await page.locator('.update-bar .progress-fill').evaluate((el) => parseFloat(el.style.width));
-    assert.ok(width > 0 && width < 100, `progress part-way: ${width}%`);
-    // Then it turns into the Update prompt.
-    await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 20000 });
-    assert.match(await bar.textContent(), /New version 99\.0\.0/);
-    assert.match(await bar.textContent(), new RegExp(`You have v${version.replace(/\./g, '\\.')}`));
-
-    // Update installs it and reloads into the new version.
-    await Promise.all([page.waitForEvent('load'), bar.locator('.install-now').click()]);
-    const active = await page.evaluate(() => new Promise((resolve) => {
+    const active = () => page.evaluate(() => new Promise((resolve) => {
       const ch = new MessageChannel();
       ch.port1.onmessage = (e) => resolve(e.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
     }));
-    assert.equal(active, '99.0.0');
+    const waiting = () => page.evaluate(async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg.waiting) return null;
+      return new Promise((resolve) => {
+        const ch = new MessageChannel();
+        ch.port1.onmessage = (e) => resolve(e.data);
+        reg.waiting.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+      });
+    });
+    const bar = page.locator('.update-bar');
+
+    // 1. Version 99 downloads (slowly) with a progress bar on the home screen.
+    deploy('99.0.0');
+    delays.set('/games/tap-maze/model.js', 2500);
+    await page.locator('.hub-foot .version').click();
+    await page.locator('.update-bar[data-state=downloading] .progress-fill').waitFor({ timeout: 20000 });
+    assert.match(await bar.textContent(), /Downloading update 99\.0\.0/);
+    assert.match(await bar.textContent(), /\d+ of \d+ files/);
+    // ...but never over a game.
+    await page.locator('[data-game=breakout]').click();
+    await page.locator('.bo-choice').first().waitFor();
+    assert.equal(await bar.count(), 0, 'no update bar inside a game');
+    await page.locator('[data-act=home]').click();
+    await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 20000 });
+    assert.match(await bar.textContent(), /Version 99\.0\.0 is ready/);
+    assert.match(await bar.textContent(), /Update now/);
+    assert.doesNotMatch(await bar.textContent(), /install/i);
+    delays.clear();
+
+    // 2. A newer version arrives while 99 is waiting. Update must install the
+    //    newest one (this used to do nothing).
+    deploy('100.0.0');
+    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    for (let k = 0; k < 100 && (await waiting()) !== '100.0.0'; k++) await page.waitForTimeout(200);
+    assert.equal(await waiting(), '100.0.0');
+    await Promise.all([page.waitForEvent('load'), page.locator('.update-bar .install-now').click()]);
+    await page.waitForFunction(() => navigator.serviceWorker.controller);
+    assert.equal(await active(), '100.0.0');
+
+    // 3. Restarting the app installs an update that finished downloading.
+    deploy('101.0.0');
+    await page.locator('.hub-foot .version').click();
+    await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 20000 });
+    await page.evaluate(() => sessionStorage.clear());
+    await page.reload();
+    await page.waitForFunction(async () => {
+      const c = navigator.serviceWorker.controller;
+      if (!c) return false;
+      const v = await new Promise((resolve) => {
+        const ch = new MessageChannel();
+        ch.port1.onmessage = (e) => resolve(e.data);
+        c.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+      });
+      return v === '101.0.0';
+    }, null, { timeout: 20000 });
   } finally {
     await browser.close();
     server.close();

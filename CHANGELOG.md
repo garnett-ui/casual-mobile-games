@@ -4,6 +4,15 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.8.3
+- Updating is reliable: **Update now** always installs the newest
+  downloaded version (before, if a newer version arrived while one was
+  waiting, the button did nothing), and reopening the app installs a
+  downloaded update automatically.
+- The update bar appears on the home screen only, never over a game.
+- Clearer wording: "Downloading update…", "Version x.y.z is ready",
+  "Update now".
+
 ## 1.8.2
 - Tap the version number at the bottom of the home screen to check for
   updates right away.

@@ -41,6 +41,7 @@ async function route() {
   if (!game) {
     unmount();
     renderHub();
+    renderUpdateBar();
     return;
   }
   if (current && current.id === id) {
@@ -56,6 +57,7 @@ async function route() {
   host.className = 'game-host';
   view.appendChild(host);
   current = { id, instance: mod.mount(host, ctxFor(game), sub) };
+  renderUpdateBar();
 }
 
 function unmount() {
@@ -211,11 +213,81 @@ export function toast(msg, action) {
 
 let swReg = null;
 
+// What we know about a newer version: null, 'downloading', 'ready' or
+// 'applying'. The bar showing it lives on the home screen only, so it never
+// covers a game; a download that finishes mid-game waits there for you.
+const update = { state: null, version: null, done: 0, total: 0, later: false, applyWhenReady: false };
+
+function setUpdate(patch) {
+  Object.assign(update, patch);
+  renderUpdateBar();
+}
+
+function renderUpdateBar() {
+  let bar = document.querySelector('.update-bar');
+  const show = !current && update.state && !(update.later && update.state === 'ready');
+  if (!show) {
+    bar?.remove();
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'update-bar';
+    bar.setAttribute('role', 'status');
+    document.body.appendChild(bar);
+  }
+  const v = update.version ? ` ${update.version}` : '';
+  if (bar.dataset.state !== update.state) {
+    bar.dataset.state = update.state;
+    if (update.state === 'downloading') {
+      bar.innerHTML = `<span><b class="dl-title"></b><small class="dl-count"></small>
+        <i class="progress"><i class="progress-fill"></i></i></span>`;
+    } else if (update.state === 'ready') {
+      bar.innerHTML = `<span><b class="dl-title"></b><small>You have v${VERSION}.</small></span>
+        <button class="later">Later</button>
+        <button class="install-now">Update now</button>`;
+      bar.querySelector('.later').onclick = () => setUpdate({ later: true });
+      bar.querySelector('.install-now').onclick = () => applyUpdate();
+    } else {
+      bar.innerHTML = '<span><b class="dl-title"></b><i class="progress"><i class="progress-fill busy"></i></i></span>';
+    }
+  }
+  const title = bar.querySelector('.dl-title');
+  if (update.state === 'downloading') {
+    title.textContent = `Downloading update${v}…`;
+    bar.querySelector('.dl-count').textContent = update.total ? `${update.done} of ${update.total} files` : 'Starting…';
+    bar.querySelector('.progress-fill').style.width = update.total ? `${Math.round((100 * update.done) / update.total)}%` : '4%';
+  } else if (update.state === 'ready') {
+    title.textContent = `Version${v} is ready`;
+  } else {
+    title.textContent = `Updating to${v || ' the new version'}…`;
+  }
+}
+
+// Switch to the newest downloaded version now. Always uses whichever version
+// is waiting at this moment (a newer one may have replaced the one we first
+// announced); if it's still downloading, it switches as soon as it's done.
+function applyUpdate() {
+  const w = swReg && swReg.waiting;
+  if (!w) {
+    setUpdate({ applyWhenReady: true, state: update.state || 'downloading' });
+    return;
+  }
+  track('app_update', { from: VERSION, to: update.version || 'unknown' });
+  setUpdate({ state: 'applying' });
+  w.postMessage({ type: 'SKIP_WAITING' });
+  // Normally the takeover reloads the page; if not, reload anyway.
+  setTimeout(() => location.reload(), 4000);
+}
+
 // Tapping the version on the home screen checks for a new version right now.
 async function checkForUpdate() {
   if (!swReg) return toast('Updates are checked when the app is installed or online.');
+  if (swReg.waiting) {
+    setUpdate({ later: false });
+    return readyFrom(swReg.waiting);
+  }
   if (!navigator.onLine) return toast("You're offline. Updates are checked when you're back online.");
-  if (swReg.waiting) return offerUpdate(swReg.waiting);
   toast('Checking for updates…');
   try {
     await swReg.update();
@@ -238,56 +310,14 @@ function versionOf(worker) {
   });
 }
 
-// The update bar sits at the bottom of any screen. While a new version
-// downloads it shows a progress bar; once it's ready it offers Update / Later.
-function updateBar() {
-  let bar = document.querySelector('.update-bar');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.className = 'update-bar';
-    bar.setAttribute('role', 'status');
-    document.body.appendChild(bar);
+async function readyFrom(worker) {
+  const version = await versionOf(worker);
+  if (version === VERSION) return setUpdate({ state: null });
+  if (update.applyWhenReady) {
+    update.version = version || update.version;
+    return applyUpdate();
   }
-  return bar;
-}
-
-function showDownloading(next, done = 0, total = 0) {
-  const bar = updateBar();
-  if (bar.dataset.state === 'ready' || bar.dataset.state === 'later') return;
-  if (bar.dataset.state !== 'downloading') {
-    bar.dataset.state = 'downloading';
-    bar.innerHTML = `
-      <span><b class="dl-title"></b><small class="dl-count"></small>
-        <i class="progress"><i class="progress-fill"></i></i></span>`;
-  }
-  bar.querySelector('.dl-title').textContent = `Downloading ${next ? `version ${next}` : 'an update'}…`;
-  bar.querySelector('.dl-count').textContent = total ? `${done} of ${total} files` : 'Starting…';
-  const fill = bar.querySelector('.progress-fill');
-  fill.style.width = total ? `${Math.round((100 * done) / total)}%` : '4%';
-}
-
-async function offerUpdate(worker) {
-  const next = await versionOf(worker);
-  if (next === VERSION) {
-    document.querySelector('.update-bar')?.remove();
-    return;
-  }
-  const bar = updateBar();
-  bar.dataset.state = 'ready';
-  bar.setAttribute('role', 'alert');
-  bar.innerHTML = `
-    <span><b>New version${next ? ` ${next}` : ''}</b> is ready to install.<small>You have v${VERSION}.</small></span>
-    <button class="later">Later</button>
-    <button class="install-now">Update</button>`;
-  bar.querySelector('.later').onclick = () => {
-    bar.dataset.state = 'later';
-    bar.remove();
-  };
-  bar.querySelector('.install-now').onclick = () => {
-    bar.querySelector('.install-now').textContent = 'Updating…';
-    track('app_update', { from: VERSION, to: next || 'unknown' });
-    worker.postMessage({ type: 'SKIP_WAITING' });
-  };
+  setUpdate({ state: 'ready', version: version || update.version });
 }
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
@@ -297,24 +327,39 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       // for sw-manifest.js (GitHub Pages lets browsers cache files 10 min).
       const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
       swReg = reg;
-      // Only updates get the bar; a first install just quietly goes offline-ready.
       const isUpdate = () => !!navigator.serviceWorker.controller;
+      // A version downloaded earlier is applied when the app starts, since
+      // nothing is in progress yet.
+      if (reg.waiting && isUpdate()) {
+        update.version = await versionOf(reg.waiting);
+        // Guard against a reload loop if a takeover ever fails.
+        let last = 0;
+        try {
+          last = Number(sessionStorage.getItem('pocket-arcade:auto-update') || 0);
+          sessionStorage.setItem('pocket-arcade:auto-update', String(Date.now()));
+        } catch {
+          // No session storage: just try once.
+        }
+        if (update.version !== VERSION && Date.now() - last > 30000) applyUpdate();
+        else if (update.version !== VERSION) readyFrom(reg.waiting);
+      }
+      // Only updates get the bar; a first install just quietly goes offline-ready.
       const watch = (w) => {
         if (!w || !isUpdate()) return;
-        showDownloading(null);
+        if (update.state !== 'applying') setUpdate({ state: 'downloading', later: false });
         w.addEventListener('statechange', () => {
-          if (w.state === 'installed') offerUpdate(w);
+          if (w.state === 'installed') readyFrom(w);
           // Download failed (e.g. connection lost): try again on the next check.
-          const bar = document.querySelector('.update-bar');
-          if (w.state === 'redundant' && bar?.dataset.state === 'downloading') bar.remove();
+          if (w.state === 'redundant' && update.state === 'downloading' && !reg.installing && !reg.waiting) {
+            setUpdate({ state: null });
+          }
         });
       };
       navigator.serviceWorker.addEventListener('message', (e) => {
-        if (e.data?.type === 'UPDATE_PROGRESS' && isUpdate() && e.data.version !== VERSION) {
-          showDownloading(e.data.version, e.data.done, e.data.total);
+        if (e.data?.type === 'UPDATE_PROGRESS' && isUpdate() && e.data.version !== VERSION && update.state !== 'applying') {
+          setUpdate({ state: 'downloading', version: e.data.version, done: e.data.done, total: e.data.total });
         }
       });
-      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
       watch(reg.installing);
       reg.addEventListener('updatefound', () => watch(reg.installing));
       // Installed apps can stay open for days: look for new versions when the

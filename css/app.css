@@ -188,6 +188,8 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   background: rgba(255, 255, 255, .15);
   overflow: hidden;
 }
+.update-bar .progress-fill.busy { width: 35%; animation: busy 1s ease-in-out infinite alternate; }
+@keyframes busy { from { margin-left: 0; } to { margin-left: 65%; } }
 .update-bar .progress-fill {
   display: block;
   height: 100%;
