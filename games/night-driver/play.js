@@ -6,6 +6,11 @@ import { drawDigits, digitsWidth } from './segments.js';
 
 const DMAX = 340; // how far ahead we draw (m)
 const STEP = 2; // metres between samples of the road's bend
+// The 1976 look: depth falls away much faster than true perspective (each
+// post up the road is about half as far below the horizon as the last), and
+// the posts are big, tall blocks. The game starts like that and eases into
+// ordinary perspective before the first sign.
+const CLASSIC_FALLOFF = 24; // metres per e-fold
 const CUT = new Set(['bridge', 'cliff', 'washout']); // the posts stop at these
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -139,17 +144,29 @@ export class Play {
     this.yaw = car.steer * MAX_HEAD * 0.6;
   }
 
-  bend(d) {
+  bend(d, curveScale = 1) {
     const i = Math.max(0, Math.min(this.off.length - 2, Math.floor(d / STEP)));
     const t = d / STEP - i;
-    return this.off[i] * (1 - t) + this.off[i + 1] * t - d * this.yaw;
+    return (this.off[i] * (1 - t) + this.off[i + 1] * t) * curveScale - d * this.yaw;
   }
 
   // Screen point for road-frame X (metres from the original centre line) at
   // height h, d metres ahead.
   P(X, h, d) {
     const lat = this.bend(d) + X - this.car.x;
-    return [this.W / 2 + (this.f * lat) / d, this.horizon + (this.f * (this.camH - h)) / d];
+    const x = this.W / 2 + (this.f * lat) / d;
+    const y = this.horizon + (this.f * (this.camH - h)) / d;
+    const m = this.classic;
+    if (!m) return [x, y];
+    // Arcade depth: posts come in at about 15% / 85% across and 77% down.
+    const k = Math.exp(-d / CLASSIC_FALLOFF);
+    const { W, H } = this;
+    const top = this.classicTop;
+    // Bends are exaggerated so they still show up the road.
+    const latC = this.bend(d, Math.exp(d / (CLASSIC_FALLOFF * 1.3))) + X - this.car.x;
+    const xc = W / 2 + (latC / POST_OUT) * 0.44 * W * k;
+    const yc = top + ((2 - h) / 1.4) * (H * 0.8 - top) * k;
+    return [x + (xc - x) * m, y + (yc - y) * m];
   }
 
   // Road centres at z, each with where its posts stop (a hazard), if they do.
@@ -181,6 +198,8 @@ export class Play {
   draw(time) {
     const { ctx, dpr, W, H, car } = this;
     this.sampleBend();
+    this.classic = clamp((FIRST_FORK - SIGN_LEAD - 500 - car.z) / 400, 0, 1);
+    this.classicTop = Math.max(H * 0.24, (this.hudBottom || 60) + 24);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 14 * this.shake, (Math.random() - 0.5) * 14 * this.shake);
     ctx.fillStyle = '#000';
@@ -248,9 +267,13 @@ export class Play {
     const { ctx, f } = this;
     const [x, y] = this.P(X, 0.6, d);
     if (x < -20 || x > this.W + 20) return;
-    const w = Math.max(1.5, (f * 0.3) / d);
-    const h = Math.max(1.5, (f * 0.42) / d);
-    ctx.globalAlpha = clamp(1.25 - d / DMAX, 0.25, 1);
+    // Tall blocks, shrinking more slowly than they recede (as in the arcade).
+    const near = Math.min(this.H * 0.055, this.W * 0.07);
+    const real = clamp((f * 0.9) / d, 2.5, near);
+    const arcade = near * Math.sqrt(Math.exp(-d / CLASSIC_FALLOFF));
+    const h = real + (arcade - real) * this.classic;
+    const w = Math.max(1.5, h * 0.4);
+    ctx.globalAlpha = this.classic ? 1 : clamp(1.25 - d / DMAX, 0.25, 1);
     ctx.fillStyle = '#fff';
     ctx.fillRect(x - w / 2, y - h / 2, w, h);
     ctx.globalAlpha = 1;

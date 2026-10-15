@@ -4,6 +4,13 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.12.1
+- Night Driver starts out looking like the 1976 arcade screen: big, tall
+  roadside posts coming in from the sides, the steep arcade perspective (each
+  post up the road about half as far below the horizon as the last), and
+  bends that sweep away up the road. It eases into ordinary perspective
+  before the first sign.
+
 ## 1.12.0
 - Jigsaw: pieces lock together whenever you put one against its neighbour
   (turned the same way), anywhere on the table. The group then drags and
