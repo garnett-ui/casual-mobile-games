@@ -4,6 +4,11 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.5.2
+- App manifest lists PNG icons only (the SVG icon is still used as the
+  browser favicon), to help Android Chrome create a full app install
+  instead of a Chrome-badged shortcut.
+
 ## 1.5.1
 - The installed app is labelled "Pocket Arcade" (was "Arcade") on the home
   screen and in the app drawer.
