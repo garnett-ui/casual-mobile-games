@@ -14,7 +14,8 @@ export const ROT_MAX = (90 * Math.PI) / 180;
 export const HOLD_BAND = (4 * Math.PI) / 180; // attitude hold cancels slower spins
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
 export const SAFE = { vy: 2.2, vx: 1.2, angle: (10 * Math.PI) / 180 };
-export const ASSIST_TILT = (9 * Math.PI) / 180; // with assist on, tilt stays within this
+export const ASSIST_TILT = (30 * Math.PI) / 180; // with assist on, tilt stays within this
+export const ASSIST_DAMP = 0.6; // per second: how fast sideways drift dies away when level
 export const BASE_SEED = 20261018;
 
 // ------------------------------------------------------------------ terrain
@@ -134,11 +135,11 @@ export function step(level, L, input, dt) {
 
   // Rotation: side thrusters change the spin rate; attitude hold quietly
   // cancels very slow drift so the craft is easy to steady. With assist on,
-  // the thrusters instead steer the tilt: to 9° while a turn button is held,
+  // the thrusters instead steer the tilt: to 30° while a turn button is held,
   // and smoothly back to level when it's let go.
   if (input.assist && L.fuel > 0) {
     const target = rotating ? L.rcs * ASSIST_TILT : 0;
-    const want = Math.max(-0.5, Math.min(0.5, (target - L.angle) * 2.5));
+    const want = Math.max(-0.8, Math.min(0.8, (target - L.angle) * 2.5));
     const dw = want - L.omega;
     const max = 2 * ROT_ACCEL * dt;
     L.omega += Math.max(-max, Math.min(max, dw));
@@ -163,6 +164,13 @@ export function step(level, L, input, dt) {
   L.ay = a * Math.cos(L.angle) - G;
   L.vx += L.ax * dt;
   L.vy += L.ay * dt;
+  // Assist also kills sideways drift: once you let go and the lander levels
+  // out, horizontal speed decays away (fully when level, not at all while
+  // leaning hard, so you can still pick up speed).
+  if (input.assist) {
+    const level = Math.max(0, 1 - Math.abs(L.angle) / ASSIST_TILT);
+    L.vx *= Math.exp(-ASSIST_DAMP * level * dt);
+  }
   L.x += L.vx * dt;
   L.y += L.vy * dt;
 

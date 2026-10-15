@@ -4,6 +4,12 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.18.0
+- Lunar Lander's stability assist is more helpful: it now leans up to 30°
+  (was 9°) for quicker sideways moves, still levels the lander when you let
+  go, and makes sideways drift die away once you're level, so you can
+  settle over the base and come straight down.
+
 ## 1.17.1
 - Breakout no longer switches to full screen when a game starts, so
   Chrome's "To exit full screen, drag from the top…" notice no longer pops

@@ -117,7 +117,7 @@ test('mission 1 is a short hop over flat ground; mountains come later', async ()
   assert.ok(Math.max(...makeTerrain(6).terrain) - 30 > 60, 'mission 6: a real hill');
 });
 
-test('stability assist: tilt stays within 10° and levels out when you let go', async () => {
+test('stability assist: leans up to 30°, no further, and levels out when you let go', async () => {
   const { ASSIST_TILT } = await import('../games/lander/engine.js');
   const level = makeTerrain(1);
   const L = airborne(level);
@@ -126,8 +126,20 @@ test('stability assist: tilt stays within 10° and levels out when you let go', 
     step(level, L, { right: true, assist: true }, 1 / 120);
     most = Math.max(most, Math.abs(L.angle));
   }
-  assert.ok(most <= SAFE.angle, `held within 10° (max ${((most * 180) / Math.PI).toFixed(1)}°)`);
+  assert.ok(most <= ASSIST_TILT + 0.01, `held within 30° (max ${((most * 180) / Math.PI).toFixed(1)}°)`);
   assert.ok(Math.abs(L.angle - ASSIST_TILT) < 0.02, 'leaning the way you asked');
   fly(level, L, { assist: true }, 3);
   assert.ok(Math.abs(L.angle) < 0.01 && Math.abs(L.omega) < 0.01, 'level again');
+});
+
+test('stability assist: sideways drift dies away once level (but not without assist)', () => {
+  const level = makeTerrain(1);
+  const drift = (assist) => {
+    const L = airborne(level);
+    L.vx = 4;
+    fly(level, L, { assist }, 5);
+    return Math.abs(L.vx);
+  };
+  assert.ok(drift(true) < 0.3, `damped (${drift(true).toFixed(2)} m/s left)`);
+  assert.ok(Math.abs(drift(false) - 4) < 0.01, 'coasts on without assist');
 });
