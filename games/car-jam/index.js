@@ -62,7 +62,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
           <h2>Level ${n}</h2>
-          <span class="pill moves"><b data-moves>0</b>&nbsp;moves · par ${level.par}</span>
+          <span class="pill moves"><b data-moves>0</b>&nbsp;moves<b class="cj-penalty" data-penalty hidden></b> · par ${level.par}</span>
         </header>
         <div class="stage"><canvas class="board"></canvas></div>
         <footer class="controls">
@@ -84,6 +84,16 @@ export function mount(root, ctx, sub) {
         const tip = root.querySelector('.tip');
         if (m > 0 && tip) tip.hidden = true;
       },
+      onPenalty: (scares, extra) => {
+        const el = root.querySelector('[data-penalty]');
+        el.hidden = false;
+        el.textContent = ` +${extra}`;
+        el.title = `${scares} granny scare${scares === 1 ? '' : 's'}`;
+        if (!ctx.load('grannyTip', false)) {
+          ctx.save('grannyTip', true);
+          ctx.toast('Watch the grannies! Sending a car at one costs 2 moves.');
+        }
+      },
       onWin: (result) => setTimeout(() => showWin(n, result), 350),
     });
     // Handle for the end-to-end tests (test/e2e.test.mjs).
@@ -98,6 +108,7 @@ export function mount(root, ctx, sub) {
     root.querySelector('[data-act=restart]').onclick = () => {
       ctx.sfx('tap');
       play.reset();
+      root.querySelector('[data-penalty]').hidden = true;
     };
     root.querySelector('[data-act=hint]').onclick = () => {
       ctx.sfx('tap');
@@ -111,17 +122,18 @@ export function mount(root, ctx, sub) {
     }
   }
 
-  function showWin(n, { moves, par, stars }) {
+  function showWin(n, { moves, scares, total, par, stars }) {
     if (!play) return;
     progress.complete(n, stars);
-    ctx.track('level_complete', { level: n, stars });
+    ctx.track('level_complete', { level: n, stars, scares });
     ctx.sfx('win');
     ctx.haptic(40);
-    const note = moves <= par ? 'Perfect — you matched par!' : `Par is ${par}. Can you do it in fewer moves?`;
+    const note = total <= par ? 'Perfect — you matched par!' : `Par is ${par}. Can you do it in fewer moves?`;
+    const penalty = scares ? ` + ${scares * 2} for ${scares} granny scare${scares === 1 ? '' : 's'} = <b>${total}</b>.` : '';
     showDialog(root.querySelector('.dialog'), ctx, {
       title: CHEERS[Math.floor(Math.random() * CHEERS.length)],
       stars,
-      text: `<b>${moves}</b> moves. ${note}`,
+      text: `<b>${moves}</b> moves${penalty}${penalty ? '' : '.'} ${note}`,
       buttons: [
         { label: 'Replay', act: 'replay', run: () => {
           root.querySelector('.dialog').hidden = true;

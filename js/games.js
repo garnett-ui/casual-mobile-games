@@ -53,5 +53,5 @@ export const GAMES = [
 ];
 
 export const COMING_SOON = [
-  { title: 'More games', blurb: 'New puzzles are on the way.', emoji: '🧩' },
+  { title: 'More games', blurb: 'More mini games are on the way.', emoji: '🕹️' },
 ];

@@ -95,6 +95,39 @@ const ICONS = {
   buzzOff: '<svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2" opacity=".45"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
 };
 
+// About box: what the app is, and every version's changes, newest first.
+async function showAbout() {
+  const { CHANGELOG } = await import('./changelog.js');
+  const fmt = (t) => t
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.+?)\*/g, '<i>$1</i>');
+  const box = document.createElement('div');
+  box.className = 'about';
+  box.innerHTML = `
+    <div class="about-card" role="dialog" aria-label="About Pocket Arcade">
+      <header>
+        <img src="icons/icon.svg" alt="" width="40" height="40">
+        <div><h3>Pocket Arcade</h3><small>Version ${VERSION} · MIT licence</small></div>
+        <button class="icon-btn" data-act="close" aria-label="Close">✕</button>
+      </header>
+      <div class="about-body">
+        <p>Casual games for your phone or tablet: no accounts, no ads, and they all work offline.
+        Your progress and photos stay on this device.</p>
+        <h4>What's new, version by version</h4>
+        ${CHANGELOG.map((e) => `
+          <section class="about-ver${e.v === VERSION ? ' current' : ''}">
+            <h5>v${e.v}${e.v === VERSION ? ' <span>you have this</span>' : ''}</h5>
+            <ul>${e.notes.map((n) => `<li>${fmt(n)}</li>`).join('')}</ul>
+          </section>`).join('')}
+      </div>
+    </div>`;
+  const close = () => box.remove();
+  box.onclick = (e) => e.target === box && close();
+  box.querySelector('[data-act=close]').onclick = close;
+  document.body.appendChild(box);
+}
+
 function renderHub() {
   view.innerHTML = `
     <div class="hub">
@@ -129,9 +162,14 @@ function renderHub() {
           </div>`).join('')}
       </section>
       <footer class="hub-foot">No accounts, no ads. Works offline.
+        <button class="about-link" data-act="about">About · What's new</button>
         <button class="version" data-act="update" aria-label="Check for updates">v${VERSION} · Check for updates</button></footer>
     </div>`;
 
+  view.querySelector('[data-act=about]').onclick = () => {
+    sfx('tap');
+    showAbout();
+  };
   const paintTools = () => {
     view.querySelector('[data-act=sound]').innerHTML = getSetting('sound') ? ICONS.soundOn : ICONS.soundOff;
     view.querySelector('[data-act=haptics]').innerHTML = getSetting('haptics') ? ICONS.buzzOn : ICONS.buzzOff;

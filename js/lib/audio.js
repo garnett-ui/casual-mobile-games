@@ -65,10 +65,40 @@ function thump(vol, dur, cutoff) {
 
 const SFX = {
   tap: () => tone('sine', 660, 880, 0.08, 0.15),
-  vroom: () => tone('sawtooth', 70, 150, 0.32, 0.12, 0, 700),
+  // (Pitched high enough for phone speakers, which can't play deep bass.)
+  vroom: () => {
+    tone('sawtooth', 130, 290, 0.3, 0.09, 0, 1700);
+    tone('square', 65, 145, 0.3, 0.04, 0, 900);
+  },
   bump: () => {
-    thump(0.5, 0.15, 400);
-    tone('sine', 120, 60, 0.15, 0.3);
+    thump(0.7, 0.12, 2200);
+    tone('square', 300, 150, 0.12, 0.07, 0, 1600);
+    tone('triangle', 620, 300, 0.07, 0.08);
+  },
+  // Leaves: a short rustle and a soft thud.
+  hedge: () => {
+    const t = ac.currentTime;
+    const src = ac.createBufferSource();
+    src.buffer = noise;
+    const f = ac.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 3200;
+    f.Q.value = 0.8;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+    src.connect(f);
+    f.connect(g);
+    g.connect(master);
+    src.start(t, Math.random());
+    src.stop(t + 0.35);
+    thump(0.4, 0.1, 1200);
+  },
+  // A granny's indignant "Hey!"
+  granny: () => {
+    tone('sawtooth', 820, 1020, 0.09, 0.06, 0.05, 2600);
+    tone('sawtooth', 1020, 640, 0.22, 0.07, 0.14, 2600);
   },
   honk: () => {
     tone('square', 370, 370, 0.22, 0.06, 0, 1800);

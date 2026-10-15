@@ -715,3 +715,53 @@ test('night driver: two thumbs at once, a fork read right, a wrong turn, game ov
     server.close();
   }
 });
+
+test('car jam: sending a car at a granny costs 2 moves', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`http://localhost:${server.address().port}/#/car-jam/1`);
+    await page.waitForFunction(() => window.__carJamPlay);
+    await page.evaluate(async () => {
+      const p = window.__carJamPlay;
+      const { solve } = await import('/games/car-jam/model.js');
+      // Make a granny step out in front of every car that leaves the lot.
+      let once = true;
+      const real = p.mergeBlocked.bind(p);
+      p.mergeBlocked = (car) => (once ? ((once = false), 'granny') : real(car));
+      const sol = solve(p.m, p.pos, 40000);
+      for (const mv of sol.moves) {
+        p.tryMove(mv.car, mv.sign);
+        if (p.cars[mv.car].mode === 'exit') break;
+      }
+    });
+    await page.waitForFunction(() => window.__carJamPlay.scares === 1);
+    assert.equal((await page.locator('[data-penalty]').textContent()).trim(), '+2');
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('about box: the version history, newest first', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const { readFile: rf } = await import('node:fs/promises');
+    const { version } = JSON.parse(await rf(new URL('../package.json', import.meta.url), 'utf8'));
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-act=about]').click();
+    const heads = await page.locator('.about-ver h5').allTextContents();
+    assert.match(heads[0], new RegExp(`^v${version.replace(/\./g, '\\.')}`));
+    assert.match(heads[0], /you have this/);
+    assert.equal(heads.at(-1), 'v1.0.0');
+    assert.ok(heads.length > 20);
+    await page.locator('.about [data-act=close]').click();
+    assert.equal(await page.locator('.about').count(), 0);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

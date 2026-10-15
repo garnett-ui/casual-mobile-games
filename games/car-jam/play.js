@@ -23,6 +23,9 @@ const RING_ACCEL = 14;
 const GRANNY_SPEED = 0.85;
 const COATS = ['#b388eb', '#ff8fab', '#7ec4cf', '#f6bd60', '#a7c957'];
 
+// Each granny you send a car at costs this many moves.
+export const GRANNY_PENALTY = 2;
+
 export function starsFor(moves, par) {
   if (moves <= par) return 3;
   if (moves <= par + Math.max(2, Math.ceil(par * 0.15))) return 2;
@@ -65,6 +68,7 @@ export class Play {
     this.pos = this.m.start.slice();
     this.history = [];
     this.moves = 0;
+    this.scares = 0; // grannies a car was sent at
     this.won = false;
     this.seq = 0;
     this.time = 0;
@@ -327,8 +331,8 @@ export class Play {
   }
 
   bumpInto(blocker, car, sign) {
-    this.hooks.sfx?.('bump');
-    this.hooks.haptic?.(20);
+    this.hooks.sfx?.(blocker === FENCE ? 'hedge' : 'bump');
+    this.hooks.haptic?.(blocker === FENCE ? 35 : 50);
     if (blocker >= 0) this.cars[blocker].shake = 0.35;
     // Puff where the cars met.
     const [x0, y0, x1, y1] = this.carRect(car);
@@ -380,8 +384,9 @@ export class Play {
     if (this.hint) this.hint.t += dt;
     if (!this.won && this.pos.every((p) => p < 0) && this.cars.every((c) => c.mode === 'gone')) {
       this.won = true;
-      const stars = starsFor(this.moves, this.level.par);
-      this.hooks.onWin?.({ moves: this.moves, par: this.level.par, stars });
+      const total = this.moves + GRANNY_PENALTY * this.scares;
+      const stars = starsFor(total, this.level.par);
+      this.hooks.onWin?.({ moves: this.moves, scares: this.scares, total, par: this.level.par, stars });
     }
   }
 
@@ -427,9 +432,15 @@ export class Play {
             if (car.sign * (next - car.vp) < 0) next = car.vp;
             car.v = 0;
             if (why === 'granny' && !car.honked) {
+              // Nearly ran her over: that costs you.
               car.honked = true;
+              this.scares++;
+              this.hooks.onPenalty?.(this.scares, GRANNY_PENALTY * this.scares);
               this.hooks.sfx?.('honk');
-              this.fx.push({ kind: 'text', text: 'BEEP!', x: this.carCenter(car)[0], y: this.carCenter(car)[1], t: 0, life: 0.9 });
+              this.hooks.sfx?.('granny');
+              this.hooks.haptic?.([60, 50, 90]);
+              const [cx, cy] = this.carCenter(car);
+              this.fx.push({ kind: 'text', text: `+${GRANNY_PENALTY} moves!`, color: '#d62828', x: cx, y: cy, t: 0, life: 1.4 });
             }
           }
         }
@@ -947,7 +958,7 @@ export class Play {
       } else if (f.kind === 'text') {
         ctx.globalAlpha = 1 - k * k;
         ctx.translate(0, -k * T * 0.6);
-        drawBubble(ctx, T, f.text, '#1d3557');
+        drawBubble(ctx, T, f.text, f.color || '#1d3557');
       }
       ctx.restore();
     }

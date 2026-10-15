@@ -4,6 +4,17 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.15.0
+- **About · What's new** on the home screen: what the app is, and this
+  history of every version's changes, newest first.
+- Car Jam: sounds you can hear on a phone speaker (car bumps, a leafy
+  rustle off the hedge, a punchier engine), and vibration you can feel
+  (buzzes were too short for phone motors; this helps every game).
+- Car Jam: sending a car at a granny now costs you 2 moves ("+2" in red
+  next to your moves, and counted toward your stars), and she lets you
+  know about it.
+- The home screen says "More mini games are on the way."
+
 ## 1.14.0
 - Night Driver: drive off the Grand Canyon's edge and you fall in, walls of
   rock rushing past, down to the river.
@@ -158,11 +169,21 @@ The version shows at the bottom of the home screen.
   version, showing which version it is.
 
 ## 1.2.0
-- Google Analytics, queued while offline and sent on reconnect.
+- Anonymous play statistics (Google Analytics, no accounts): which games
+  are played and how far people get. Events recorded offline are queued
+  and sent when you're back online.
 
 ## 1.1.0
-- New game: Tap Maze.
+- New game: **Tap Maze**. A board of arrows; tap one and it flies off in
+  its direction if the way is clear. Clear the board without crashing
+  three times. Endless levels that grow from small, gentle mazes to big,
+  tangled ones, each checked to be solvable.
 
 ## 1.0.0
-- Pocket Arcade PWA with Car Jam: endless seeded levels, hedged lots with
-  gates, grannies, hints, offline play, GitHub Pages deployment.
+- **Pocket Arcade** is born: an installable app for phones and tablets
+  that works offline, with no login and no ads.
+- First game: **Car Jam**, a top-down parking puzzle. Swipe cars to slide
+  them out of a jammed lot through the gaps in its hedge, while grannies
+  cross the road outside. Levels are generated from a seed and get harder
+  without end; every one is checked to have a solution, and there are
+  hints, undo and par scores.
