@@ -14,6 +14,7 @@ export const ROT_MAX = (90 * Math.PI) / 180;
 export const HOLD_BAND = (4 * Math.PI) / 180; // attitude hold cancels slower spins
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
 export const SAFE = { vy: 2.2, vx: 1.2, angle: (10 * Math.PI) / 180 };
+export const ASSIST_TILT = (9 * Math.PI) / 180; // with assist on, tilt stays within this
 export const BASE_SEED = 20261018;
 
 // ------------------------------------------------------------------ terrain
@@ -33,32 +34,37 @@ export function slopeAt(level, x) {
 // Level n: launch pad on the left, landing base on the right, mountains in
 // between that grow taller (and more numerous) as n rises; the base pad
 // gets narrower and the fuel margin thinner.
+// Mission 1 is a short hop over flat ground; each one after is a little
+// further, and from mission 3 hills grow into mountains between the pads.
 export function makeTerrain(n, attempt = 0) {
   const r = rng(seedFor(n * 16 + attempt, BASE_SEED));
-  const width = Math.min(1300, 420 + 45 * n);
+  const hop = n === 1 ? 30 : Math.min(1150, 30 + 45 * (n - 1) + 2 * (n - 1) ** 2);
   const step = 4;
-  const count = Math.ceil(width / step) + 1;
   const ground = 30;
-  const startPad = { x0: 30, x1: 62, y: ground + r() * 20 };
-  const baseW = Math.max(14, 34 - 1.5 * n);
-  const baseX = width - 60 - r() * 30;
-  const base = { x0: baseX - baseW / 2, x1: baseX + baseW / 2, y: ground + r() * (20 + 4 * n) };
+  const flat = n <= 2;
+  const startPad = { x0: 30, x1: 50, y: ground + r() * (flat ? 3 : 20) };
+  const baseW = n === 1 ? 26 : Math.max(14, 28 - 1.2 * n);
+  const baseX = (startPad.x0 + startPad.x1) / 2 + hop;
+  const base = { x0: baseX - baseW / 2, x1: baseX + baseW / 2, y: ground + r() * (flat ? 3 : 20 + 4 * n) };
+  const width = Math.ceil(base.x1 + 90);
+  const count = Math.ceil(width / step) + 1;
   const peaks = [];
-  const nPeaks = Math.min(5, 1 + Math.floor(n / 3));
-  const peakH = Math.min(460, 90 + 24 * n);
-  for (let k = 0; k < nPeaks; k++) {
-    const span = base.x0 - 60 - (startPad.x1 + 60);
+  const nPeaks = n < 3 ? 0 : Math.min(5, 1 + Math.floor((n - 3) / 3));
+  const peakH = Math.min(460, 20 + 28 * (n - 3));
+  const span = base.x0 - 30 - (startPad.x1 + 30);
+  for (let k = 0; k < nPeaks && span > 20; k++) {
     peaks.push({
-      x: startPad.x1 + 60 + span * ((k + 0.5) / nPeaks) + (r() - 0.5) * span * 0.15,
+      x: startPad.x1 + 30 + span * ((k + 0.5) / nPeaks) + (r() - 0.5) * span * 0.15,
       h: peakH * (k === 0 ? 1 : 0.55 + r() * 0.5),
-      w: 40 + r() * 60 + n * 3,
+      w: Math.min(span / 3, 40 + r() * 60 + n * 3),
     });
   }
+  const rough = Math.min(1, 0.2 + 0.1 * n);
   const phase = [r() * 10, r() * 10, r() * 10];
   const terrain = [];
   for (let i = 0; i < count; i++) {
     const x = i * step;
-    let y = ground + 8 * Math.sin(x / 37 + phase[0]) + 5 * Math.sin(x / 13 + phase[1]) + 2.5 * Math.sin(x / 5.3 + phase[2]);
+    let y = ground + rough * (8 * Math.sin(x / 37 + phase[0]) + 5 * Math.sin(x / 13 + phase[1]) + 2.5 * Math.sin(x / 5.3 + phase[2]));
     for (const p of peaks) {
       // Rugged mountain: a broad bump plus jagged ridges.
       const d = (x - p.x) / p.w;
@@ -127,8 +133,18 @@ export function step(level, L, input, dt) {
   }
 
   // Rotation: side thrusters change the spin rate; attitude hold quietly
-  // cancels very slow drift so the craft is easy to steady.
-  if (rotating) {
+  // cancels very slow drift so the craft is easy to steady. With assist on,
+  // the thrusters instead steer the tilt: to 9° while a turn button is held,
+  // and smoothly back to level when it's let go.
+  if (input.assist && L.fuel > 0) {
+    const target = rotating ? L.rcs * ASSIST_TILT : 0;
+    const want = Math.max(-0.5, Math.min(0.5, (target - L.angle) * 2.5));
+    const dw = want - L.omega;
+    const max = 2 * ROT_ACCEL * dt;
+    L.omega += Math.max(-max, Math.min(max, dw));
+    L.rcs = Math.abs(dw) > 0.02 ? Math.sign(dw) : 0;
+    if (L.rcs) L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
+  } else if (rotating) {
     L.omega += L.rcs * ROT_ACCEL * dt;
     L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
   } else if (Math.abs(L.omega) < HOLD_BAND) {
@@ -222,7 +238,7 @@ export function scoreLanding(level, L, { vy, vx, tilt }) {
 
 // A simple, competent pilot. Used to size each level's fuel (so every level
 // is possible) and by the tests. Returns the input for this moment.
-export function autopilot(level, L) {
+export function autopilot(level, L, maxTiltDeg = 35) {
   const base = level.base;
   const target = (base.x0 + base.x1) / 2;
   const dx = target - L.x;
@@ -237,9 +253,12 @@ export function autopilot(level, L) {
   let vyWant;
   if (far) {
     // Climb first; only speed up once the terrain ahead is cleared.
+    // No faster than it can stop from, given how far it may tilt.
+    const brake = 0.8 * Math.sqrt(2 * 1.6 * Math.sin((maxTiltDeg * Math.PI) / 180) * Math.abs(dx));
+    const cap = Math.min(22, brake);
     vxWant = clearance < 25
-      ? dir * Math.max(0, Math.min(22, (clearance - 8) * 0.6))
-      : Math.max(-22, Math.min(22, dx * 0.14));
+      ? dir * Math.max(0, Math.min(cap, (clearance - 8) * 0.6))
+      : Math.max(-cap, Math.min(cap, dx * 0.14));
     vyWant = Math.max(-5, Math.min(9, (ahead + 40 - L.y) * 0.35));
   } else {
     vxWant = Math.max(-2.5, Math.min(2.5, dx * 0.3));
@@ -251,7 +270,7 @@ export function autopilot(level, L) {
   }
   const axWant = (vxWant - L.vx) * 0.6;
   const ayWant = (vyWant - L.vy) * 1.6 + G;
-  const maxTilt = (35 * Math.PI) / 180;
+  const maxTilt = (maxTiltDeg * Math.PI) / 180;
   const want = Math.max(-maxTilt, Math.min(maxTilt, Math.atan2(axWant, Math.max(0.5, ayWant))));
   const omegaWant = Math.max(-0.8, Math.min(0.8, (want - L.angle) * 2.5));
   const de = omegaWant - L.omega;
@@ -260,11 +279,13 @@ export function autopilot(level, L) {
 }
 
 // Fly the level with the autopilot (plenty of fuel) and report fuel used.
-export function simulate(level, fuel = 500, maxTime = 600) {
+// It flies gently (tilting no more than an assisted pilot can), so the fuel
+// it needs is what a careful player needs.
+export function simulate(level, fuel = 2000, maxTime = 900) {
   const L = newLander(level, fuel);
   const dt = 1 / 30;
   for (let t = 0; t < maxTime; t += dt) {
-    const res = step(level, L, autopilot(level, L), dt);
+    const res = step(level, L, autopilot(level, L, 9), dt);
     if (res && res.kind !== 'touchdown') return { ...res, used: fuel - L.fuel, time: t };
   }
   return { kind: 'timeout', used: fuel - L.fuel };
@@ -282,6 +303,6 @@ export function makeLevel(n) {
     if (run.kind === 'landed') break;
   }
   const need = run.kind === 'landed' ? run.used : 60 + level.width * 0.15;
-  const margin = Math.max(1.25, 2.0 - 0.05 * (n - 1));
+  const margin = Math.max(1.3, 3.0 - 0.12 * (n - 1));
   return { ...level, fuel: Math.round(need * margin), checked: run.kind === 'landed' };
 }

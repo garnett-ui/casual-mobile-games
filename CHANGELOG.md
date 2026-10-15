@@ -4,6 +4,18 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.13.0
+- Lunar Lander is much easier to start: mission 1 is a 30 m hop over flat
+  ground, mission 2 a little further, and hills only start at mission 3,
+  growing into mountains from there. Early missions carry plenty of fuel.
+- New **stability assist** (on by default, toggle in the top bar): the side
+  thrusters hold the tilt within 9° and level the lander smoothly when you
+  let go.
+- A simpler instrument panel with bigger type: distance to the target,
+  altitude, vertical and sideways speed (red when too fast to land), fuel,
+  and an artificial horizon that turns red past 10°.
+- The view always keeps the lander below the panel, however high it climbs.
+
 ## 1.12.1
 - Night Driver starts out looking like the 1976 arcade screen: big, tall
   roadside posts coming in from the sides, the steep arcade perspective (each

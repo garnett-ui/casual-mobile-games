@@ -1,6 +1,6 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
-import { step, newLander, heightAt, G, SAFE, HOLD_BAND, FEET } from './engine.js';
+import { step, newLander, heightAt, G, SAFE, FEET } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const PHOSPHOR = '#3dff7a';
@@ -26,6 +26,7 @@ export class Play {
     this.level = level;
     this.hooks = hooks;
     this.input = { thrust: false, left: false, right: false };
+    this.assist = true; // stability assist: tilt held within 9°, levels itself
     this.paused = false;
     this.timeScale = 1; // the browser tests fast-forward flights
     this.makeScenery();
@@ -95,7 +96,7 @@ export class Play {
       for (let k = 0; k < n && !res; k++) {
         // Tests can fly with an autopilot that steers every physics step.
         if (this.pilot) Object.assign(this.input, this.pilot(this.level, L));
-        res = step(this.level, L, this.input, dt / n);
+        res = step(this.level, L, { ...this.input, assist: this.assist && !this.pilot }, dt / n);
       }
       if (res) {
         this.outcome = res;
@@ -267,6 +268,9 @@ export class Play {
     this.cam.h += (want.h - this.cam.h) * k;
     this.cam.bottom += (want.bottom - this.cam.bottom) * k * 1.5;
     this.cam.x += (want.x - this.cam.x) * 0.2;
+    // Never let the lander climb up behind the instrument panel.
+    const covered = (this.panelBottom || 0) / this.cssH;
+    this.cam.bottom = Math.max(this.cam.bottom, L.y + 8 - this.cam.h * (1 - covered - 0.03));
     const scale = this.cssH / this.cam.h;
     return { scale, left: this.cam.x - this.cssW / scale / 2, bottom: this.cam.bottom };
   }
@@ -295,7 +299,7 @@ export class Play {
     }
     ctx.globalAlpha = 1;
     // Earth hangs in the open sky left of the instrument panel.
-    const free = W - Math.min(W * 0.62, 280) - 8;
+    const free = W - Math.min(W * 0.66, 300) - 8;
     const er = Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12);
     this.drawEarth(free * 0.5 - cam.left * 0.01, Math.max(er + 16, H * 0.2), er);
     this.drawHorizon(cam, W, H);
@@ -678,116 +682,117 @@ export class Play {
   }
 
   // Retro green-phosphor instrument panel, top right.
+  // The instruments: only what you need to land, big enough to read.
   drawPanel(W) {
     const { ctx } = this;
     const L = this.L;
-    const pw = Math.min(W * 0.62, 280);
-    const k = pw / 280;
-    const ph = 178 * k;
+    const pw = Math.min(W * 0.66, 300);
+    const k = pw / 250;
+    const ph = 150 * k;
     const px = W - pw - 8;
     const py = 8;
+    const RED = '#ff4d3d';
     ctx.save();
     ctx.translate(px, py);
     ctx.scale(k, k);
-    ctx.fillStyle = 'rgba(0,18,6,0.72)';
+    ctx.fillStyle = 'rgba(0,18,6,0.74)';
     ctx.strokeStyle = 'rgba(61,255,122,0.6)';
     ctx.lineWidth = 1.5;
-    ctx.fillRect(0, 0, 280, 178);
-    ctx.strokeRect(0.5, 0.5, 279, 177);
+    ctx.fillRect(0, 0, 250, 150);
+    ctx.strokeRect(0.5, 0.5, 249, 149);
     ctx.shadowColor = PHOSPHOR;
-    ctx.shadowBlur = 6;
-    ctx.fillStyle = PHOSPHOR;
-    ctx.strokeStyle = PHOSPHOR;
-    ctx.font = '12px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Courier New", monospace';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    const ground = heightAt(this.level, L.x);
-    const alt = L.y - ground;
+    ctx.shadowBlur = 5;
+    ctx.textBaseline = 'middle';
     const base = this.level.base;
     const dist = (base.x0 + base.x1) / 2 - L.x;
-    const sign = (v, d = 1) => `${v >= 0 ? '+' : '-'}${Math.abs(v).toFixed(d).padStart(5, ' ')}`;
-    const tt = Math.floor(L.t);
-    const lines = [
-      `LM-${String(this.level.n).padStart(2, '0')} GUIDANCE   T+${String(Math.floor(tt / 60)).padStart(2, '0')}:${String(tt % 60).padStart(2, '0')}`,
-      `ALT  ${alt.toFixed(1).padStart(7, ' ')} M`,
-      `VEL H${sign(L.vx)}  V${sign(L.vy)} M/S`,
-      `ACC H${sign(L.landed ? 0 : L.ax, 2)} V${sign(L.landed ? 0 : L.ay, 2)}`,
-      `ATT  ${sign(L.angle * DEG)}°  ROT${sign(L.omega * DEG)}`,
-      `BASE ${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0).padStart(5, ' ')} M`,
+    const alt = L.y - base.y;
+    const flying = !L.landed;
+    const rows = [
+      ['TARGET', `${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0)} M`, PHOSPHOR],
+      ['ALT', `${Math.max(0, alt).toFixed(alt < 20 ? 1 : 0)} M`, PHOSPHOR],
+      ['V/S', `${L.vy >= 0 ? '▲' : '▼'} ${Math.abs(L.vy).toFixed(1)}`, flying && -L.vy > SAFE.vy ? RED : PHOSPHOR],
+      ['H/S', `${L.vx >= 0 ? '▶' : '◀'} ${Math.abs(L.vx).toFixed(1)}`, flying && Math.abs(L.vx) > SAFE.vx ? RED : PHOSPHOR],
     ];
-    lines.forEach((s, i) => ctx.fillText(s, 10, 9 + i * 19));
+    rows.forEach(([label, value, colour], i) => {
+      const y = 18 + i * 27;
+      ctx.fillStyle = PHOSPHOR;
+      ctx.shadowColor = PHOSPHOR;
+      ctx.textAlign = 'left';
+      ctx.font = '600 13px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillText(label, 10, y);
+      ctx.fillStyle = colour;
+      ctx.shadowColor = colour;
+      ctx.textAlign = 'right';
+      ctx.font = '700 19px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillText(value, 165, y);
+    });
     // Fuel bar
     const frac = L.fuel / L.fuelMax;
-    ctx.fillText('FUEL', 10, 9 + 6 * 19);
-    ctx.strokeRect(52, 9 + 6 * 19, 120, 12);
-    if (frac > 0.15 || Math.floor(performance.now() / 300) % 2) ctx.fillRect(54, 11 + 6 * 19, 116 * frac, 8);
-    ctx.fillText(`${Math.round(frac * 100)}%`, 178, 9 + 6 * 19);
-    // Warnings
-    const warn = [];
-    if (L.fuel <= 0) warn.push('FUEL OUT');
-    else if (frac < 0.15) warn.push('LOW FUEL');
-    if (!L.landed && -L.vy > SAFE.vy && alt < 40) warn.push('SINK RATE');
-    if (!L.landed && Math.abs(L.vx) > SAFE.vx && alt < 15) warn.push('DRIFT');
-    if (!L.landed && !L.rcs && L.omega !== 0 && Math.abs(L.omega) < HOLD_BAND) warn.push('ATT HOLD');
-    if (L.landed) warn.push(L.landed === 'base' ? 'CONTACT · BASE' : 'CONTACT');
-    if (Math.floor(performance.now() / 400) % 2 || warn.every((w) => w.startsWith('ATT') || w.startsWith('CONTACT'))) {
-      ctx.fillText(warn.join('  '), 10, 9 + 7 * 19 + 6);
-    }
-    // Attitude ball (artificial horizon) and velocity vector box.
-    const bx = 245;
-    const by = 44;
+    const low = frac < 0.15;
+    ctx.fillStyle = low ? RED : PHOSPHOR;
+    ctx.strokeStyle = low ? RED : PHOSPHOR;
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.textAlign = 'left';
+    ctx.font = '600 13px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillText('FUEL', 10, 130);
     ctx.lineWidth = 1.2;
+    ctx.strokeRect(52, 123, 113, 14);
+    if (!low || Math.floor(performance.now() / 300) % 2) ctx.fillRect(54, 125, 109 * frac, 10);
+    // Artificial horizon: red past 10° (too tilted to land).
+    const tilted = Math.abs(L.angle) > SAFE.angle;
+    const col = tilted ? RED : PHOSPHOR;
+    const bx = 208;
+    const by = 58;
+    const R = 34;
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.shadowColor = col;
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.arc(bx, by, 26, 0, Math.PI * 2);
+    ctx.arc(bx, by, R, 0, Math.PI * 2);
     ctx.stroke();
     ctx.save();
     ctx.beginPath();
-    ctx.arc(bx, by, 25, 0, Math.PI * 2);
+    ctx.arc(bx, by, R - 1, 0, Math.PI * 2);
     ctx.clip();
     ctx.translate(bx, by);
     ctx.rotate(-L.angle);
-    ctx.globalAlpha = 0.25;
-    ctx.fillRect(-30, 0, 60, 30);
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(-R, 0, 2 * R, R);
     ctx.globalAlpha = 1;
     ctx.beginPath();
-    ctx.moveTo(-30, 0);
-    ctx.lineTo(30, 0);
-    for (const m of [-10, 10]) {
-      ctx.moveTo(-8, m);
-      ctx.lineTo(8, m);
+    ctx.moveTo(-R, 0);
+    ctx.lineTo(R, 0);
+    // ±10° marks
+    for (const m of [-1, 1]) {
+      const a = m * SAFE.angle;
+      ctx.moveTo(Math.sin(a) * (R - 9), -Math.cos(a) * (R - 9));
+      ctx.lineTo(Math.sin(a) * (R - 1), -Math.cos(a) * (R - 1));
     }
     ctx.stroke();
     ctx.restore();
+    // The craft: fixed wings in the middle.
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(bx - 12, by);
-    ctx.lineTo(bx - 4, by);
-    ctx.lineTo(bx, by + 4);
-    ctx.lineTo(bx + 4, by);
-    ctx.lineTo(bx + 12, by);
+    ctx.moveTo(bx - 18, by);
+    ctx.lineTo(bx - 6, by);
+    ctx.lineTo(bx, by + 6);
+    ctx.lineTo(bx + 6, by);
+    ctx.lineTo(bx + 18, by);
     ctx.stroke();
-    const vx = 245;
-    const vy = 118;
-    ctx.strokeRect(vx - 26, vy - 26, 52, 52);
-    ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.moveTo(vx - 26, vy);
-    ctx.lineTo(vx + 26, vy);
-    ctx.moveTo(vx, vy - 26);
-    ctx.lineTo(vx, vy + 26);
-    ctx.stroke();
-    ctx.strokeRect(vx - 26 * (SAFE.vx / 20), vy - 26 * (SAFE.vy / 20), 52 * (SAFE.vx / 20), 52 * (SAFE.vy / 20));
-    ctx.globalAlpha = 1;
-    const clamp = (v) => Math.max(-1, Math.min(1, v / 20));
-    ctx.beginPath();
-    ctx.arc(vx + clamp(L.vx) * 26, vy - clamp(L.vy) * 26, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.font = '9px ui-monospace, monospace';
-    ctx.fillText('VEL', vx - 26, vy + 29);
-    ctx.fillText('ATT', bx - 26, by + 29);
+    ctx.textAlign = 'center';
+    ctx.font = '700 15px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillText(`${Math.abs(Math.round(L.angle * DEG))}°`, bx, by + R + 14);
+    if (this.assist) {
+      ctx.fillStyle = PHOSPHOR;
+      ctx.shadowColor = PHOSPHOR;
+      ctx.font = '600 10px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillText('ASSIST', bx, 131);
+    }
     // Scanlines
     ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    for (let yy = 0; yy < 178; yy += 3) ctx.fillRect(0, yy, 280, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for (let yy = 0; yy < 150; yy += 3) ctx.fillRect(0, yy, 250, 1);
     ctx.restore();
     this.panelBottom = py + ph;
   }

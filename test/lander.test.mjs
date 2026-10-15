@@ -107,3 +107,27 @@ test('every mission is flyable (autopilot lands it) and gets harder', () => {
   assert.ok(heightAt(a, a.base.x0 + 1) === a.base.y, 'base pad is flat');
   assert.ok(scoreLanding);
 });
+
+test('mission 1 is a short hop over flat ground; mountains come later', async () => {
+  const one = makeTerrain(1);
+  const hop = (one.base.x0 + one.base.x1) / 2 - (one.startPad.x0 + one.startPad.x1) / 2;
+  assert.ok(hop >= 20 && hop <= 40, `hop ${hop}`);
+  assert.ok(Math.max(...one.terrain) - Math.min(...one.terrain) < 8, 'flat');
+  assert.ok(Math.max(...makeTerrain(2).terrain) - 30 < 10, 'mission 2: still no hills');
+  assert.ok(Math.max(...makeTerrain(6).terrain) - 30 > 60, 'mission 6: a real hill');
+});
+
+test('stability assist: tilt stays within 10° and levels out when you let go', async () => {
+  const { ASSIST_TILT } = await import('../games/lander/engine.js');
+  const level = makeTerrain(1);
+  const L = airborne(level);
+  let most = 0;
+  for (let t = 0; t < 4; t += 1 / 120) {
+    step(level, L, { right: true, assist: true }, 1 / 120);
+    most = Math.max(most, Math.abs(L.angle));
+  }
+  assert.ok(most <= SAFE.angle, `held within 10° (max ${((most * 180) / Math.PI).toFixed(1)}°)`);
+  assert.ok(Math.abs(L.angle - ASSIST_TILT) < 0.02, 'leaning the way you asked');
+  fly(level, L, { assist: true }, 3);
+  assert.ok(Math.abs(L.angle) < 0.01 && Math.abs(L.omega) < 0.01, 'level again');
+});

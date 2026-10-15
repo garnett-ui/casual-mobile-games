@@ -463,6 +463,24 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     await page.mouse.up();
     assert.equal(await page.evaluate(() => window.__lander.input.thrust), false, 'releasing stops the engine');
 
+    // Climb hard: the view keeps the lander below the instrument panel.
+    const hidden = await page.evaluate(async () => {
+      const p = window.__lander;
+      p.L.fuel = p.L.fuelMax;
+      p.timeScale = 4;
+      p.input.thrust = true;
+      let worst = Infinity;
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+        const cam = p.camera();
+        const top = p.cssH - (p.L.y + 5.2 - cam.bottom) * cam.scale;
+        worst = Math.min(worst, top - p.panelBottom);
+      }
+      p.input.thrust = false;
+      return worst;
+    });
+    assert.ok(hidden >= 0, `lander stays clear of the panel (${hidden.toFixed(1)} px)`);
+
     // Let the autopilot fly the rest, fast-forwarded. Top the tank back up
     // first: on a slow test machine the button may have been held a long
     // time, and this test is about landing, not fuel.

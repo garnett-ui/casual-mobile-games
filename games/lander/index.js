@@ -6,9 +6,9 @@ import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/
 const ROT_L = '<svg viewBox="0 0 24 24"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const ROT_R = '<svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const TIPS = {
-  1: 'Hold THRUST to lift off. Turn with the side thrusters, then thrust to fly over the mountains to the BASE.',
-  2: 'Turning keeps going until you counter-thrust. Small spins are held steady automatically.',
-  3: 'Land gently, level and slow: under 2.2 m/s down and 1.2 m/s sideways.',
+  1: 'Hold THRUST to lift off, then hold ▶ to lean right and drift over to the BASE. Let go to level out. Land gently!',
+  2: 'Land slowly: under 2.2 m/s down (V/S) and 1.2 m/s sideways (H/S). Red numbers mean too fast.',
+  3: 'A hill! Climb first, then lean toward the base. Tip: turn ASSIST off for faster, trickier flying.',
 };
 
 export function mount(root, ctx, sub) {
@@ -49,6 +49,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Missions">${ICON.back}</button>
           <h2>Mission ${n}</h2>
+          <button class="ll-assist" data-act="assist" aria-pressed="true" title="Stability assist: keeps the tilt within 9° and levels the lander when you let go">ASSIST</button>
           <button class="icon-btn" data-act="restart" aria-label="Restart">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas>
@@ -77,6 +78,20 @@ export function mount(root, ctx, sub) {
     });
     // Handle for the end-to-end tests (test/e2e.test.mjs).
     window.__lander = play;
+    // Stability assist (on unless you've turned it off).
+    const assistBtn = root.querySelector('[data-act=assist]');
+    const setAssist = (on) => {
+      play.assist = on;
+      assistBtn.classList.toggle('on', on);
+      assistBtn.setAttribute('aria-pressed', String(on));
+      assistBtn.textContent = on ? 'ASSIST ON' : 'ASSIST OFF';
+    };
+    setAssist(ctx.load('assist', true));
+    assistBtn.onclick = () => {
+      ctx.sfx('tap');
+      setAssist(!play.assist);
+      ctx.save('assist', play.assist);
+    };
 
     // Hold-to-fire buttons; each finger is tracked separately so you can
     // thrust and turn at the same time.
