@@ -7,12 +7,37 @@ const { version, files } = self.PRECACHE;
 const CACHE = `pocket-arcade-${version}`;
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(files.map((f) => new Request(f, { cache: 'reload' })))),
-  );
+  event.waitUntil(precache());
   // First install takes over straight away; updates wait for the page to ask.
   if (!self.registration.active) self.skipWaiting();
 });
+
+// Download every file into the new cache a few at a time, telling open pages
+// how far along it is so they can show a progress bar for updates.
+async function precache() {
+  const cache = await caches.open(CACHE);
+  const total = files.length;
+  let done = 0;
+  const report = async () => {
+    const pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const page of pages) {
+      page.postMessage({ type: 'UPDATE_PROGRESS', version: self.PRECACHE.appVersion, done, total });
+    }
+  };
+  await report();
+  const queue = files.slice();
+  const fetchNext = async () => {
+    while (queue.length) {
+      const file = queue.shift();
+      const res = await fetch(new Request(file, { cache: 'reload' }));
+      if (!res.ok) throw new Error(`precache ${file}: ${res.status}`);
+      await cache.put(file, res);
+      done++;
+      await report();
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, fetchNext));
+}
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(

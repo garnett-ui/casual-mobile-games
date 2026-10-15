@@ -21,9 +21,11 @@ const TYPES = {
 };
 
 // overrides: path -> body served instead of the file (to fake a new deploy).
-function serve(overrides = new Map()) {
+// delays: path -> milliseconds to hold the response (to watch progress).
+function serve(overrides = new Map(), delays = new Map()) {
   const server = createServer(async (req, res) => {
     let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    if (delays.has(path)) await new Promise((r) => setTimeout(r, delays.get(path)));
     if (overrides.has(path)) {
       res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
       return res.end(overrides.get(path));
@@ -271,7 +273,8 @@ test('home screen shows the version; a new deploy prompts the installed app to u
   const { readFile: rf } = await import('node:fs/promises');
   const { version } = JSON.parse(await rf(new URL('../package.json', import.meta.url), 'utf8'));
   const overrides = new Map();
-  const server = await serve(overrides);
+  const delays = new Map();
+  const server = await serve(overrides, delays);
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -290,10 +293,18 @@ test('home screen shows the version; a new deploy prompts the installed app to u
       .replace(/"appVersion": "[^"]+"/, '"appVersion": "99.0.0"')
       .replace(/"version": "[^"]+"/, '"version": "test-new-deploy"'));
     overrides.set('/sw.js', (await rf(new URL('../sw.js', import.meta.url), 'utf8')) + '\n// new deploy\n');
+    // Hold back one file so the download is still in progress when we look.
+    delays.set('/games/tap-maze/model.js', 2500);
     // Coming back to the app triggers an update check.
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     const bar = page.locator('.update-bar');
-    await bar.waitFor({ timeout: 20000 });
+    await page.locator('.update-bar[data-state=downloading] .progress-fill').waitFor({ timeout: 20000 });
+    assert.match(await bar.textContent(), /Downloading version 99\.0\.0/);
+    assert.match(await bar.textContent(), /\d+ of \d+ files/);
+    const width = await page.locator('.update-bar .progress-fill').evaluate((el) => parseFloat(el.style.width));
+    assert.ok(width > 0 && width < 100, `progress part-way: ${width}%`);
+    // Then it turns into the Update prompt.
+    await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 20000 });
     assert.match(await bar.textContent(), /New version 99\.0\.0/);
     assert.match(await bar.textContent(), new RegExp(`You have v${version.replace(/\./g, '\\.')}`));
 

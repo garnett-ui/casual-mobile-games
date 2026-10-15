@@ -4,6 +4,11 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.5.0
+- While a new version downloads, the update bar shows "Downloading version
+  x.y.z…" with a progress bar and file count, then turns into the Update
+  prompt when it's ready.
+
 ## 1.4.1
 - Update checks always ask the server, so a new version is noticed right
   away instead of up to 10 minutes later.

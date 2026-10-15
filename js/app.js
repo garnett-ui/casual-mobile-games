@@ -218,25 +218,56 @@ function versionOf(worker) {
   });
 }
 
-// A bar that stays up (on any screen) until the player updates or says later.
+// The update bar sits at the bottom of any screen. While a new version
+// downloads it shows a progress bar; once it's ready it offers Update / Later.
+function updateBar() {
+  let bar = document.querySelector('.update-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'update-bar';
+    bar.setAttribute('role', 'status');
+    document.body.appendChild(bar);
+  }
+  return bar;
+}
+
+function showDownloading(next, done = 0, total = 0) {
+  const bar = updateBar();
+  if (bar.dataset.state === 'ready' || bar.dataset.state === 'later') return;
+  if (bar.dataset.state !== 'downloading') {
+    bar.dataset.state = 'downloading';
+    bar.innerHTML = `
+      <span><b class="dl-title"></b><small class="dl-count"></small>
+        <i class="progress"><i class="progress-fill"></i></i></span>`;
+  }
+  bar.querySelector('.dl-title').textContent = `Downloading ${next ? `version ${next}` : 'an update'}…`;
+  bar.querySelector('.dl-count').textContent = total ? `${done} of ${total} files` : 'Starting…';
+  const fill = bar.querySelector('.progress-fill');
+  fill.style.width = total ? `${Math.round((100 * done) / total)}%` : '4%';
+}
+
 async function offerUpdate(worker) {
   const next = await versionOf(worker);
-  if (next === VERSION) return;
-  document.querySelector('.update-bar')?.remove();
-  const bar = document.createElement('div');
-  bar.className = 'update-bar';
+  if (next === VERSION) {
+    document.querySelector('.update-bar')?.remove();
+    return;
+  }
+  const bar = updateBar();
+  bar.dataset.state = 'ready';
   bar.setAttribute('role', 'alert');
   bar.innerHTML = `
     <span><b>New version${next ? ` ${next}` : ''}</b> is ready to install.<small>You have v${VERSION}.</small></span>
     <button class="later">Later</button>
     <button class="install-now">Update</button>`;
-  bar.querySelector('.later').onclick = () => bar.remove();
+  bar.querySelector('.later').onclick = () => {
+    bar.dataset.state = 'later';
+    bar.remove();
+  };
   bar.querySelector('.install-now').onclick = () => {
     bar.querySelector('.install-now').textContent = 'Updating…';
     track('app_update', { from: VERSION, to: next || 'unknown' });
     worker.postMessage({ type: 'SKIP_WAITING' });
   };
-  document.body.appendChild(bar);
 }
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
@@ -245,8 +276,22 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       // updateViaCache 'none': update checks always ask the server, including
       // for sw-manifest.js (GitHub Pages lets browsers cache files 10 min).
       const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
-      const watch = (w) => w?.addEventListener('statechange', () => {
-        if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
+      // Only updates get the bar; a first install just quietly goes offline-ready.
+      const isUpdate = () => !!navigator.serviceWorker.controller;
+      const watch = (w) => {
+        if (!w || !isUpdate()) return;
+        showDownloading(null);
+        w.addEventListener('statechange', () => {
+          if (w.state === 'installed') offerUpdate(w);
+          // Download failed (e.g. connection lost): try again on the next check.
+          const bar = document.querySelector('.update-bar');
+          if (w.state === 'redundant' && bar?.dataset.state === 'downloading') bar.remove();
+        });
+      };
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data?.type === 'UPDATE_PROGRESS' && isUpdate() && e.data.version !== VERSION) {
+          showDownloading(e.data.version, e.data.done, e.data.total);
+        }
       });
       if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
       watch(reg.installing);
