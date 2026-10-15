@@ -49,7 +49,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Missions">${ICON.back}</button>
           <h2>Mission ${n}</h2>
-          <button class="ll-assist" data-act="assist" aria-pressed="true" title="Stability assist: leans up to 30°, levels the lander when you let go, and stops sideways drift">ASSIST</button>
+          <button class="ll-assist" data-act="assist" aria-pressed="true" title="Stability assist: rotation springs back to level when you let go (leans about 20° while held), and sideways drift dies away">ASSIST</button>
           <button class="icon-btn" data-act="restart" aria-label="Restart">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas>

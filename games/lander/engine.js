@@ -14,7 +14,12 @@ export const ROT_MAX = (90 * Math.PI) / 180;
 export const HOLD_BAND = (4 * Math.PI) / 180; // attitude hold cancels slower spins
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
 export const SAFE = { vy: 2.2, vx: 1.2, angle: (10 * Math.PI) / 180 };
-export const ASSIST_TILT = (30 * Math.PI) / 180; // with assist on, tilt stays within this
+// With assist on, rotation acts like a stiff, well-damped spring back to
+// level: holding a turn button leans the lander against the spring until it
+// settles at ASSIST_TILT; let go and it springs back upright in about a second.
+export const ASSIST_TILT = (20 * Math.PI) / 180;
+const SPRING = 9; // stiffness (1/s^2): natural frequency 3 rad/s
+const SPRING_DAMP = 2 * 0.85 * 3; // damping ratio 0.85: no wobble
 export const ASSIST_DAMP = 0.6; // per second: how fast sideways drift dies away when level
 export const BASE_SEED = 20261018;
 
@@ -135,15 +140,13 @@ export function step(level, L, input, dt) {
 
   // Rotation: side thrusters change the spin rate; attitude hold quietly
   // cancels very slow drift so the craft is easy to steady. With assist on,
-  // the thrusters instead steer the tilt: to 30° while a turn button is held,
-  // and smoothly back to level when it's let go.
+  // rotation is a spring: a held turn button pushes against it (settling at
+  // 20°), and on release it springs back to level.
   if (input.assist && L.fuel > 0) {
-    const target = rotating ? L.rcs * ASSIST_TILT : 0;
-    const want = Math.max(-0.8, Math.min(0.8, (target - L.angle) * 2.5));
-    const dw = want - L.omega;
-    const max = 2 * ROT_ACCEL * dt;
-    L.omega += Math.max(-max, Math.min(max, dw));
-    L.rcs = Math.abs(dw) > 0.02 ? Math.sign(dw) : 0;
+    const push = rotating ? L.rcs * SPRING * ASSIST_TILT : 0;
+    const torque = push - SPRING * L.angle - SPRING_DAMP * L.omega;
+    L.omega += torque * dt;
+    L.rcs = Math.abs(torque) > 0.05 ? Math.sign(torque) : 0;
     if (L.rcs) L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
   } else if (rotating) {
     L.omega += L.rcs * ROT_ACCEL * dt;

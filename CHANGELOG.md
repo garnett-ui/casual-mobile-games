@@ -4,6 +4,12 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.18.1
+- Lunar Lander assist: rotation now works like a stiff spring. Holding a
+  turn button leans the lander against the spring until it settles at
+  about 20° (it can't get anywhere near 45°); let go and it springs back
+  upright in about a second, without wobbling.
+
 ## 1.18.0
 - Lunar Lander's stability assist is more helpful: it now leans up to 30°
   (was 9°) for quicker sideways moves, still levels the lander when you let

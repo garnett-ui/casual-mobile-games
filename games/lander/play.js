@@ -26,7 +26,7 @@ export class Play {
     this.level = level;
     this.hooks = hooks;
     this.input = { thrust: false, left: false, right: false };
-    this.assist = true; // stability assist: leans up to 30°, levels itself, damps drift
+    this.assist = true; // stability assist: rotation springs back to level; drift damped
     this.paused = false;
     this.timeScale = 1; // the browser tests fast-forward flights
     this.makeScenery();

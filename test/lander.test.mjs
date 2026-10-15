@@ -117,7 +117,7 @@ test('mission 1 is a short hop over flat ground; mountains come later', async ()
   assert.ok(Math.max(...makeTerrain(6).terrain) - 30 > 60, 'mission 6: a real hill');
 });
 
-test('stability assist: leans up to 30°, no further, and levels out when you let go', async () => {
+test('stability assist: rotation is a spring -- held, it settles at 20°; let go, it springs back', async () => {
   const { ASSIST_TILT } = await import('../games/lander/engine.js');
   const level = makeTerrain(1);
   const L = airborne(level);
@@ -126,9 +126,12 @@ test('stability assist: leans up to 30°, no further, and levels out when you le
     step(level, L, { right: true, assist: true }, 1 / 120);
     most = Math.max(most, Math.abs(L.angle));
   }
-  assert.ok(most <= ASSIST_TILT + 0.01, `held within 30° (max ${((most * 180) / Math.PI).toFixed(1)}°)`);
-  assert.ok(Math.abs(L.angle - ASSIST_TILT) < 0.02, 'leaning the way you asked');
-  fly(level, L, { assist: true }, 3);
+  const deg = (a) => ((a * 180) / Math.PI).toFixed(1);
+  assert.ok(Math.abs(L.angle - ASSIST_TILT) < 0.01, `settles at 20° (${deg(L.angle)}°)`);
+  assert.ok(most < (22 * Math.PI) / 180, `barely overshoots, never near 45° (max ${deg(most)}°)`);
+  fly(level, L, { assist: true }, 1.2);
+  assert.ok(Math.abs(L.angle) < (2 * Math.PI) / 180, `back near level within ~1 s (${deg(L.angle)}°)`);
+  fly(level, L, { assist: true }, 2);
   assert.ok(Math.abs(L.angle) < 0.01 && Math.abs(L.omega) < 0.01, 'level again');
 });
 
