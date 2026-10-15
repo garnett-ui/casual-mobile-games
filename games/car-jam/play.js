@@ -165,19 +165,37 @@ export class Play {
     return [a, h + d];
   }
 
+  // Gate positions along a side (where cars can leave the lot).
+  gatesOn(side) {
+    const n = side === 'N' || side === 'S' ? this.m.w : this.m.h;
+    const out = [];
+    for (let k = 0; k < n; k++) if (!this.m.fence[side].has(k)) out.push(k);
+    return out;
+  }
+
+  // Grannies cross at gates, so they hold up the cars trying to leave there.
   buildCrosswalks() {
     const { w, h } = this.m;
     const want = this.level.grannies || 0;
-    const options = [
-      ['W', Math.floor(h / 2) - (h > 4 ? 1 : 0)],
-      ['E', Math.floor(h / 2)],
-      ['N', w >= 5 ? 1 : 0],
-      ['S', w >= 5 ? w - 2 : w - 1],
-    ];
-    this.crosswalks = options.slice(0, want).map(([side, k]) => {
+    const pick = (side) => {
+      const size = side === 'N' || side === 'S' ? w : h;
+      let gates = this.gatesOn(side);
+      // Keep the top and bottom crossings clear of the exit roads.
+      if (side === 'N' || side === 'S') {
+        const away = gates.filter((k) => Math.abs(k + 0.5 - w / 2) > 1.2);
+        gates = away.length ? away : [];
+      }
+      if (!gates.length) return null;
+      return gates.reduce((a, b) => (Math.abs(b + 0.5 - size / 2) < Math.abs(a + 0.5 - size / 2) ? b : a));
+    };
+    this.crosswalks = [];
+    for (const side of ['W', 'E', 'N', 'S']) {
+      if (this.crosswalks.length >= want) break;
+      const k = pick(side);
+      if (k === null) continue;
       const [x, y] = this.sidePoint(side, O, k + 0.5);
-      return { side, k, s: this.ringS(x, y), next: 1.5 + this.r() * 3, blocked: false };
-    });
+      this.crosswalks.push({ side, k, s: this.ringS(x, y), next: 1.5 + this.r() * 3, blocked: false });
+    }
   }
 
   // ------------------------------------------------------------------ input
@@ -763,6 +781,21 @@ export class Play {
     ctx.lineWidth = Math.max(1.5, T * 0.05);
     ctx.strokeRect(0, 0, w * T, h * T);
 
+    // Faint exit lanes along every row/column that lines up with a gate.
+    for (const side of ['N', 'E', 'S', 'W']) {
+      for (const k of this.gatesOn(side)) {
+        const horiz = side === 'E' || side === 'W';
+        const g = horiz
+          ? ctx.createLinearGradient(side === 'W' ? 0 : w * T, 0, side === 'W' ? w * T : 0, 0)
+          : ctx.createLinearGradient(0, side === 'N' ? 0 : h * T, 0, side === 'N' ? h * T : 0);
+        g.addColorStop(0, 'rgba(255,230,120,0.16)');
+        g.addColorStop(1, 'rgba(255,230,120,0)');
+        ctx.fillStyle = g;
+        if (horiz) ctx.fillRect(0, k * T, w * T, T);
+        else ctx.fillRect(k * T, 0, T, h * T);
+      }
+    }
+
     // Hedges where cars can't leave the lot
     for (const side of ['N', 'E', 'S', 'W']) {
       for (const k of this.m.fence[side]) {
@@ -787,6 +820,46 @@ export class Play {
           ctx.arc(cx - 1, cy - 1, (Math.min(ww, hh) / 2) * 0.7, 0, Math.PI * 2);
           ctx.fill();
         }
+      }
+    }
+
+    // Gates: posts either side of each opening and an arrow pointing out.
+    for (const side of ['N', 'E', 'S', 'W']) {
+      const gates = this.gatesOn(side);
+      for (const k of gates) {
+        // Posts only at the two ends of each opening.
+        const posts = [];
+        if (!gates.includes(k - 1)) posts.push(k + 0.04);
+        if (!gates.includes(k + 1)) posts.push(k + 0.96);
+        for (const a of posts) {
+          const [px, py] = this.sidePoint(side, C * 0.45, a);
+          ctx.fillStyle = 'rgba(0,0,0,0.25)';
+          ctx.beginPath();
+          ctx.arc(px * T + 1.5, py * T + 2, T * 0.09, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ffd60a';
+          ctx.strokeStyle = '#3a3a3a';
+          ctx.lineWidth = Math.max(1, T * 0.03);
+          ctx.beginPath();
+          ctx.arc(px * T, py * T, T * 0.09, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+        const [ax, ay] = this.sidePoint(side, C * 0.5, k + 0.5);
+        const ang = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 }[side];
+        ctx.save();
+        ctx.translate(ax * T, ay * T);
+        ctx.rotate(ang);
+        ctx.strokeStyle = '#2a9d8f';
+        ctx.lineWidth = Math.max(2, T * 0.07);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-T * 0.08, -T * 0.16);
+        ctx.lineTo(T * 0.08, 0);
+        ctx.lineTo(-T * 0.08, T * 0.16);
+        ctx.stroke();
+        ctx.restore();
       }
     }
 

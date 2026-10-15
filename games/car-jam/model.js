@@ -205,7 +205,9 @@ export function rng(seed) {
 
 const OBSTACLE_KINDS = ['cone', 'tree', 'barrier', 'cone', 'bollard'];
 
-// Randomly fill a lot with cars. spec: { w, h, obstacles, truckRate, fenceRate }
+// Randomly fill a lot with cars.
+// spec: { w, h, obstacles, truckRate, gates (fraction of each side open) or
+//   fenceRate (random hedge runs) }
 export function randomLayout(r, spec) {
   const { w, h } = spec;
   const occ = new Uint8Array(w * h);
@@ -218,7 +220,16 @@ export function randomLayout(r, spec) {
     obs.push([x, y, OBSTACLE_KINDS[Math.floor(r() * OBSTACLE_KINDS.length)]]);
   }
   const fence = { N: [], E: [], S: [], W: [] };
-  if (spec.fenceRate) {
+  if (spec.gates) {
+    // The lot is hedged in, apart from a few gates (openings) per side.
+    for (const side of ['N', 'E', 'S', 'W']) {
+      const n = side === 'N' || side === 'S' ? w : h;
+      const open = new Set();
+      const want = Math.max(1, Math.min(n, Math.round(n * spec.gates)));
+      while (open.size < want) open.add(Math.floor(r() * n));
+      for (let k = 0; k < n; k++) if (!open.has(k)) fence[side].push(k);
+    }
+  } else if (spec.fenceRate) {
     for (const side of ['N', 'E', 'S', 'W']) {
       const n = side === 'N' || side === 'S' ? w : h;
       // Fences come in runs so they read as a hedge, not confetti.
@@ -397,11 +408,13 @@ function evaluate(level, spec) {
   const hard = waves(m) + 3 * sol.shuffles;
   const [lo, hi] = spec.hard || [0, 99];
   const miss = hard < lo ? lo - hard : hard > hi ? hard - hi : 0;
-  // Hit the hardness band first, then prefer a tight opening and more cars.
-  // Harder levels also favour layouts that force cars to be moved aside.
-  const shuffleBonus = spec.wantShuffles ? Math.min(sol.shuffles, spec.wantShuffles) * 40 : 0;
-  const score = miss * 100 + openCars(m) * 4 - level.cars.length - shuffleBonus;
-  return { score, hard, level: { ...level, par: sol.total } };
+  // Required number of cars to move aside before the lot can be cleared.
+  const short = Math.max(0, (spec.minShuffles || 0) - sol.shuffles);
+  // Hit the shuffle requirement and hardness band first, then prefer few
+  // cars able to leave straight away, more shuffles, and more cars.
+  const extra = Math.min(sol.shuffles, (spec.minShuffles || 0) + 3);
+  const score = short * 150 + miss * 100 + openCars(m) * 4 - level.cars.length - extra * 20;
+  return { score, hard, shuffles: sol.shuffles, level: { ...level, par: sol.total } };
 }
 
 // Small random change to a lot: drive a few cars away and refill the gaps,
@@ -412,7 +425,20 @@ function mutate(r, spec, level) {
   for (let k = 0; k < drop && cars.length; k++) cars.splice(Math.floor(r() * cars.length), 1);
   const fence = {};
   for (const [side, list] of Object.entries(level.fence || {})) fence[side] = list.slice();
-  if (spec.fenceRate && r() < 0.2) {
+  if (spec.gates && r() < 0.25) {
+    // Move one gate along its side.
+    const side = 'NESW'[Math.floor(r() * 4)];
+    const n = side === 'N' || side === 'S' ? level.w : level.h;
+    const list = fence[side] || [];
+    const gates = [];
+    for (let k = 0; k < n; k++) if (!list.includes(k)) gates.push(k);
+    if (gates.length && list.length) {
+      const g = gates[Math.floor(r() * gates.length)];
+      const f = Math.floor(r() * list.length);
+      list[f] = g; // the gate closes and that stretch of hedge opens
+      fence[side] = list;
+    }
+  } else if (spec.fenceRate && r() < 0.2) {
     const side = 'NESW'[Math.floor(r() * 4)];
     const n = side === 'N' || side === 'S' ? level.w : level.h;
     const k = Math.floor(r() * n);
@@ -431,8 +457,8 @@ function mutate(r, spec, level) {
 // Generate a level for a difficulty spec: the best of `tries` random lots,
 // then up to `spec.climb` rounds of hill-climbing (mutate, keep if no
 // worse) within `spec.budget` solver states.
-// spec: { w, h, density, obstacles, truckRate, fenceRate, edgeBias, minCars,
-//   maxCars, hard: [lo, hi], wantShuffles: max forced moves to reward,
+// spec: { w, h, density, obstacles, truckRate, gates | fenceRate, edgeBias,
+//   minCars, maxCars, hard: [lo, hi], minShuffles: forced moves required,
 //   climb, budget, maxStates }.
 // Hardness = waves + 3 * forced repositioning moves.
 export function generateLevel(seed, spec, tries = 200) {
@@ -444,7 +470,13 @@ export function generateLevel(seed, spec, tries = 200) {
   }
   // Climb until the iteration count or the search-work budget runs out.
   const budget = work + (spec.budget || Infinity);
-  for (let k = 0; best && k < (spec.climb || 0) && work < budget; k++) {
+  // If the lot still doesn't need any car moved aside, keep climbing (well
+  // past the budget if need be): every level must need at least one.
+  const mustShuffle = (spec.minShuffles || 0) >= 1;
+  const limit = (spec.climb || 0) + (mustShuffle ? 5000 : 0);
+  for (let k = 0; best && k < limit; k++) {
+    const pastBudget = k >= (spec.climb || 0) || work >= budget;
+    if (pastBudget && !(mustShuffle && best.shuffles === 0)) break;
     const e = evaluate(mutate(r, spec, best.level), spec);
     if (e && e.score <= best.score) best = e;
   }

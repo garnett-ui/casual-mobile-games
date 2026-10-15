@@ -1,15 +1,17 @@
 // Car Jam levels: generated on the device from a seed, endlessly.
 //
 // Level n is built from seedFor(n), so every player gets the same level n,
-// and difficulty is a smooth function of n with no upper bound: the lot grows
-// until it's as big as fits a phone, then hedges, obstacles, trucks, grannies
-// and the required depth of the puzzle keep rising, with the generator
-// searching harder for tougher layouts as n grows.
+// and difficulty is a smooth function of n with no upper bound. Every lot is
+// hedged in with only a few gates, so cars must be shuffled out of each
+// other's way to reach them. The lot grows until it's as big as fits a phone,
+// then fewer gates, more obstacles, trucks, grannies and more required
+// shuffles keep raising the bar, with the generator searching harder for
+// tougher layouts as n grows.
 import { generateLevel } from './model.js';
 
 export const BASE_SEED = 20261015;
 // Bump when generation changes, so levels cached on devices are rebuilt.
-export const GEN_VERSION = 1;
+export const GEN_VERSION = 2;
 
 // Mix the base seed and level number into a well-spread 32-bit seed.
 export function seedFor(n, base = BASE_SEED) {
@@ -19,11 +21,12 @@ export function seedFor(n, base = BASE_SEED) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
+// The first few lots teach the rules; all are hedged in with a few gates.
 const TUTORIAL = [
-  { w: 3, h: 3, maxCars: 3, hard: [2, 2] },
-  { w: 3, h: 4, maxCars: 4, hard: [2, 2] },
-  { w: 4, h: 4, hard: [2, 3] },
-  { w: 4, h: 5, hard: [3, 3], edgeBias: 0.5 },
+  { w: 3, h: 3, gates: 0.67, maxCars: 3, hard: [2, 2] },
+  { w: 3, h: 4, gates: 0.5, maxCars: 4, hard: [2, 3] },
+  { w: 4, h: 4, gates: 0.5, hard: [2, 4], minShuffles: 1 },
+  { w: 4, h: 5, gates: 0.4, density: 0.8, hard: [3, 5], edgeBias: 0.5, minShuffles: 1 },
 ];
 
 // Largest lot that still leaves cars big enough to swipe on a phone.
@@ -46,12 +49,16 @@ export function specFor(n) {
     edgeBias: Math.min(0.9, 0.5 + n * 0.01),
     obstacles: n < 9 ? 0 : Math.min(8, 1 + Math.floor((n - 9) / 8)),
     truckRate: n < 13 ? 0 : Math.min(0.3, 0.12 + (n - 13) * 0.004),
-    fenceRate: n < 17 ? 0 : Math.min(0.45, 0.12 + (n - 17) * 0.005),
-    wantShuffles: n >= 21 ? Math.min(6, 1 + Math.floor(n / 30)) : 0,
+    // Hedges all round with only a few gates: the share of each side that
+    // is open shrinks from about half to under a third.
+    gates: Math.max(0.3, 0.45 - 0.006 * n),
+    // Cars that must be moved aside before everyone can get out: at least
+    // one from the start, rising steadily.
+    minShuffles: Math.min(12, 1 + Math.floor((n - 4) / 10)),
     tries: Math.min(400, 150 + n * 2),
     // Search effort grows with n, bounded by a fixed amount of solver work
     // so a level still builds in a moment on a phone.
-    climb: n < 21 ? 0 : Math.min(2000, (n - 20) * 12),
+    climb: Math.min(2000, 100 + n * 12),
     budget: Math.min(150000, 20000 + n * 1500),
     maxStates: 8000,
   };
@@ -66,13 +73,12 @@ export function granniesFor(n) {
 }
 
 const TIPS = {
-  1: 'Swipe a car (or tap it) to drive it out of the lot!',
-  2: 'Cars only drive forwards or backwards. Clear the way first!',
+  1: 'Cars can only leave through the gaps in the hedge. Swipe a car (or tap it) to drive it out!',
+  2: 'Cars only drive forwards or backwards. Line them up with a gap to get out.',
+  3: 'Blocked? Move another car aside first to clear the way to a gap.',
   5: 'Grannies cross the street here. Cars wait for them -- she has right of way!',
   9: 'Cones, trees and barriers never move. Drive around them!',
   13: 'Trucks are long and take up three spaces.',
-  17: 'Hedges: cars cannot leave the lot through them.',
-  21: 'From here on, some cars must be moved aside before others can leave.',
 };
 
 export function makeLevel(n, base = BASE_SEED) {

@@ -123,6 +123,25 @@ test('generated levels are valid and solvable, with par = optimal moves', () => 
   for (const n of [1, 2, 3, 4, 5, 8, 12, 17, 21, 25, 30, 40]) checkLevel(makeLevel(n), n);
 });
 
+test('lots are hedged in with only a few gates, and cars must be moved aside', () => {
+  for (let n = 3; n <= 30; n++) {
+    const level = makeLevel(n);
+    const edge = 2 * (level.w + level.h);
+    const open = edge - Object.values(level.fence || {}).reduce((a, l) => a + l.length, 0);
+    assert.ok(open <= edge / 2, `level ${n}: at most half the edge is open (${open}/${edge})`);
+    for (const side of ['N', 'E', 'S', 'W']) {
+      const size = side === 'N' || side === 'S' ? level.w : level.h;
+      assert.ok((level.fence[side] || []).length < size, `level ${n}: every side has a gate`);
+    }
+    const m = buildModel(level);
+    assert.ok(solve(m, m.start).shuffles >= 1, `level ${n}: some car must be moved aside`);
+  }
+  // Big lots: under a third of the edge is open.
+  const big = makeLevel(80);
+  const fenced = Object.values(big.fence).reduce((a, l) => a + l.length, 0);
+  assert.ok(2 * (big.w + big.h) - fenced <= (2 * (big.w + big.h)) / 3);
+});
+
 test('the same level number always builds the same lot', () => {
   assert.deepEqual(makeLevel(23), makeLevel(23));
   assert.notDeepEqual(makeLevel(23), makeLevel(24));

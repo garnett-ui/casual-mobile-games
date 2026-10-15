@@ -8,21 +8,23 @@ the site once, add it to your home screen, and play anywhere.
 
 ### Car Jam
 
-A top-down parking-lot puzzle. The lot is jammed full of cars; swipe a car
-(or tap it to drive forwards) and it drives until it hits something. If the
-way is clear it pulls out onto the ring road and heads for an exit. Clear every
-car to win.
+A top-down parking-lot puzzle. The lot is jammed full of cars and hedged in,
+with only a few gates out to the ring road. Swipe a car (or tap it to drive
+forwards) and it drives until it hits something; a car can only leave if it
+lines up with a gate and its way there is clear, so you have to shuffle cars
+out of each other's way to get everyone out. Clear every car to win.
 
 - **Endless levels, generated on the device from a seed.** Level *n* is the
   same lot for everyone, and each level is a little tougher than the last,
   forever: the lot grows from a 3×3 tutorial to a packed 9×11 (the most that
-  fits a phone), then the generator keeps raising the bar with more hedges,
-  obstacles, trucks and grannies and puzzles that need more cars shuffled out
-  of the way, searching harder for tough layouts the further you get.
+  fits a phone), gates get scarcer (under a third of the edge is open on big
+  lots), and every level from 3 on needs at least one car moved aside, rising
+  to several. The generator searches harder for tough layouts the further you
+  get.
 - **Grannies** cross the street at the crosswalks. Cars wait for them (and they
   let you know about it).
-- **Cones, trees, barriers and bollards** that never move, **trucks** that take
-  three spaces, and **hedges** along the lot edge that cars can't drive through.
+- **Cones, trees, barriers and bollards** that never move, and **trucks** that
+  take three spaces.
 - **Stars** for matching par (the fewest possible moves, computed by the
   solver), plus **Undo**, **Restart** and a **Hint** button that always knows
   the best next move.
