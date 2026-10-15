@@ -55,6 +55,7 @@ export function mount(root, ctx, sub) {
   }
 
   function startPlay(n, level) {
+    ctx.track('level_start', { level: n });
     levels.get(n + 1);
     root.innerHTML = `
       <div class="screen play-screen tm-screen">
@@ -110,6 +111,7 @@ export function mount(root, ctx, sub) {
   function showWin(n, { stars, hearts }) {
     if (!play) return;
     progress.complete(n, stars);
+    ctx.track('level_complete', { level: n, stars });
     ctx.sfx('win');
     ctx.haptic(40);
     const lost = HEARTS - hearts;
@@ -129,6 +131,7 @@ export function mount(root, ctx, sub) {
 
   function showFail(n) {
     if (!play) return;
+    ctx.track('level_fail', { level: n });
     ctx.sfx('lose');
     showDialog(root.querySelector('.dialog'), ctx, {
       title: 'Out of hearts!',

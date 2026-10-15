@@ -98,6 +98,15 @@ Create `games/<id>/index.js` exporting `mount(element, ctx, route)` that
 returns `{ route(sub), destroy() }`, add an entry to `js/games.js`, and run
 `npm run build`.
 
+### Analytics
+
+`js/lib/analytics.js` reports to Google Analytics 4 (the mckoss.com property,
+`G-GBPSK1HQ34`). Events are queued on the device and sent whenever it is
+online, so play while offline is uploaded on the next connection (tagged with
+`queued_minutes`). Events: `page_view`, `app_open` (installed vs browser),
+`app_installed`, `level_start`, `level_complete` (with `stars`) and
+`level_fail`, each with `game` and `level`. Nothing is sent from localhost.
+
 ### Deployment
 
 The app is a static site hosted on GitHub Pages. `.github/workflows/ci.yml`

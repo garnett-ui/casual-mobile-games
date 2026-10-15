@@ -54,6 +54,7 @@ export function mount(root, ctx, sub) {
   }
 
   function startPlay(n, level) {
+    ctx.track('level_start', { level: n });
     // Build the next lot in the background while this one is played.
     levels.get(n + 1);
     root.innerHTML = `
@@ -113,6 +114,7 @@ export function mount(root, ctx, sub) {
   function showWin(n, { moves, par, stars }) {
     if (!play) return;
     progress.complete(n, stars);
+    ctx.track('level_complete', { level: n, stars });
     ctx.sfx('win');
     ctx.haptic(40);
     const note = moves <= par ? 'Perfect — you matched par!' : `Par is ${par}. Can you do it in fewer moves?`;

@@ -3,6 +3,7 @@ import { unlockAudio, sfx } from './lib/audio.js';
 import { getSetting, setSetting, haptic } from './lib/settings.js';
 import { load, save } from './lib/storage.js';
 import { canPrompt, promptInstall, isIOS, isStandalone, onInstallChange } from './lib/install.js';
+import { track, trackPage, startAnalytics } from './lib/analytics.js';
 
 const view = document.getElementById('view');
 let current = null; // { id, instance }
@@ -27,8 +28,14 @@ export function back(parent) {
   else navigate(parent, { replace: true });
 }
 
+let lastPage = null;
+
 async function route() {
   const { id, sub } = parse();
+  if (id !== lastPage) {
+    lastPage = id;
+    trackPage(id);
+  }
   const game = GAMES.find((g) => g.id === id);
   if (!game) {
     unmount();
@@ -66,6 +73,7 @@ function ctxFor(game) {
     save: (key, value) => save(`${game.id}:${key}`, value),
     getSetting,
     setSetting,
+    track: (name, params = {}) => track(name, { game: game.id, ...params }),
   };
 }
 
@@ -229,6 +237,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 // Audio may only start after a user gesture on mobile.
 window.addEventListener('pointerdown', unlockAudio, { capture: true });
 window.addEventListener('popstate', route);
+startAnalytics();
 // Stop iOS from rubber-band scrolling / double-tap zooming the app.
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 route();

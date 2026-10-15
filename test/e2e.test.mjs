@@ -216,3 +216,48 @@ test('tap maze: blocked arrows cost a heart, clearing the board wins', { skip: !
     server.close();
   }
 });
+
+test('analytics events recorded offline are sent once back online', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    // Stand-in for gtag.js so the test never talks to Google.
+    let gtagLoads = 0;
+    await context.route('https://www.googletagmanager.com/**', (route) => {
+      gtagLoads++;
+      route.fulfill({ contentType: 'text/javascript', body: 'window.__gtagLoaded = true;' });
+    });
+    const page = await context.newPage();
+    const url = `http://localhost:${server.address().port}/`;
+    // First visit installs the offline cache.
+    await page.goto(url);
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      }
+      localStorage.setItem('pocket-arcade:analytics-test', 'true');
+    });
+    // Later the app is opened and played with no connection.
+    await context.setOffline(true);
+    await page.reload();
+    await page.locator('[data-game=car-jam]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__carJamPlay);
+    const queued = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:analytics-queue')).map((e) => e.name));
+    assert.ok(queued.includes('level_start'), `queued while offline: ${queued}`);
+
+    await context.setOffline(false);
+    await page.waitForFunction(() => window.__gtagLoaded &&
+      JSON.parse(localStorage.getItem('pocket-arcade:analytics-queue')).length === 0);
+    const sent = await page.evaluate(() => window.dataLayer.filter((a) => a[0] === 'event').map((a) => [a[1], a[2]]));
+    const names = sent.map(([n]) => n);
+    assert.ok(names.includes('app_open') && names.includes('level_start') && names.includes('page_view'), names.join());
+    assert.equal(sent.find(([n]) => n === 'level_start')[1].game, 'car-jam');
+    assert.ok(gtagLoads >= 1);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
