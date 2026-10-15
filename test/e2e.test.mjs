@@ -299,7 +299,7 @@ test('updates: progress on the home screen only, Update installs the newest, res
     const active = () => page.evaluate(() => new Promise((resolve) => {
       const ch = new MessageChannel();
       ch.port1.onmessage = (e) => resolve(e.data);
-      navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+      navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION', client: 'test' }, [ch.port2]);
     }));
     const waiting = () => page.evaluate(async () => {
       const reg = await navigator.serviceWorker.getRegistration();
@@ -307,7 +307,7 @@ test('updates: progress on the home screen only, Update installs the newest, res
       return new Promise((resolve) => {
         const ch = new MessageChannel();
         ch.port1.onmessage = (e) => resolve(e.data);
-        reg.waiting.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+        reg.waiting.postMessage({ type: 'GET_VERSION', client: 'test' }, [ch.port2]);
       });
     });
     const bar = page.locator('.update-bar');
@@ -352,7 +352,7 @@ test('updates: progress on the home screen only, Update installs the newest, res
       const v = await new Promise((resolve) => {
         const ch = new MessageChannel();
         ch.port1.onmessage = (e) => resolve(e.data);
-        c.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+        c.postMessage({ type: 'GET_VERSION', client: 'test' }, [ch.port2]);
       });
       return v === '101.0.0';
     }, null, { timeout: 20000 });

@@ -4,6 +4,12 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.8.5
+- Apps stuck on an older version (before 1.8.3, whose Update button could
+  fail) are now switched to the new version automatically: the new service
+  worker detects pages that can't update themselves, takes over and
+  reloads them. Current pages still get the "Update to …" prompt.
+
 ## 1.8.4
 - The update bar names the version throughout: "Downloading update
   v1.9.0… You have v1.8.4", "Update to v1.9.0", "Updating v1.8.4 →

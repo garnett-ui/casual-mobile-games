@@ -307,7 +307,7 @@ function versionOf(worker) {
       clearTimeout(timer);
       resolve(e.data);
     };
-    worker.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+    worker.postMessage({ type: 'GET_VERSION', client: VERSION }, [ch.port2]);
   });
 }
 
@@ -322,6 +322,12 @@ async function readyFrom(worker) {
 }
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // Tell a new service worker this page can update itself (pages from before
+  // v1.8.3 can't, and get switched over automatically). Listen from the very
+  // start so no ping is missed.
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data?.type === 'PING_CLIENT') e.ports[0]?.postMessage({ version: VERSION });
+  });
   window.addEventListener('load', async () => {
     try {
       // updateViaCache 'none': update checks always ask the server, including
