@@ -100,6 +100,11 @@ const SFX = {
     tone('square', 1046, 1046, 0.09, 0.05, 0.14, 3000);
   },
   contact: () => tone('sine', 1320, 1320, 0.12, 0.08),
+  // Jigsaw: a piece clicking into place.
+  snap: () => {
+    thump(0.25, 0.05, 2500);
+    tone('triangle', 880, 1320, 0.08, 0.12);
+  },
   star: () => tone('triangle', 880, 1320, 0.25, 0.2),
   win: () => [523, 659, 784, 1047].forEach((f, k) => tone('triangle', f, f, 0.3, 0.2, k * 0.11)),
 };

@@ -4,6 +4,14 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.8.0
+- New game: Jigsaw. Make a puzzle from a photo you choose or take with the
+  camera; photos are saved on the device (never uploaded). About 100 pieces
+  by default (24-200), classic tab-and-blank pieces, the picture as large as
+  the screen allows with a border all round for loose pieces. Guide image,
+  peek, edge-pieces-only and scatter helpers; progress is saved so you can
+  continue later. Two built-in pictures to start with.
+
 ## 1.7.0
 - New game: Lunar Lander. Lift off, fly over the mountains and land gently
   on the base. Realistic momentum and spin (side thrusters change the spin

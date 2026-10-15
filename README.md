@@ -79,6 +79,21 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   so it is always possible; fuel is what it needed plus a margin that shrinks
   from 2× to 1.25×, while mountains rise and the base narrows.
 
+### Jigsaw
+
+Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo
+picker and **Take photo** the camera; the picture is scaled to at most 2048 px
+and saved on the device in IndexedDB (nothing is uploaded), so it's there for
+future puzzles. Two built-in pictures are included too.
+
+- About 100 pieces by default (24 / 48 / 100 / 150 / 200), with the grid fitted
+  to the photo so pieces are near-square, and classic tab-and-blank shapes.
+- The picture fills as much of the screen as possible with a border on every
+  side; loose pieces start scattered around it. Drag a piece near its spot and
+  it snaps in.
+- Helpers: faint guide image, hold-to-peek at the whole picture, show edge
+  pieces only, and scatter. The puzzle in progress is saved for later.
+
 ## Installing on a device
 
 - **iPhone / iPad (Safari):** open the site, tap **Share**, then **Add to
@@ -133,6 +148,8 @@ games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
                             play.js, draw.js, index.js, worker.js
 games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
+games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
+js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback
 js/lib/campaign.js          shared level select, progress and dialogs
 js/lib/level-source.js      builds levels in a worker, prefetches and caches

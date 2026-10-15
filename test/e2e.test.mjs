@@ -447,3 +447,60 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     server.close();
   }
 });
+
+test('jigsaw: pick a photo, it is saved, pieces snap into place, progress resumes', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    // A test "photo": render a colourful picture to PNG.
+    const shot = await browser.newPage({ viewport: { width: 640, height: 480 } });
+    await shot.setContent('<body style="margin:0;background:linear-gradient(45deg,#f72585,#4361ee,#4cc9f0)"><h1 style="font:80px sans-serif;color:#fff;margin:150px 60px">Hello!</h1></body>');
+    const png = await shot.screenshot();
+    await shot.close();
+
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=jigsaw]').click();
+    await page.locator('.jg-sizes button[data-n="24"]').click();
+    await page.locator('input[data-src=gallery]').setInputFiles({ name: 'test.png', mimeType: 'image/png', buffer: png });
+    await page.waitForFunction(() => window.__jigsaw && window.__jigsaw.pieces.length > 0);
+    const n = await page.evaluate(() => window.__jigsaw.pieces.length);
+    assert.ok(n >= 20 && n <= 30, `about 24 pieces (${n})`);
+
+    // Drag a real piece onto its spot: it snaps in.
+    const drag = await page.evaluate(() => {
+      const p = window.__jigsaw;
+      const piece = p.pieces[p.order.at(-1)];
+      const at = p.pos(piece);
+      const home = p.home(piece);
+      const r = p.canvas.getBoundingClientRect();
+      return { from: [r.left + at.x + p.pw / 2, r.top + at.y + p.ph / 2], to: [r.left + home.x + p.pw / 2 + 4, r.top + home.y + p.ph / 2 - 3] };
+    });
+    await page.mouse.move(...drag.from);
+    await page.mouse.down();
+    await page.mouse.move(...drag.to, { steps: 8 });
+    await page.mouse.up();
+    assert.equal(await page.locator('[data-placed]').textContent(), '1');
+
+    // Leave and come back: the photo is saved and the puzzle can be continued.
+    await page.locator('[data-act=menu]').click();
+    await page.locator('[data-list=photos] .jg-tile').first().waitFor();
+    assert.equal(await page.locator('[data-list=photos] .jg-tile').count(), 1);
+    await page.locator('.jg-continue button').click();
+    await page.waitForFunction(() => window.__jigsaw && window.__jigsaw.placedCount() === 1);
+
+    // Finish it.
+    await page.evaluate(() => {
+      const p = window.__jigsaw;
+      for (const piece of p.pieces) if (!piece.placed) p.place(piece);
+    });
+    await page.locator('.dialog:not([hidden])').waitFor();
+    assert.match(await page.locator('.dialog h3').textContent(), /Puzzle complete/);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

@@ -34,6 +34,14 @@ export const GAMES = [
     load: () => import('../games/lander/index.js'),
     art: () => import('../games/lander/art.js'),
   },
+  {
+    id: 'jigsaw',
+    title: 'Jigsaw',
+    blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',
+    color: '#4361ee',
+    load: () => import('../games/jigsaw/index.js'),
+    art: () => import('../games/jigsaw/art.js'),
+  },
 ];
 
 export const COMING_SOON = [
