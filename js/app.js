@@ -242,7 +242,9 @@ async function offerUpdate(worker) {
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('sw.js');
+      // updateViaCache 'none': update checks always ask the server, including
+      // for sw-manifest.js (GitHub Pages lets browsers cache files 10 min).
+      const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
       const watch = (w) => w?.addEventListener('statechange', () => {
         if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
       });

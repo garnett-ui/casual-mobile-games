@@ -4,6 +4,10 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.4.1
+- Update checks always ask the server, so a new version is noticed right
+  away instead of up to 10 minutes later.
+
 ## 1.4.0
 - New app icon: a classic arcade cabinet (screen, joystick, buttons, coin
   door), with maskable versions for Android's icon shapes, a full-bleed iOS
