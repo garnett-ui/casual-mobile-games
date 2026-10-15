@@ -31,6 +31,13 @@ export const RIDDLES = [
   { left: ['HOTFOOT HWY', 'Tires sold separately'], right: ['COOL ST', 'Tires stay round'], safe: 'R', hazard: 'fire' },
   { left: ['THELMA & LOUISE', 'Scenic Overlook'], right: ['DRIVE-IN MOVIE', 'Happy ending'], safe: 'R', hazard: 'cliff' },
   { left: ['PINK FLOYD AVE', 'Another brick...'], right: ['BEATLES BLVD', 'Let it be'], safe: 'R', hazard: 'wall' },
+  { left: ['MT. DOOM SCENIC RTE', 'Lava view, no exit'], right: ['SHIRE LN', 'Second breakfast'], safe: 'R', hazard: 'volcano' },
+  { left: ['HOT SPRINGS', '1,200 °C'], right: ['COLD SPRINGS', 'Refreshing'], safe: 'R', hazard: 'volcano' },
+  { left: ['POMPEII', 'Very historic'], right: ['NAPLES', 'Pizza'], safe: 'R', hazard: 'volcano' },
+  { left: ['MAGMA BLVD', 'Rock and roll'], right: ['GRANITE WAY', 'Rock solid'], safe: 'R', hazard: 'volcano' },
+  // The drawbridge is a gamble: fast enough and you jump it for +1000.
+  { left: ['DRAWBRIDGE UP', 'Jump at 70+ MPH'], right: ['FERRY', 'Free tonight'], safe: 'R', hazard: 'drawbridge' },
+  { left: ['EVEL KNIEVEL BLVD', 'Floor it!'], right: ['SENSIBLE ST', 'No jumping'], safe: 'R', hazard: 'drawbridge' },
 ];
 
 // What happened, when you find a hazard the hard way.
@@ -41,4 +48,6 @@ export const CRASH_LINES = {
   bridge: ['The bridge was out.', 'Your car is not a boat.'],
   cliff: ['You found the Grand Canyon.', 'The hard way.'],
   washout: ['The road washed out.', 'So did you.'],
+  volcano: ['Into the volcano.', 'Toasty.'],
+  drawbridge: ['Not quite fast enough.', 'Glug.'],
 };

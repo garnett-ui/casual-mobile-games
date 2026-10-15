@@ -97,8 +97,14 @@ keyboard, use the arrows or WASD.
   riddles: *FREE EGGS → take the EGGS-IT*, *EXIT 404: road not found*, *What
   has a bed but never sleeps?* One branch ends in a hazard, drawn
   realistically: a brick wall, a road on fire, a bridge that's out, the Grand
-  Canyon, or a road washed away. Brake to a stop in time and you're sent back
-  to the right road.
+  Canyon (you fall in), a boiling volcano (you fall in), or a road washed
+  away. Brake to a stop in time and you're sent back to the right road.
+- The drawbridge is a gamble: both leaves are up, and at 70 mph or more you
+  jump the river for +1000. Any slower and you're swimming.
+- It starts out looking like the 1976 screen (big posts, steep arcade
+  perspective) and eases into ordinary perspective before the first sign.
+- No 3D engine: it's a hand-written perspective projection on a 2D canvas,
+  with particle flames, smoke and embers, and short animated falls.
 
 ### Jigsaw
 

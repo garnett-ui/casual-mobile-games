@@ -692,13 +692,14 @@ test('night driver: two thumbs at once, a fork read right, a wrong turn, game ov
     // Now take the wrong road: it ends in the hazard the sign warned of.
     const hazard = await page.evaluate(() => {
       const p = window.__nightDriver;
-      p.pilotOpts = { wrong: true };
+      p.pilotOpts = { wrong: true, speed: 25 }; // (too slow to jump a drawbridge)
       p.road.extend(p.car.z + 6000);
       return p.road.forks[1].hazard;
     });
     await page.waitForFunction(() => window.__nightDriver.car.crashes > 0, null, { timeout: 60000 });
     const { CRASH_LINES } = await import('../games/night-driver/signs.js');
-    assert.equal(await page.evaluate(() => window.__nightDriver.message?.title), CRASH_LINES[hazard][0]);
+    // (After a fall, the line shows once you hit the bottom.)
+    await page.waitForFunction((t) => window.__nightDriver.message?.title === t, CRASH_LINES[hazard][0], { timeout: 30000 });
 
     // Out of time: coast to a stop and see the score.
     await page.evaluate(() => {

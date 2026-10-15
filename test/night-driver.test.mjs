@@ -127,3 +127,40 @@ test('holding a bend takes steering in proportion to speed', () => {
   assert.ok(car.onRoad());
   assert.equal(split({ z: 0 }, 0), 0);
 });
+
+test('the drawbridge: 70 mph or more jumps it for +1000, slower lands in the river', async () => {
+  const { JUMP_V, jumpHeight, BRIDGE } = await import('../games/night-driver/engine.js');
+  assert.ok(JUMP_V * 2.237 > 65 && JUMP_V * 2.237 < 75, `about 70 mph (${(JUMP_V * 2.237).toFixed(1)})`);
+  // At the jump speed you just reach the far leaf; much faster flies past it.
+  const tip = BRIDGE.GAP - BRIDGE.LEAF * Math.cos(BRIDGE.RAMP);
+  assert.ok(jumpHeight(tip, JUMP_V) > 0 && jumpHeight(BRIDGE.GAP + 5, JUMP_V) === 0);
+  assert.ok(jumpHeight(BRIDGE.GAP + 5, JUMP_V * 1.5) > 0);
+  const run = (speed) => {
+    const road = new Road(11);
+    road.extend(5000);
+    const f = road.forks[0];
+    f.hazard = 'drawbridge';
+    const car = new Car(road);
+    car.time = 1e9;
+    car.z = f.z - 600;
+    return drive(car, 60, (c) => autopilot(c, { wrong: true, speed }));
+  };
+  const fast = run(40);
+  assert.ok(fast.some((e) => e.type === 'jump'));
+  assert.ok(!fast.some((e) => e.type === 'crash'));
+  const slow = run(25);
+  assert.equal(slow.find((e) => e.type === 'crash')?.kind, 'drawbridge');
+});
+
+test('the volcano is the end of the road', () => {
+  const road = new Road(12);
+  road.extend(5000);
+  const f = road.forks[0];
+  f.hazard = 'volcano';
+  const car = new Car(road);
+  car.time = 1e9;
+  car.z = f.z - 600;
+  const events = drive(car, 60, (c) => autopilot(c, { wrong: true, speed: 40 }));
+  assert.equal(events.find((e) => e.type === 'crash')?.kind, 'volcano');
+  assert.ok(car.crashes === 1);
+});

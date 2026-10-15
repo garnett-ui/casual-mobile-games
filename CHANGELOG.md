@@ -4,6 +4,17 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.14.0
+- Night Driver: drive off the Grand Canyon's edge and you fall in, walls of
+  rock rushing past, down to the river.
+- New hazard: the mouth of a **boiling volcano**, with a lava lake of
+  drifting glowing crust, bubbles, embers and smoke. You fall into that too.
+- New: the **drawbridge**, raised. Hit it at 70 mph or more and you fly
+  across the river (+1000); slower and you land in the water.
+- More realistic fire: particle flames, smoke and embers.
+- New signs for both ("MT. DOOM SCENIC RTE", "POMPEII / Very historic",
+  "EVEL KNIEVEL BLVD / Floor it!").
+
 ## 1.13.0
 - Lunar Lander is much easier to start: mission 1 is a 30 m hop over flat
   ground, mission 2 a little further, and hills only start at mission 3,

@@ -26,7 +26,30 @@ export const SIGN_LEAD = 420; // the sign stands this far before its fork
 export const HAZARD_AT = SPLIT + 80; // hazard this far past the fork
 export const CHECKPOINT = 3000; // more time every this many metres
 export const START_TIME = 75; // seconds
-export const HAZARDS = ['wall', 'fire', 'bridge', 'cliff', 'washout'];
+export const HAZARDS = ['wall', 'fire', 'bridge', 'cliff', 'washout', 'volcano', 'drawbridge'];
+
+// The drawbridge: two leaves raised at RAMP, each LEAF metres long, GAP
+// metres from hinge to hinge. Hit the near leaf fast enough and you fly
+// across to the far one.
+export const BRIDGE = { RAMP: (32 * Math.PI) / 180, LEAF: 18, GAP: 120 };
+const G = 9.8;
+const TIPS = BRIDGE.GAP - 2 * BRIDGE.LEAF * Math.cos(BRIDGE.RAMP); // tip to tip
+// Speed to clear the gap between the raised tips (about 70 mph).
+export const JUMP_V = Math.sqrt((TIPS * G) / Math.sin(2 * BRIDGE.RAMP));
+
+// Height of a car above the road, s metres past the drawbridge's near hinge,
+// launched at speed v: up the ramp, through the air, down the far leaf.
+export function jumpHeight(s, v) {
+  const { RAMP, LEAF, GAP } = BRIDGE;
+  const t = Math.tan(RAMP);
+  const lc = LEAF * Math.cos(RAMP);
+  if (s <= 0) return 0;
+  if (s <= lc) return s * t;
+  const far = s > GAP - lc && s < GAP ? (GAP - s) * t : 0;
+  const x = s - lc;
+  const fly = lc * t + x * t - (G * x * x) / (2 * v * v * Math.cos(RAMP) ** 2);
+  return Math.max(far, fly, 0);
+}
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
@@ -169,7 +192,7 @@ export class Car {
   // The hazard you're heading for, if you took a wrong turn.
   hazardAhead() {
     for (const f of this.road.forks) {
-      if (!f.side || f.side === f.safe) continue;
+      if (!f.side || f.side === f.safe || f.jumped) continue;
       const z = f.z + HAZARD_AT;
       if (z > this.z - 1) return { fork: f, z, kind: f.hazard };
     }
@@ -233,7 +256,13 @@ export class Car {
       ev.push({ type: 'checkpoint', bonus });
     }
     const hz = this.hazardAhead();
-    if (hz && hz.z - this.z <= 1.5) {
+    if (hz && hz.kind === 'drawbridge' && hz.z - this.z <= 0 && this.v >= JUMP_V) {
+      // Fast enough: off the ramp and across.
+      hz.fork.jumped = true;
+      hz.fork.jumpV = this.v;
+      this.score += 1000;
+      ev.push({ type: 'jump', speed: this.v });
+    } else if (hz && hz.z - this.z <= (hz.kind === 'drawbridge' ? 0 : 1.5)) {
       this.crash(ev, hz.kind, hz.fork);
     } else if (hz && this.v === 0 && hz.z - this.z < 90) {
       // Stopped in time: turn round and take the other road.
@@ -253,7 +282,8 @@ export class Car {
     ev.push({ type: 'crash', kind, speed: this.v });
     if (fork) fork.side = fork.safe;
     this.recover();
-    this.freeze = kind === 'posts' ? 1.6 : 2.8;
+    // Long falls take a while to watch.
+    this.freeze = kind === 'posts' ? 1.6 : kind === 'cliff' || kind === 'volcano' || kind === 'drawbridge' ? 4.6 : 2.8;
   }
 
   end(ev) {

@@ -1,6 +1,6 @@
 // Night Driver in play: the view through the windscreen (roadside posts in
 // perspective, the green signs, the hazards), the instruments and the loop.
-import { Road, Car, autopilot, split, POST_OUT, POST_GAP, MPH, MAX_HEAD, SIGN_LEAD, HAZARD_AT, FIRST_FORK, VMAX, HALF } from './engine.js';
+import { Road, Car, autopilot, split, POST_OUT, POST_GAP, MPH, MAX_HEAD, SIGN_LEAD, HAZARD_AT, FIRST_FORK, VMAX, HALF, BRIDGE, jumpHeight } from './engine.js';
 import { CRASH_LINES } from './signs.js';
 import { drawDigits, digitsWidth } from './segments.js';
 
@@ -11,7 +11,8 @@ const STEP = 2; // metres between samples of the road's bend
 // the posts are big, tall blocks. The game starts like that and eases into
 // ordinary perspective before the first sign.
 const CLASSIC_FALLOFF = 24; // metres per e-fold
-const CUT = new Set(['bridge', 'cliff', 'washout']); // the posts stop at these
+const CUT = new Set(['bridge', 'cliff', 'washout', 'volcano']); // the posts stop at these
+const FALLS = new Set(['cliff', 'volcano', 'drawbridge']); // crashes shown as a fall
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export class Play {
@@ -50,6 +51,9 @@ export class Play {
     this.message = null;
     this.closeup = null;
     this.braking = false;
+    this.scene = null;
+    this.lift = 0;
+    this.parts = [];
   }
 
   resize() {
@@ -87,6 +91,29 @@ export class Play {
     this.braking = hard;
     const running = !car.over && car.freeze <= 0;
     this.hooks.onMotor?.(running || car.v > 0, car.v / VMAX * 0.85 + (this.input.gas ? 0.15 : 0));
+    // Flying over a drawbridge: how high the car is.
+    const br = this.bridge();
+    const was = this.lift || 0;
+    this.lift = br && br.fork.jumped ? jumpHeight(car.z - br.z, br.fork.jumpV) : 0;
+    if (was > 0.6 && this.lift === 0) {
+      this.hooks.sfx?.('bump');
+      this.hooks.haptic?.(40);
+      this.shake = 0.5;
+    }
+    if (this.scene) {
+      this.scene.t += dt;
+      if (!this.scene.hit && this.scene.t >= this.scene.dur) {
+        this.scene.hit = true;
+        const k = this.scene.kind;
+        this.hooks.sfx?.(k === 'drawbridge' ? 'splash' : k === 'volcano' ? 'explode' : 'crash');
+        this.hooks.haptic?.([80, 40, 140]);
+        this.flash = 1;
+        this.shake = 0.8;
+        const [title, sub] = CRASH_LINES[k];
+        this.say(title, sub, '#ff5a4a', 2.2);
+      }
+      if (car.freeze <= 0) this.scene = null;
+    }
     this.flash = Math.max(0, this.flash - dt * 1.5);
     this.shake = Math.max(0, this.shake - dt * 2);
     if (this.message && (this.message.until -= dt) <= 0) this.message = null;
@@ -108,6 +135,16 @@ export class Play {
     } else if (e.type === 'checkpoint') {
       this.say('EXTENDED TIME', `+${e.bonus} SECONDS`, '#ffd23f', 2.2);
       h.sfx?.('checkpoint');
+    } else if (e.type === 'jump') {
+      this.say('AIRBORNE!', '+1000', '#3dff7a', 2.2);
+      h.sfx?.('whoosh');
+      h.track?.('jump', { mph: Math.round(e.speed * MPH) });
+    } else if (e.type === 'crash' && FALLS.has(e.kind)) {
+      // Over the edge: watch the fall, then the crash.
+      this.scene = { kind: e.kind, t: 0, dur: e.kind === 'drawbridge' ? 1.8 : 2.4, hit: false };
+      this.message = null;
+      h.sfx?.('whoosh');
+      h.track?.('crash', { kind: e.kind });
     } else if (e.type === 'crash') {
       const [title, sub] = CRASH_LINES[e.kind];
       this.say(title, sub, '#ff5a4a', e.kind === 'posts' ? 1.6 : 2.8);
@@ -155,7 +192,7 @@ export class Play {
   P(X, h, d) {
     const lat = this.bend(d) + X - this.car.x;
     const x = this.W / 2 + (this.f * lat) / d;
-    const y = this.horizon + (this.f * (this.camH - h)) / d;
+    const y = this.horizon + (this.f * (this.camH + this.lift - h)) / d;
     const m = this.classic;
     if (!m) return [x, y];
     // Arcade depth: posts come in at about 15% / 85% across and 77% down.
@@ -174,19 +211,26 @@ export class Play {
     const { road } = this;
     const c = road.center(z);
     const out = [];
-    let main = { X: c, cut: Infinity };
+    let main = { X: c, from: Infinity, to: Infinity };
     for (const f of road.forks) {
       if (z <= f.z || z > f.z + HAZARD_AT + 400) continue;
-      const hz = CUT.has(f.hazard) ? f.z + HAZARD_AT : Infinity;
+      // Where the bad branch's posts stop (and, past a drawbridge, resume).
+      const hz = f.z + HAZARD_AT;
+      const gap = CUT.has(f.hazard) ? [hz, Infinity] : f.hazard === 'drawbridge' ? [hz, hz + BRIDGE.GAP] : [Infinity, Infinity];
+      const none = [Infinity, Infinity];
+      const range = (bad) => {
+        const [from, to] = bad ? gap : none;
+        return { from, to };
+      };
       const s = split(f, z);
       if (!f.side) {
         // Not chosen yet: both branches.
-        out.push({ X: c - s, cut: -1 === f.safe ? Infinity : hz }, { X: c + s, cut: 1 === f.safe ? Infinity : hz });
+        out.push({ X: c - s, ...range(-1 !== f.safe) }, { X: c + s, ...range(1 !== f.safe) });
         main = null;
       } else {
         // The road not taken, heading off to the side.
-        out.push({ X: c - 2 * f.side * s, cut: -f.side === f.safe ? Infinity : hz });
-        if (f.side !== f.safe) main.cut = hz;
+        out.push({ X: c - 2 * f.side * s, ...range(-f.side !== f.safe) });
+        if (f.side !== f.safe) Object.assign(main, range(true));
       }
     }
     if (main) out.push(main);
@@ -221,20 +265,30 @@ export class Play {
       ctx.restore();
     }
 
-    if (this.closeup) {
+    const dt = Math.min(0.05, Math.max(0, time - (this.lastTime ?? time)));
+    this.lastTime = time;
+    this.frameDt = dt;
+    if (this.scene) {
+      this.drawScene(this.scene, time);
+    } else if (this.closeup) {
       this.drawHazard(this.closeup, 7, this.car.x, time, true);
     } else {
       const hz = car.hazardAhead();
-      const hd = hz ? hz.z - car.z : Infinity;
+      const br = this.bridge();
+      // A drawbridge stays in view while you fly over it.
+      const shown = hz ? { kind: hz.kind, z: hz.z } : br && br.fork.jumped ? { kind: 'drawbridge', z: br.z } : null;
+      const hd = shown ? shown.z - car.z : Infinity;
       const posts = this.posts();
       // Far posts, then the hazard, then the posts in front of it.
-      for (const p of posts) if (p.d > hd) this.drawPost(p);
-      if (hd < 260) this.drawHazard(hz.kind, hd, this.road.center(hz.z), time, false);
-      for (const p of posts) if (p.d <= hd) this.drawPost(p);
+      for (const p of posts) if (p.d > Math.max(hd, 1)) this.drawPost(p);
+      if (hd < 260) this.drawHazard(shown.kind, hd, this.road.center(shown.z), time, false);
+      for (const p of posts) if (p.d <= Math.max(hd, 1)) this.drawPost(p);
       this.drawGantry();
     }
+    this.stepParts(dt);
     if (this.flash > 0) {
-      ctx.fillStyle = `rgba(255,${this.closeup ? 80 : 255},${this.closeup ? 40 : 255},${this.flash * 0.7})`;
+      const hot = this.closeup || this.scene;
+      ctx.fillStyle = `rgba(255,${hot ? 80 : 255},${hot ? 40 : 255},${this.flash * 0.7})`;
       ctx.fillRect(-20, -20, W + 40, H + 40);
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -251,7 +305,7 @@ export class Play {
       const zp = k * POST_GAP;
       const cs = this.centres(zp);
       for (const c of cs) {
-        if (zp > c.cut) continue;
+        if (zp > c.from && zp < c.to) continue;
         for (const side of [-1, 1]) {
           const X = c.X + side * POST_OUT;
           // Where two branches still overlap, there's no post in between.
@@ -311,7 +365,7 @@ export class Play {
   // there's time to read it at speed.
   drawSignCopy() {
     const f = this.road.upcoming(this.car.z);
-    if (!f || this.car.z < f.z - SIGN_LEAD - 200 || this.closeup) return;
+    if (!f || this.car.z < f.z - SIGN_LEAD - 200 || this.closeup || this.scene) return;
     const { ctx, W } = this;
     let total = Math.min(W - 24, 560);
     // On a short (landscape) screen keep the copy small enough to see past.
@@ -452,7 +506,7 @@ export class Play {
 
   drawHazard(kind, d, X, t, closeup) {
     const light = closeup ? 1 : clamp(1.3 - d / 170, 0.08, 1);
-    // (Wall, fire and cliff lay their own road.)
+    // (Most hazards lay their own road.)
     if (kind === 'bridge' || kind === 'washout') this.roadPatch(X, Math.max(1.2, d - 60), d);
     this[`draw_${kind}`](X, d, t, light, closeup);
   }
@@ -506,52 +560,6 @@ export class Play {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('DEAD END', x0 + w / 2, y0 + h * 0.4);
-  }
-
-  draw_fire(X, d, t, light, closeup) {
-    const { ctx } = this;
-    // The road glows orange toward the flames.
-    this.roadPatch(X, Math.max(1.2, d - 60), d + 4, 1, [150, 70, 28], true);
-    const [cx, cy] = this.P(X, 1.6 * this.up, d);
-    const R = (this.f * 12) / d;
-    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-    glow.addColorStop(0, 'rgba(255,150,40,0.55)');
-    glow.addColorStop(1, 'rgba(255,90,0,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
-    // Smoke
-    for (let i = 0; i < 7; i++) {
-      const rise = (t * 0.6 + i / 7) % 1;
-      const [sx, sy] = this.P(X - 5 + i * 1.7 + Math.sin(t + i) * 0.6, (3 + rise * 7) * this.up, d + 2);
-      ctx.fillStyle = `rgba(40,36,34,${0.35 * (1 - rise)})`;
-      ctx.beginPath();
-      ctx.arc(sx, sy, ((this.f * (1 + rise * 2.5)) / d), 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // Flames, back row first.
-    for (let row = 2; row >= 0; row--) {
-      for (let i = 0; i < 16; i++) {
-        const lat = X - 8 + (i + (row % 2) * 0.5) * 1.05;
-        const dd = d + row * 1.4;
-        const h = this.up * 1.6 + this.up * 1.6 * Math.abs(Math.sin(t * (5 + (i % 4)) + i * 1.7 + row));
-        const sway = Math.sin(t * 7 + i) * 0.35;
-        const [bx0, by] = this.P(lat - 0.55, 0, dd);
-        const [bx1] = this.P(lat + 0.55, 0, dd);
-        const [tx, ty] = this.P(lat + sway, h, dd);
-        const g = ctx.createLinearGradient(0, by, 0, ty);
-        g.addColorStop(0, '#fff6c0');
-        g.addColorStop(0.3, '#ffb020');
-        g.addColorStop(0.65, '#ff5a00');
-        g.addColorStop(1, 'rgba(170,20,0,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.moveTo(bx0, by);
-        ctx.quadraticCurveTo(bx0, (by + ty) / 2, tx, ty);
-        ctx.quadraticCurveTo(bx1, (by + ty) / 2, bx1, by);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
   }
 
   draw_bridge(X, d, t, light) {
@@ -709,6 +717,516 @@ export class Play {
     ctx.restore();
     this.brokenEdge(X, d, light);
   }
+
+  // ------------------------------------------------------------- particles
+
+  // The drawbridge on the road you're on, if there is one near.
+  bridge() {
+    for (const f of this.road.forks) {
+      if (f.hazard !== 'drawbridge' || !f.side || f.side === f.safe) continue;
+      const z = f.z + HAZARD_AT;
+      if (Math.abs(this.car.z - z) < 500) return { fork: f, z };
+    }
+    return null;
+  }
+
+  // Flames, smoke and embers live in the world (so they keep their place in
+  // perspective) and are drawn as soft sprites.
+  emit(n, make) {
+    for (let i = 0; i < n && this.parts.length < 1400; i++) this.parts.push({ life: 0, ...make() });
+  }
+
+  stepParts(dt) {
+    for (const p of this.parts) {
+      p.life += dt;
+      p.X += p.vX * dt;
+      p.h += p.vh * dt;
+      if (p.type === 'flame') p.vh += 1.5 * dt;
+    }
+    this.parts = this.parts.filter((p) => p.life < p.max && p.z - this.car.z > 0.5);
+  }
+
+  drawParts(type, lighter) {
+    const { ctx } = this;
+    ctx.save();
+    if (lighter) ctx.globalCompositeOperation = 'lighter';
+    for (const p of this.parts) {
+      if (p.type !== type) continue;
+      const dd = p.z - this.car.z;
+      if (dd < 1) continue;
+      const u = p.life / p.max;
+      const [x, y] = this.P(p.X, p.h, dd);
+      let r;
+      let img;
+      if (type === 'flame') {
+        r = ((this.f * p.size) / dd) * (0.7 + 0.7 * u) * (1 - u * 0.55);
+        img = sprite(u < 0.35 ? 'hot' : 'warm');
+        ctx.globalAlpha = Math.min(1, (1 - u) * 1.4);
+      } else if (type === 'smoke') {
+        r = ((this.f * p.size) / dd) * (0.6 + u * 1.6);
+        img = sprite('smoke');
+        ctx.globalAlpha = Math.sin(Math.PI * u) * 0.9;
+      } else {
+        r = Math.max(1.2, (this.f * p.size) / dd);
+        img = sprite('ember');
+        ctx.globalAlpha = 1 - u;
+      }
+      ctx.drawImage(img, x - r, y - r, 2 * r, 2 * r);
+    }
+    ctx.restore();
+  }
+
+  draw_fire(X, d, t, light, closeup) {
+    const { ctx } = this;
+    const z = this.car.z + d;
+    // The road glows orange toward the flames.
+    this.roadPatch(X, Math.max(1.2, d - 60), d + 4, 1, [150, 70, 28], true);
+    const [cx, cy] = this.P(X, 2 * this.up, d);
+    const R = ((this.f * 16) / d) * (1 + 0.06 * Math.sin(t * 9));
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    glow.addColorStop(0, 'rgba(255,170,60,0.6)');
+    glow.addColorStop(0.5, 'rgba(255,90,10,0.25)');
+    glow.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    const dt = this.frameDt || 0.016;
+    const up = this.up;
+    this.emit(Math.round(dt * 260), () => ({
+      type: 'flame', X: X - 8 + Math.random() * 16, z: z + Math.random() * 6, h: Math.random() * 0.4,
+      vX: (Math.random() - 0.5) * 0.8, vh: (1.5 + Math.random() * 2.5) * up, max: 0.45 + Math.random() * 0.6, size: (0.9 + Math.random()) * up,
+    }));
+    this.emit(Math.round(dt * 30), () => ({
+      type: 'smoke', X: X - 6 + Math.random() * 12, z: z + 2 + Math.random() * 6, h: 3 * up,
+      vX: 0.6 + Math.random(), vh: (2 + Math.random() * 1.5) * up, max: 2.4 + Math.random(), size: 2.2 * up,
+    }));
+    this.emit(Math.round(dt * 25), () => ({
+      type: 'ember', X: X - 7 + Math.random() * 14, z: z + Math.random() * 5, h: 1,
+      vX: (Math.random() - 0.5) * 3, vh: (5 + Math.random() * 6) * up, max: 0.8 + Math.random() * 0.8, size: 0.08,
+    }));
+    this.drawParts('smoke', false);
+    this.drawParts('flame', true);
+    this.drawParts('ember', true);
+  }
+
+  // The lip of a volcano: a crater glowing with a lake of lava.
+  draw_volcano(X, d, t, light, closeup) {
+    const { ctx, W, horizon } = this;
+    const [, yEdge] = this.P(X, 0, d);
+    const rimY = horizon - this.H * 0.04;
+    // The sky glows red over the crater.
+    const sky = ctx.createRadialGradient(W / 2, horizon, 0, W / 2, horizon, W);
+    sky.addColorStop(0, 'rgba(255,90,20,0.55)');
+    sky.addColorStop(0.5, 'rgba(160,30,10,0.25)');
+    sky.addColorStop(1, 'rgba(60,0,0,0)');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, yEdge);
+    if (yEdge > rimY + 4) this.drawLava(rimY, yEdge, t, closeup ? 1 : clamp(1.6 - d / 220, 0, 1));
+    // The far rim against the glow.
+    ctx.fillStyle = '#140604';
+    ctx.beginPath();
+    ctx.moveTo(-10, rimY + 30);
+    for (let i = 0; i <= 30; i++) {
+      const x = (W * i) / 30;
+      ctx.lineTo(x, rimY - this.H * 0.035 * (0.4 + noise(i * 0.7) + 0.5 * noise(i * 2.3 + 9)));
+    }
+    ctx.lineTo(W + 10, rimY + 30);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,120,40,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Smoke boiling up out of it, lit from below.
+    const dt = this.frameDt || 0.016;
+    const z = this.car.z + d;
+    this.emit(Math.round(dt * 14), () => ({
+      type: 'smoke', X: X - 60 + Math.random() * 120, z: z + 150 + Math.random() * 100, h: 5 * this.up,
+      vX: 2 + Math.random() * 2, vh: (6 + Math.random() * 4) * this.up, max: 4 + Math.random() * 2, size: 14 * this.up,
+    }));
+    this.emit(Math.round(dt * 40), () => ({
+      type: 'ember', X: X - 50 + Math.random() * 100, z: z + 60 + Math.random() * 120, h: -20,
+      vX: (Math.random() - 0.5) * 6, vh: (10 + Math.random() * 14) * this.up, max: 1.5 + Math.random(), size: 0.3,
+    }));
+    this.drawParts('smoke', false);
+    this.drawParts('ember', true);
+    // The road up to the lip, lit orange, ending in black rock.
+    this.roadPatch(X, Math.max(1.2, d - 60), d, 1, [95, 62, 50]);
+    this.brokenEdge(X, d, 0.5);
+  }
+
+  // A lake of lava seen from above, filling the band from y0 down to y1:
+  // bright cracks between drifting plates of dark crust, and bubbles.
+  drawLava(y0, y1, t, fade) {
+    const { ctx, W } = this;
+    const h = y1 - y0;
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.beginPath();
+    ctx.rect(0, y0, W, h);
+    ctx.clip();
+    const base = ctx.createLinearGradient(0, y0, 0, y1);
+    base.addColorStop(0, '#ff8a1a');
+    base.addColorStop(0.5, '#ffb43a');
+    base.addColorStop(1, '#ff6a00');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, y0, W, h);
+    // Plates: rows get taller and wider toward you.
+    const rows = 9;
+    for (let r = 0; r < rows; r++) {
+      const a = (r / rows) ** 1.7;
+      const b = ((r + 1) / rows) ** 1.7;
+      const ya = y0 + a * h;
+      const yb = y0 + b * h;
+      const cw = 18 + 110 * b;
+      const drift = (t * (4 + r * 3)) % cw;
+      const rh = yb - ya;
+      for (let x = -cw + drift - (r % 2) * cw * 0.5, i = 0; x < W + cw; x += cw, i++) {
+        const gap = 1.2 + 2.5 * b;
+        // An irregular hexagon of crust per cell, with glowing edges.
+        const j = (n, k) => (noise(r * 13.7 + i * 7.3 + n * 3.1) - 0.5) * k;
+        const pts = [
+          [x + gap + j(1, cw * 0.3), ya + gap + j(2, rh * 0.3)],
+          [x + cw * 0.5 + j(3, cw * 0.3), ya + gap + j(4, rh * 0.2)],
+          [x + cw - gap + j(5, cw * 0.25), ya + rh * 0.35 + j(6, rh * 0.3)],
+          [x + cw - gap + j(7, cw * 0.3), yb - gap + j(8, rh * 0.2)],
+          [x + cw * 0.45 + j(9, cw * 0.3), yb - gap + j(10, rh * 0.2)],
+          [x + gap + j(11, cw * 0.25), ya + rh * 0.6 + j(12, rh * 0.3)],
+        ];
+        const dark = 26 + noise(r * 3.3 + i * 1.7) * 30;
+        ctx.fillStyle = `rgb(${dark | 0},${(dark * 0.35) | 0},${(dark * 0.2) | 0})`;
+        ctx.strokeStyle = 'rgba(255,110,20,0.75)';
+        ctx.lineWidth = 0.8 + 1.5 * b;
+        ctx.beginPath();
+        pts.forEach(([px, py], q) => (q ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    // Bubbles swell and pop.
+    for (let i = 0; i < 9; i++) {
+      const life = (t * 0.7 + i * 0.37) % 1;
+      const bx = W * noise(i * 3.1 + Math.floor(t * 0.7 + i * 0.37) * 5.3);
+      const by = y0 + h * (0.3 + 0.7 * noise(i * 9.7 + Math.floor(t * 0.7 + i * 0.37)));
+      const r = (4 + 18 * ((by - y0) / h)) * life;
+      ctx.fillStyle = `rgba(255,230,140,${0.9 * (1 - life)})`;
+      ctx.beginPath();
+      ctx.ellipse(bx, by, r, r * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Heat haze over the top.
+    const haze = ctx.createLinearGradient(0, y0, 0, y0 + h * 0.35);
+    haze.addColorStop(0, 'rgba(255,120,30,0.55)');
+    haze.addColorStop(1, 'rgba(255,120,30,0)');
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, y0, W, h);
+    ctx.restore();
+  }
+
+  // A quad in the world: corners as [X, h, d].
+  quad(pts, fill) {
+    const { ctx } = this;
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    pts.forEach(([X, h, d], k) => (k ? ctx.lineTo(...this.P(X, h, d)) : ctx.moveTo(...this.P(X, h, d))));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // A drawbridge with both leaves up over the river.
+  draw_drawbridge(X, d, t, light) {
+    const { ctx } = this;
+    const { RAMP, LEAF, GAP } = BRIDGE;
+    const lh = LEAF * Math.sin(RAMP);
+    const lc = LEAF * Math.cos(RAMP);
+    const near = d;
+    const far = d + GAP;
+    const lit = (dd) => clamp(1.3 - dd / 150, 0.12, 1);
+    const shade = (rgb, dd) => `rgb(${rgb.map((c) => Math.round(c * lit(dd))).join(',')})`;
+    const from = Math.max(1.3, near);
+    // The river below.
+    if (far > 1.5) {
+      const [, yFar] = this.P(X, -8, far);
+      const [, yNear] = this.P(X, -8, from);
+      const g = this.ctx.createLinearGradient(0, yFar, 0, yNear);
+      g.addColorStop(0, '#0b1a2a');
+      g.addColorStop(1, '#02060b');
+      this.quad([[X - HALF - 60, -8, from], [X + HALF + 60, -8, from], [X + HALF + 60, -8, far], [X - HALF - 60, -8, far]], g);
+      ctx.strokeStyle = 'rgba(200,220,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < 24; i++) {
+        const dd = from + ((i * 0.618 + t * 0.03) % 1) * (far - from);
+        const lat = X + (noise(i * 4.1) - 0.5) * 70;
+        const [ax, ay] = this.P(lat, -8, dd);
+        const [bx] = this.P(lat + 2 + noise(i) * 3, -8, dd);
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, ay);
+      }
+      ctx.stroke();
+    }
+    // The road beyond, and the far leaf raised toward you (you see its
+    // girders from below, or its deck when you're flying high).
+    if (far + 80 > 1.5) this.roadPatch(X, Math.max(1.3, far), far + 80, 0.8);
+    if (far - lc > 1.3) {
+      const high = this.camH + this.lift > lh + 1;
+      this.quad([[X - HALF, 0, far], [X + HALF, 0, far], [X + HALF, lh, far - lc], [X - HALF, lh, far - lc]], high ? shade([70, 70, 74], far) : shade([58, 64, 76], far));
+      if (!high) {
+        ctx.strokeStyle = shade([110, 118, 132], far);
+        ctx.lineWidth = Math.max(1, (this.f * 0.15) / far);
+        ctx.beginPath();
+        for (let k = 1; k < 5; k++) {
+          const a = this.P(X - HALF + (2 * HALF * k) / 5, 0, far);
+          const b = this.P(X - HALF + (2 * HALF * k) / 5, lh, far - lc);
+          ctx.moveTo(...a);
+          ctx.lineTo(...b);
+        }
+        ctx.stroke();
+      }
+    }
+    // Bridge-tender towers at each end, red lights blinking.
+    for (const zz of [far, near]) {
+      if (zz < 2) continue;
+      for (const side of [-1, 1]) {
+        const x0 = X + side * (HALF + 2.5);
+        const x1 = X + side * (HALF + 6);
+        this.quad([[x0, 0, zz], [x1, 0, zz], [x1, 10, zz], [x0, 10, zz]], shade([92, 96, 108], zz));
+        this.quad([[x0 + side * 0.8, 6, zz], [x1 - side * 0.8, 6, zz], [x1 - side * 0.8, 8, zz], [x0 + side * 0.8, 8, zz]], `rgba(255,214,120,${0.4 + 0.5 * lit(zz)})`);
+        if (Math.floor(t * 2) % 2) {
+          const [lx, ly] = this.P((x0 + x1) / 2, 10.6, zz);
+          const r = Math.max(2, (this.f * 0.5) / zz);
+          const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, r * 3);
+          g.addColorStop(0, 'rgba(255,60,40,1)');
+          g.addColorStop(1, 'rgba(255,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(lx - r * 3, ly - r * 3, r * 6, r * 6);
+        }
+      }
+    }
+    // The road up to the bridge, and the near leaf: a ramp into the sky.
+    if (near > 1.3) this.roadPatch(X, Math.max(1.2, near - 60), near);
+    const s0 = Math.max(0, 1.3 - near);
+    if (s0 < LEAF) {
+      const a = near + s0 * Math.cos(RAMP);
+      const ha = s0 * Math.sin(RAMP);
+      // Steel deck plates, a blue-grey ramp rising off the road.
+      this.quad([[X - HALF, ha, a], [X + HALF, ha, a], [X + HALF, lh, near + lc], [X - HALF, lh, near + lc]], shade([88, 98, 116], Math.max(a, 1)));
+      ctx.strokeStyle = shade([140, 150, 170], Math.max(a, 1));
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let q = 1; q < 6; q++) {
+        const sq = s0 + ((LEAF - s0) * q) / 6;
+        const dq = near + sq * Math.cos(RAMP);
+        ctx.moveTo(...this.P(X - HALF, sq * Math.sin(RAMP), dq));
+        ctx.lineTo(...this.P(X + HALF, sq * Math.sin(RAMP), dq));
+      }
+      ctx.stroke();
+      // Black and yellow chevrons along the raised tip.
+      const band = 1.6;
+      const bc = band * Math.cos(RAMP);
+      const bh = band * Math.sin(RAMP);
+      for (let k = 0; k < 8; k++) {
+        const xa = X - HALF + (2 * HALF * k) / 8;
+        this.quad([[xa, lh - bh, near + lc - bc], [xa + (2 * HALF) / 8, lh - bh, near + lc - bc], [xa + (2 * HALF) / 8, lh, near + lc], [xa, lh, near + lc]], k % 2 ? '#111' : shade([250, 200, 30], near + lc));
+      }
+    }
+  }
+
+  // ------------------------------------------------------------- falls
+
+  // Over the edge: a few seconds of falling, then the crash.
+  drawScene(sc, time) {
+    const { ctx, W, H } = this;
+    const u = clamp(sc.t / sc.dur, 0, 1);
+    const k = sc.kind;
+    if (sc.hit) {
+      // Afterwards: the bottom of the canyon, the lava, or under water.
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      if (k === 'drawbridge') {
+        g.addColorStop(0, '#0a2a33');
+        g.addColorStop(1, '#010608');
+      } else if (k === 'volcano') {
+        g.addColorStop(0, '#ff9a2a');
+        g.addColorStop(1, '#a01800');
+      } else {
+        g.addColorStop(0, '#2a1410');
+        g.addColorStop(1, '#050202');
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+      if (k === 'drawbridge') this.bubbles(time);
+      if (k === 'volcano') this.drawLava(0, H, time, 1);
+      return;
+    }
+    if (k === 'drawbridge') return this.sink(sc, u, time);
+    // Tip over the edge (the view pitches down), then fall between the walls.
+    const pitch = Math.min(1, u / 0.3) ** 2;
+    this.fallView(k, sc.t, u, time);
+    if (pitch < 1) {
+      ctx.save();
+      ctx.translate(0, -pitch * H * 1.05);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(-20, -H, W + 40, H + this.horizon + 20);
+      this[`draw_${k}`](this.car.x, 6, time, 1, true);
+      ctx.restore();
+    }
+  }
+
+  // Looking down while falling: rock walls rushing up past you.
+  fallView(k, t, u, time) {
+    const { ctx, W, H } = this;
+    const lava = k === 'volcano';
+    const vy = H * 0.86;
+    // The depths: river glint or lava, growing as you get closer.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    if (lava) {
+      g.addColorStop(0, '#3a0d06');
+      g.addColorStop(0.7, '#b52a05');
+      g.addColorStop(1, '#ff8a1a');
+    } else {
+      g.addColorStop(0, '#2b1a2e');
+      g.addColorStop(0.7, '#160b10');
+      g.addColorStop(1, '#050304');
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+    const grow = u ** 3;
+    if (lava) {
+      this.drawLava(vy - H * 0.05 - grow * H * 0.85, H + 10, time, 1);
+    } else {
+      ctx.fillStyle = `rgba(150,180,230,${0.25 + 0.5 * u})`;
+      ctx.beginPath();
+      ctx.ellipse(W / 2, vy, W * (0.04 + 0.5 * grow), H * (0.006 + 0.05 * grow), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(Math.sin(t * 2.6) * 0.1 * u); // tumbling
+    ctx.translate(-W / 2, -H / 2);
+    const scroll = H * (0.25 * t + 0.9 * t * t); // falling faster and faster
+    const palette = lava ? ['#2a1410', '#3a1c14', '#22100c', '#4a2216', '#1c0c08'] : ['#8a4a33', '#a65d3c', '#7a3f2c', '#c07a4f', '#6b3426', '#93553a'];
+    for (const side of [-1, 1]) {
+      // A jagged wall from the screen edge in toward the middle.
+      const edge = (y) => W / 2 + side * (W * (0.08 + 0.3 * ((vy - y) / vy) ** 0.8) + W * 0.05 * (noise((y + scroll) / 60 + side * 50) - 0.5));
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(side < 0 ? -20 : W + 20, -20);
+      for (let y = -20; y <= H + 20; y += 12) ctx.lineTo(edge(Math.min(y, vy)), y);
+      ctx.lineTo(side < 0 ? -20 : W + 20, H + 20);
+      ctx.closePath();
+      ctx.clip();
+      const band = H * 0.07;
+      const first = Math.floor(scroll / band);
+      for (let i = first; i < first + Math.ceil(H / band) + 2; i++) {
+        const y = i * band - scroll;
+        ctx.fillStyle = palette[((i % palette.length) + palette.length) % palette.length];
+        ctx.fillRect(-20, y, W + 40, band + 1);
+      }
+      // Light: the far side of the wall darker; lava lights it from below.
+      const lg = ctx.createLinearGradient(side < 0 ? 0 : W, 0, W / 2, 0);
+      lg.addColorStop(0, 'rgba(0,0,0,0)');
+      lg.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = lg;
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+      const bottom = ctx.createLinearGradient(0, 0, 0, H);
+      bottom.addColorStop(0, 'rgba(0,0,0,0.35)');
+      bottom.addColorStop(1, lava ? `rgba(255,110,20,${0.25 + 0.4 * u})` : 'rgba(0,0,0,0.5)');
+      ctx.fillStyle = bottom;
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+      ctx.restore();
+    }
+    // Rock dust (or embers) streaking past.
+    ctx.strokeStyle = lava ? 'rgba(255,190,90,0.7)' : 'rgba(230,200,170,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < 30; i++) {
+      const x = W * noise(i * 5.3);
+      const y = H - ((scroll * (0.8 + noise(i * 2.1)) + i * 97) % (H + 60));
+      const len = 8 + 40 * u;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + len);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Too slow for the drawbridge: up the ramp, a moment of sky, then the river.
+  sink(sc, u, time) {
+    const { ctx, W, H } = this;
+    if (u < 0.35) {
+      // Climbing the ramp: the bridge drops away below.
+      const k = u / 0.35;
+      this.lift = k * 6;
+      this.draw_drawbridge(this.car.x, 4 - k * 6, time, 1);
+      this.lift = 0;
+      return;
+    }
+    // Nose down toward the water, closer and closer.
+    const k = (u - 0.35) / 0.65;
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0d2233');
+    g.addColorStop(1, '#03080d');
+    ctx.fillStyle = g;
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+    ctx.strokeStyle = 'rgba(200,225,255,0.45)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 14; i++) {
+      const r = ((i / 14 + k * 0.9) % 1) * Math.max(W, H) * (0.4 + k * 1.6);
+      ctx.beginPath();
+      ctx.ellipse(W / 2 + Math.sin(i * 2.7) * W * 0.2, H * 0.55 + Math.cos(i * 1.9) * H * 0.15, r, r * 0.35, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Moonlight on the water
+    ctx.fillStyle = `rgba(220,230,255,${0.25 * (1 - k)})`;
+    ctx.beginPath();
+    ctx.ellipse(W * 0.6, H * 0.4, W * 0.12 * (1 + k * 3), H * 0.02 * (1 + k * 3), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  bubbles(time) {
+    const { ctx, W, H } = this;
+    ctx.strokeStyle = 'rgba(200,240,255,0.6)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 26; i++) {
+      const y = H - (((time * (60 + 40 * noise(i * 3.3)) + i * 53) % (H + 40)));
+      const x = W * noise(i * 7.7) + Math.sin(time * 3 + i) * 6;
+      const r = 3 + 6 * noise(i * 1.9);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+// Smooth 1-D value noise in [0, 1).
+function noise(x) {
+  const i = Math.floor(x);
+  const f = x - i;
+  const h = (n) => {
+    const v = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  const t = f * f * (3 - 2 * f);
+  return h(i) * (1 - t) + h(i + 1) * t;
+}
+
+// Soft round sprites for flames, smoke and embers (made once, on first use).
+const SPRITES = {};
+function sprite(name) {
+  if (SPRITES[name]) return SPRITES[name];
+  const stops = {
+    hot: [[0, 'rgba(255,255,235,1)'], [0.25, 'rgba(255,225,130,0.9)'], [0.6, 'rgba(255,130,25,0.35)'], [1, 'rgba(255,60,0,0)']],
+    warm: [[0, 'rgba(255,170,60,0.85)'], [0.5, 'rgba(225,70,10,0.4)'], [1, 'rgba(150,20,0,0)']],
+    smoke: [[0, 'rgba(42,38,36,0.6)'], [0.6, 'rgba(32,30,30,0.28)'], [1, 'rgba(20,20,20,0)']],
+    ember: [[0, 'rgba(255,245,200,1)'], [0.4, 'rgba(255,150,40,0.8)'], [1, 'rgba(255,60,0,0)']],
+  }[name];
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  stops.forEach(([o, col]) => gr.addColorStop(o, col));
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 64, 64);
+  return (SPRITES[name] = c);
 }
 
 // One green highway sign panel: a title, a smaller line and an arrow.
