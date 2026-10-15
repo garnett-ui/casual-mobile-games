@@ -4,6 +4,19 @@ import { step, newLander, heightAt, G, SAFE, HOLD_BAND, FEET } from './engine.js
 import { rng } from '../../js/lib/random.js';
 
 const PHOSPHOR = '#3dff7a';
+
+// Scenery cut from Apollo 8's "Earthrise" photo (NASA, public domain): the
+// Earth, the far lunar horizon, and a seamless tile of the surface.
+const photo = (name) => {
+  const img = new Image();
+  img.src = new URL(`./img/${name}.webp`, import.meta.url).href;
+  return img;
+};
+const EARTH = photo('earth'); // disc centre (183, 183), diameter 342 px
+const HORIZON = photo('horizon');
+const REGOLITH = photo('regolith');
+const ready = (img) => img.complete && img.naturalWidth > 0;
+const TILE_M = 70; // metres of ground per surface tile
 const DEG = 180 / Math.PI;
 
 export class Play {
@@ -281,7 +294,11 @@ export class Play {
       ctx.fillRect(x, s.y * H, s.s, s.s);
     }
     ctx.globalAlpha = 1;
-    this.drawEarth(W * 0.24 - cam.left * 0.01, H * 0.24, Math.min(W, H) * 0.1);
+    // Earth hangs in the open sky left of the instrument panel.
+    const free = W - Math.min(W * 0.62, 280) - 8;
+    const er = Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12);
+    this.drawEarth(free * 0.5 - cam.left * 0.01, Math.max(er + 16, H * 0.2), er);
+    this.drawHorizon(cam, W, H);
 
     // Terrain
     const x0 = Math.max(0, cam.left - 10);
@@ -292,12 +309,24 @@ export class Play {
     ctx.lineTo(sx(x1), H + 20);
     ctx.closePath();
     const ground = ctx.createLinearGradient(0, sy(this.level.maxH), 0, H);
-    ground.addColorStop(0, '#a6a6aa');
-    ground.addColorStop(1, '#3d3e44');
+    if (ready(REGOLITH)) {
+      // The photo's surface, pinned to the world so it scrolls with the camera,
+      // shaded darker with depth.
+      this.regolith ??= ctx.createPattern(REGOLITH, 'repeat');
+      const k = (TILE_M * cam.scale) / REGOLITH.naturalWidth;
+      this.regolith.setTransform(new DOMMatrix([k, 0, 0, k, sx(0), sy(0)]));
+      ctx.fillStyle = this.regolith;
+      ctx.fill();
+      ground.addColorStop(0, 'rgba(255,255,255,0.06)');
+      ground.addColorStop(1, 'rgba(0,0,0,0.5)');
+    } else {
+      ground.addColorStop(0, '#a6a6aa');
+      ground.addColorStop(1, '#3d3e44');
+    }
     ctx.fillStyle = ground;
     ctx.fill();
-    ctx.strokeStyle = '#d8d8dc';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(236,233,224,0.75)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     for (let x = x0; x <= x1; x += Math.max(1, 2 / cam.scale)) {
       if (x === x0) ctx.moveTo(sx(x), sy(heightAt(this.level, x)));
@@ -307,11 +336,11 @@ export class Play {
     for (const c of this.craters) {
       if (c.x < x0 - 10 || c.x > x1 + 10) continue;
       const gy = heightAt(this.level, c.x);
-      ctx.fillStyle = 'rgba(40,40,46,0.35)';
+      ctx.fillStyle = 'rgba(30,30,30,0.16)';
       ctx.beginPath();
       ctx.ellipse(sx(c.x), sy(gy - c.r * 0.35), c.r * cam.scale, c.r * c.d * cam.scale, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(230,230,235,0.35)';
+      ctx.strokeStyle = 'rgba(240,238,230,0.22)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.ellipse(sx(c.x), sy(gy - c.r * 0.35), c.r * cam.scale, c.r * c.d * cam.scale, 0, Math.PI * 1.05, Math.PI * 1.95);
@@ -366,8 +395,45 @@ export class Play {
     if (this.message) this.drawMessage(this.message.text, W, H);
   }
 
+  // The far lunar horizon from the photo, behind the terrain; it pans slowly
+  // across once over the whole level.
+  drawHorizon(cam, W, H) {
+    if (!ready(HORIZON)) return;
+    const { ctx } = this;
+    const w = Math.max(W * 1.5, H * 0.9);
+    const h = (w * HORIZON.naturalHeight) / HORIZON.naturalWidth;
+    const span = Math.max(1, this.level.width - W / cam.scale);
+    const pan = Math.max(0, Math.min(1, cam.left / span));
+    const x = -pan * (w - W);
+    // Sinks a little as the lander climbs.
+    const y = H * 0.5 + Math.min(H * 0.25, Math.max(0, cam.bottom) * 0.15 * cam.scale);
+    // Below the strip (whose bottom fades out) the surface carries on in
+    // the tile, smaller with distance.
+    if (ready(REGOLITH)) {
+      this.farRegolith ??= ctx.createPattern(REGOLITH, 'repeat');
+      const k = w / REGOLITH.naturalWidth / 1.4;
+      this.farRegolith.setTransform(new DOMMatrix([k, 0, 0, k, x, y + h * 0.6]));
+      ctx.fillStyle = this.farRegolith;
+    } else {
+      ctx.fillStyle = '#7f7d73';
+    }
+    ctx.fillRect(x, y + h * 0.6, w, H);
+    ctx.drawImage(HORIZON, x, y, w, h);
+    // Darker than the near ground, so the terrain you fly over stands out.
+    const shade = ctx.createLinearGradient(0, y, 0, y + h * 0.4);
+    shade.addColorStop(0, 'rgba(0,0,6,0.2)');
+    shade.addColorStop(1, 'rgba(0,0,6,0.42)');
+    ctx.fillStyle = shade;
+    ctx.fillRect(x, y, w, H); // (over black sky it makes no difference)
+  }
+
   drawEarth(x, y, r) {
     const { ctx } = this;
+    if (ready(EARTH)) {
+      const s = (2 * r) / 342;
+      ctx.drawImage(EARTH, x - 183 * s, y - 183 * s, EARTH.naturalWidth * s, EARTH.naturalHeight * s);
+      return;
+    }
     // Glow
     const glow = ctx.createRadialGradient(x, y, r * 0.9, x, y, r * 1.35);
     glow.addColorStop(0, 'rgba(110,170,255,0.35)');

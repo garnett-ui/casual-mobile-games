@@ -4,6 +4,14 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.9.0
+- Jigsaw: pieces start scrambled *and turned*; tap a piece to turn it a
+  quarter, and it only fits the right way up. The faint guide picture is
+  gone -- hold the eye button to see the picture in a pop-up, for as long
+  as you hold it. The finished puzzle shows the photo without seams.
+- Lunar Lander: scenery from Apollo 8's Earthrise photo -- the real Earth
+  over the far lunar horizon, and the photo's lunar surface underfoot.
+
 ## 1.8.5
 - Apps stuck on an older version (before 1.8.3, whose Update button could
   fail) are now switched to the new version automatically: the new service

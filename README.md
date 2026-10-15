@@ -75,6 +75,8 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   ball and a velocity box, with LOW FUEL / SINK RATE / DRIFT warnings.
 - Scored on touchdown speed, drift, tilt, centring and fuel left. Too hard,
   too fast sideways, too tilted, or a hull strike: fireball and wreckage.
+- Scenery from Apollo 8's *Earthrise* photo: the Earth hangs over the far
+  lunar horizon, and the ground you fly over is the photo's surface.
 - Endless missions: every one is test-flown by an autopilot when generated,
   so it is always possible; fuel is what it needed plus a margin that shrinks
   from 2× to 1.25×, while mountains rise and the base narrows.
@@ -89,10 +91,12 @@ future puzzles. Two built-in pictures are included too.
 - About 100 pieces by default (24 / 48 / 100 / 150 / 200), with the grid fitted
   to the photo so pieces are near-square, and classic tab-and-blank shapes.
 - The picture fills as much of the screen as possible with a border on every
-  side; loose pieces start scattered around it. Drag a piece near its spot and
-  it snaps in.
-- Helpers: faint guide image, hold-to-peek at the whole picture, show edge
-  pieces only, and scatter. The puzzle in progress is saved for later.
+  side; loose pieces start scattered around it and turned every which way.
+  Tap a piece to turn it a quarter; drag it near its spot, the right way up,
+  and it snaps in.
+- The picture stays hidden until the puzzle is done: hold the eye button to
+  see it in a pop-up. Also: show edge pieces only, and scatter. The puzzle in
+  progress is saved for later.
 
 ## Installing on a device
 
@@ -181,4 +185,5 @@ https://mckoss.com/casual-mobile-games/. One-time setup: Settings → Pages → 
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The Lunar Lander scenery is cut from *Earthrise* (Apollo 8,
+AS08-14-2383, NASA), which is in the public domain.

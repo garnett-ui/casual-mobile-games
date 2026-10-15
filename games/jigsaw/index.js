@@ -12,7 +12,6 @@ const GALLERY = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="1
 const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>';
 const EDGES = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="4 2"/></svg>';
 const SCATTER = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="6" rx="1" fill="currentColor"/><rect x="14" y="3" width="6" height="6" rx="1" fill="currentColor" transform="rotate(15 17 6)"/><rect x="6" y="14" width="6" height="6" rx="1" fill="currentColor" transform="rotate(-12 9 17)"/><rect x="15" y="14" width="6" height="6" rx="1" fill="currentColor"/></svg>';
-const GHOST = '<svg viewBox="0 0 24 24"><path d="M6 20V10a6 6 0 0 1 12 0v10l-2-2-2 2-2-2-2 2-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="10" cy="10" r="1.3" fill="currentColor"/><circle cx="14" cy="10" r="1.3" fill="currentColor"/></svg>';
 
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -180,8 +179,7 @@ export function mount(root, ctx) {
           <span class="pill"><b data-placed>0</b>/<span data-total>0</span></span>
           <span class="pill" data-time>0:00</span>
           <span class="jg-tools">
-            <button class="icon-btn" data-act="peek" aria-label="Peek at the picture">${EYE}</button>
-            <button class="icon-btn" data-act="ghost" aria-label="Guide image">${GHOST}</button>
+            <button class="icon-btn jg-peek" data-act="peek" aria-label="Hold to peek at the picture">${EYE}</button>
             <button class="icon-btn" data-act="edges" aria-label="Edge pieces only">${EDGES}</button>
             <button class="icon-btn" data-act="scatter" aria-label="Scatter pieces">${SCATTER}</button>
           </span>
@@ -218,9 +216,15 @@ export function mount(root, ctx) {
     const wide = image.width > image.height * 1.15;
     const tall = image.height > image.width * 1.15;
     const upright = window.innerHeight > window.innerWidth;
-    if ((wide && upright) || (tall && !upright)) {
-      ctx.toast(`Tip: turn your phone ${wide ? 'sideways' : 'upright'} for bigger pieces.`);
+    const tips = [];
+    if (!state && !ctx.load('tipped', false)) {
+      ctx.save('tipped', true);
+      tips.push('Tap a piece to turn it. Hold the eye to peek at the picture.');
     }
+    if ((wide && upright) || (tall && !upright)) {
+      tips.push(`Turn your phone ${wide ? 'sideways' : 'upright'} for bigger pieces.`);
+    }
+    if (tips.length) ctx.toast(`Tip: ${tips.join(' ')}`);
     if (!state) ctx.track('level_start', { pieces: play.pieces.length });
     saveCurrent();
 
@@ -234,11 +238,13 @@ export function mount(root, ctx) {
         btn.classList.toggle('on', play[key]);
       };
     };
-    toggle('ghost', 'ghost');
     toggle('edges', 'edgesOnly');
-    // Peek: hold (or tap to toggle) to see the whole picture.
+    // Peek: the picture pops up for as long as the button is held.
     const peek = root.querySelector('[data-act=peek]');
-    peek.onpointerdown = () => {
+    peek.oncontextmenu = (e) => e.preventDefault();
+    peek.onpointerdown = (e) => {
+      e.preventDefault();
+      peek.setPointerCapture?.(e.pointerId);
       play.peek = true;
       play.dirty = true;
       peek.classList.add('on');
@@ -250,8 +256,8 @@ export function mount(root, ctx) {
       peek.classList.remove('on');
     };
     peek.onpointerup = unpeek;
-    peek.onpointerleave = unpeek;
     peek.onpointercancel = unpeek;
+    peek.onlostpointercapture = unpeek;
     root.querySelector('[data-act=scatter]').onclick = () => {
       ctx.sfx('tap');
       play.scatter();

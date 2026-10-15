@@ -513,20 +513,42 @@ test('jigsaw: pick a photo, it is saved, pieces snap into place, progress resume
     const n = await page.evaluate(() => window.__jigsaw.pieces.length);
     assert.ok(n >= 20 && n <= 30, `about 24 pieces (${n})`);
 
-    // Drag a real piece onto its spot: it snaps in.
-    const drag = await page.evaluate(() => {
+    // Pieces start scrambled and turned.
+    const turned = await page.evaluate(() => window.__jigsaw.pieces.filter((p) => p.rot !== 0).length);
+    assert.ok(turned > n / 2, `most pieces start turned (${turned}/${n})`);
+
+    // A turned piece dropped on its spot doesn't fit; tapping turns it, and
+    // once it's the right way up it snaps in.
+    const geo = () => page.evaluate(() => {
       const p = window.__jigsaw;
-      const piece = p.pieces[p.order.at(-1)];
+      const piece = p.pieces.find((q) => q.rot !== 0 && !q.placed);
+      const idx = p.pieces.indexOf(piece);
+      p.order = [...p.order.filter((i) => i !== idx), idx]; // on top
       const at = p.pos(piece);
       const home = p.home(piece);
       const r = p.canvas.getBoundingClientRect();
-      return { from: [r.left + at.x + p.pw / 2, r.top + at.y + p.ph / 2], to: [r.left + home.x + p.pw / 2 + 4, r.top + home.y + p.ph / 2 - 3] };
+      return { idx, rot: piece.rot, from: [r.left + at.x + p.pw / 2, r.top + at.y + p.ph / 2], to: [r.left + home.x + p.pw / 2 + 4, r.top + home.y + p.ph / 2 - 3] };
     });
+    const drag = await geo();
     await page.mouse.move(...drag.from);
     await page.mouse.down();
     await page.mouse.move(...drag.to, { steps: 8 });
     await page.mouse.up();
+    assert.equal(await page.locator('[data-placed]').textContent(), '0', 'turned piece does not fit');
+    for (let k = drag.rot; k < 4; k++) {
+      await page.mouse.click(...drag.to);
+      await page.waitForTimeout(80);
+    }
     assert.equal(await page.locator('[data-placed]').textContent(), '1');
+    assert.equal(await page.evaluate((i) => window.__jigsaw.pieces[i].placed, drag.idx), true);
+
+    // The picture is hidden; Peek shows it only while held.
+    const peekBox = await page.locator('[data-act=peek]').boundingBox();
+    await page.mouse.move(peekBox.x + peekBox.width / 2, peekBox.y + peekBox.height / 2);
+    await page.mouse.down();
+    assert.equal(await page.evaluate(() => window.__jigsaw.peek), true);
+    await page.mouse.up();
+    assert.equal(await page.evaluate(() => window.__jigsaw.peek), false);
 
     // Leave and come back: the photo is saved and the puzzle can be continued.
     await page.locator('[data-act=menu]').click();
