@@ -6,6 +6,7 @@
 // screen so the puzzle survives rotation and resizing.
 import { gridFor, makeEdges, pieceSides, tracePiece, isEdgePiece, TAB } from './puzzle.js';
 import { rng } from '../../js/lib/random.js';
+import { woodTable } from './table.js';
 
 const BORDER = 0.11; // share of each screen side kept free around the picture
 
@@ -117,7 +118,9 @@ export class Play {
     this.board = { x: (W - bw) / 2, y: (H - bh) / 2, w: bw, h: bh };
     this.pw = bw / this.cols;
     this.ph = bh / this.rows;
-    this.pad = Math.ceil(Math.min(this.pw, this.ph) * (TAB + 0.05));
+    // Room round each piece for its tabs and the shadow it casts.
+    this.pad = Math.ceil(Math.min(this.pw, this.ph) * (TAB + 0.05) + 6);
+    this.table = woodTable(W, H, dpr);
     this.renderPieces();
     this.dirty = true;
   }
@@ -132,23 +135,31 @@ export class Play {
   }
 
   // The light comes from the top left of the screen whichever way a piece is
-  // turned, so the bevel is baked for the piece's current quarter turn.
+  // turned -- even part way through a turn -- so the bevel and the shadow a
+  // loose piece casts on the table are re-rendered for its current angle.
   renderPiece(p) {
     const { pw, ph, pad, dpr } = this;
     const sx = this.image.width / this.board.w;
     const sy = this.image.height / this.board.h;
-    const c = p.canvas || document.createElement('canvas');
-    c.width = Math.ceil((pw + 2 * pad) * dpr);
-    c.height = Math.ceil((ph + 2 * pad) * dpr);
-    const g = c.getContext('2d');
+    const cw = Math.ceil((pw + 2 * pad) * dpr);
+    const chh = Math.ceil((ph + 2 * pad) * dpr);
+    // The piece itself, drawn into a scratch canvas first.
+    const body = (this.scratch ??= document.createElement('canvas'));
+    if (body.width !== cw || body.height !== chh) {
+      body.width = cw;
+      body.height = chh;
+    }
+    const g = body.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, cw, chh);
     g.setTransform(dpr, 0, 0, dpr, dpr * pad, dpr * pad);
     g.save();
     g.clip(p.path);
     g.drawImage(this.image, (p.col * pw - pad) * sx, (p.row * ph - pad) * sy, (pw + 2 * pad) * sx, (ph + 2 * pad) * sy, -pad, -pad, pw + 2 * pad, ph + 2 * pad);
-    // Screen direction away from the light, in the piece's own frame.
-    const a = (p.rot * Math.PI) / 2;
-    const lx = Math.cos(a) + Math.sin(a);
-    const ly = -Math.sin(a) + Math.cos(a);
+    // A screen direction (dx, dy) in the piece's own, turned frame.
+    const a = (p.turn * Math.PI) / 2;
+    const local = (dx, dy) => [dx * Math.cos(a) + dy * Math.sin(a), -dx * Math.sin(a) + dy * Math.cos(a)];
+    const [lx, ly] = local(1, 1); // away from the light
     const b = Math.max(0.8, Math.min(pw, ph) * 0.03);
     g.lineJoin = 'round';
     // Inner bevel: a stroke nudged away from the light shows only along the
@@ -176,6 +187,26 @@ export class Play {
     g.lineWidth = 1;
     g.stroke(p.path);
     g.restore();
+
+    const c = p.canvas || document.createElement('canvas');
+    c.width = cw;
+    c.height = chh;
+    const out = c.getContext('2d');
+    if (!p.placed) {
+      // Shadows on the table, down and right of the piece: a soft one, and
+      // a tight one right at the edge where the piece meets the table.
+      // (Shadow offsets ignore transforms, so they're given in device px.)
+      for (const [ox, oy, blur, alpha] of [[3, 5, 7, 0.42], [1.2, 1.8, 1.5, 0.5]]) {
+        const [dx, dy] = local(ox, oy);
+        out.shadowOffsetX = dx * dpr;
+        out.shadowOffsetY = dy * dpr;
+        out.shadowBlur = blur * dpr;
+        out.shadowColor = `rgba(45,22,0,${alpha})`;
+        out.drawImage(body, 0, 0);
+      }
+      out.shadowColor = 'transparent';
+    }
+    out.drawImage(body, 0, 0);
     p.canvas = c;
   }
 
@@ -187,6 +218,7 @@ export class Play {
       const target = p.rot < p.turn ? p.rot + 4 : p.rot;
       p.turn = Math.min(target, p.turn + dt * 10);
       if (p.turn >= target) p.turn = p.rot;
+      this.renderPiece(p); // keep the light where it is as the piece turns
       this.dirty = true;
     }
   }
@@ -194,7 +226,6 @@ export class Play {
   // Turn a loose piece a quarter clockwise.
   rotate(p) {
     p.rot = (p.rot + 1) % 4;
-    this.renderPiece(p);
     this.hooks.sfx?.('whoosh');
   }
 
@@ -343,11 +374,16 @@ export class Play {
     const { ctx, dpr, W, H, board } = this;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    // Table and frame
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(board.x - 3, board.y - 3, board.w + 6, board.h + 6);
-    ctx.fillStyle = '#20263f';
+    // Oak table, with the puzzle's spot pressed in slightly (lit top left).
+    ctx.drawImage(this.table, 0, 0, W, H);
+    ctx.fillStyle = 'rgba(80,45,12,0.22)';
     ctx.fillRect(board.x, board.y, board.w, board.h);
+    ctx.fillStyle = 'rgba(60,30,5,0.45)';
+    ctx.fillRect(board.x - 1, board.y - 1, board.w + 2, 2);
+    ctx.fillRect(board.x - 1, board.y - 1, 2, board.h + 2);
+    ctx.fillStyle = 'rgba(255,244,222,0.45)';
+    ctx.fillRect(board.x - 1, board.y + board.h - 1, board.w + 2, 2);
+    ctx.fillRect(board.x + board.w - 1, board.y - 1, 2, board.h + 2);
     // Finished: show the photo itself, without the seams.
     if (this.done) {
       ctx.drawImage(this.image, board.x, board.y, board.w, board.h);
@@ -365,10 +401,13 @@ export class Play {
       }
       const lifted = this.drag?.p === p && this.drag.moved;
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = lifted ? 14 : 4;
-      ctx.shadowOffsetX = lifted ? 3 : 1; // same top-left light
-      ctx.shadowOffsetY = lifted ? 6 : 2;
+      if (lifted) {
+        // Held up off the table: a wider, softer shadow further away.
+        ctx.shadowColor = 'rgba(45,22,0,0.35)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetX = 6;
+        ctx.shadowOffsetY = 10;
+      }
       ctx.translate(x + this.pw / 2, y + this.ph / 2);
       ctx.rotate((p.turn * Math.PI) / 2);
       const s = lifted ? 1.06 : 1;

@@ -4,6 +4,13 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.10.0
+- Jigsaw: the puzzle sits on a light-oak table. Loose pieces cast a shadow
+  on the table, with a tight contact shadow at their edges, and a lifted
+  piece's shadow spreads out beneath it. The light stays at the top left
+  while a piece turns, so the highlights and shadows are right at every
+  angle of the turn.
+
 ## 1.9.1
 - Jigsaw: knobs now fit their holes exactly (a neighbour's knob offset was
   mirrored, leaving gaps). Pieces are lit consistently from the top left,

@@ -93,7 +93,8 @@ future puzzles. Two built-in pictures are included too.
 - The picture fills as much of the screen as possible with a border on every
   side; loose pieces start scattered around it and turned every which way.
   Tap a piece to turn it a quarter; drag it near its spot, the right way up,
-  and it snaps in.
+  and it snaps in. Pieces sit on an oak table, lit from the top left, and
+  cast shadows on it.
 - The picture stays hidden until the puzzle is done: hold the eye button to
   see it in a pop-up. Also: show edge pieces only, and scatter. The puzzle in
   progress is saved for later.

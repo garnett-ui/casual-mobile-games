@@ -564,7 +564,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   font-size: 20px;
   line-height: 1;
 }
-.jg-screen { background: radial-gradient(circle at 50% 40%, #2a3b5c, #141b2e); }
+.jg-screen { background: #cfa974; }
 .jg-screen .bar { gap: 8px; }
 .jg-tools { margin-left: auto; display: flex; gap: 6px; }
 .jg-tools .icon-btn { width: 40px; height: 40px; }
