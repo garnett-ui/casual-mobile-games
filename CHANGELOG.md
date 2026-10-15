@@ -4,6 +4,9 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.8.1
+- Toast messages no longer block taps on the game underneath them.
+
 ## 1.8.0
 - New game: Jigsaw. Make a puzzle from a photo you choose or take with the
   camera; photos are saved on the device (never uploaded). About 100 pieces

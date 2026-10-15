@@ -576,7 +576,9 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   max-width: 92vw;
   box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
 }
-.toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* Toasts never block the game underneath; only their buttons take taps. */
+.toast.show button { pointer-events: auto; }
 .toast button {
   border: 0;
   border-radius: 10px;
