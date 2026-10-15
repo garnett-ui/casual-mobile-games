@@ -390,6 +390,60 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 }
 .left-count b { color: var(--ink); font-size: 18px; }
 
+/* Breakout */
+.bo-menu-body { flex: 1; overflow-y: auto; padding: 8px calc(16px + var(--safe-r)) calc(24px + var(--safe-b)) calc(16px + var(--safe-l)); text-align: center; }
+.bo-pick { font-weight: 800; font-size: 18px; margin: 18px 0 12px; }
+.bo-choices { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.bo-choice {
+  width: 150px;
+  border: 3px solid transparent;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--card-ink);
+  padding: 16px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, .2);
+}
+.bo-choice svg { width: 72px; height: 72px; color: #1f2140; }
+.bo-choice b { font-size: 18px; }
+.bo-choice small { color: #565a7e; }
+.bo-choice.selected { border-color: var(--accent); }
+.bo-choice:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0, 0, 0, .2); }
+.bo-note { color: var(--muted); font-size: 13px; margin-top: 18px; }
+.bo-screen { background: #0a0c26; }
+.bo-screen .bar { gap: 8px; }
+.bo-score { font-size: 18px; min-width: 70px; justify-content: center; }
+.bo-stage { font-size: 14px; }
+.bo-balls { flex: 1; display: flex; gap: 5px; align-items: center; }
+.bo-balls i { width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .7); }
+.bo-screen .icon-btn svg { fill: currentColor; }
+.bo-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 12, 38, .55);
+  z-index: 2;
+}
+.bo-overlay[hidden] { display: none; }
+.bo-overlay div {
+  background: #fff;
+  color: var(--card-ink);
+  border-radius: 18px;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+  max-width: 80%;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, .25);
+}
+.bo-overlay b { font-size: 20px; }
+.bo-overlay span { color: #565a7e; }
+
 /* Toast */
 .toast {
   position: fixed;

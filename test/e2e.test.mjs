@@ -321,3 +321,64 @@ test('home screen shows the version; a new deploy prompts the installed app to u
     server.close();
   }
 });
+
+test('breakout: locks orientation where possible, pauses on rotation where not', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const url = `http://localhost:${server.address().port}/#/breakout`;
+    const errors = [];
+
+    // A phone that allows locking: record what we lock to.
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.addInitScript(() => {
+      window.__locks = [];
+      screen.orientation.lock = async (kind) => window.__locks.push(kind);
+      screen.orientation.unlock = () => window.__locks.push('unlock');
+    });
+    await page.goto(url);
+    await page.locator('.bo-choice[data-kind=landscape]').click();
+    await page.waitForFunction(() => window.__breakout);
+    assert.deepEqual(await page.evaluate(() => window.__locks), ['landscape']);
+    // The lock turns the screen sideways.
+    await page.setViewportSize({ width: 844, height: 390 });
+    assert.equal(await page.evaluate(() => window.__breakout.game.L.cols), 14);
+    // Play a little on autopilot: bricks break and the score goes up.
+    await page.evaluate(() => (window.__breakout.autopilot = true));
+    await page.waitForFunction(() => window.__breakout.game.score > 0, null, { timeout: 20000 });
+    assert.ok(Number(await page.locator('[data-score]').textContent()) > 0);
+    // Leaving the game releases the lock.
+    await page.locator('[data-act=menu]').click();
+    assert.equal(await page.evaluate(() => window.__locks.at(-1)), 'unlock');
+    await page.close();
+
+    // A phone that can't lock (like iOS): rotating mid-game pauses it.
+    const p2 = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    p2.on('pageerror', (e) => errors.push(e.message));
+    await p2.addInitScript(() => {
+      screen.orientation.lock = () => Promise.reject(new Error('NotSupportedError'));
+    });
+    await p2.goto(url);
+    await p2.locator('.bo-choice[data-kind=portrait]').click();
+    await p2.waitForFunction(() => window.__breakout);
+    await p2.evaluate(() => (window.__breakout.autopilot = true));
+    await p2.waitForTimeout(500);
+    await p2.setViewportSize({ width: 844, height: 390 });
+    await p2.locator('.bo-overlay:not([hidden])').waitFor();
+    assert.match(await p2.locator('.bo-overlay').textContent(), /Turn your phone back to portrait/);
+    assert.equal(await p2.evaluate(() => window.__breakout.paused), true);
+    const frozen = await p2.evaluate(() => ({ ...window.__breakout.game.ball }));
+    await p2.waitForTimeout(300);
+    assert.deepEqual(await p2.evaluate(() => ({ ...window.__breakout.game.ball })), frozen, 'ball frozen while paused');
+    // Turn back: tap to carry on.
+    await p2.setViewportSize({ width: 390, height: 844 });
+    await p2.waitForFunction(() => document.querySelector('.bo-overlay').textContent.includes('Tap to continue'));
+    await p2.locator('.bo-overlay').click();
+    assert.equal(await p2.evaluate(() => window.__breakout.paused), false);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

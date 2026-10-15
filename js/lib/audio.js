@@ -82,14 +82,21 @@ const SFX = {
     tone('sine', 420, 980, 0.18, 0.12);
   },
   lose: () => [392, 330, 262].forEach((f, k) => tone('triangle', f, f * 0.97, 0.3, 0.18, k * 0.16)),
+  // Breakout: arcade-style square-wave blips.
+  wall: () => tone('square', 480, 480, 0.045, 0.07, 0, 3000),
+  paddle: () => tone('square', 240, 236, 0.07, 0.1, 0, 2400),
+  // Higher rows ring higher, like the 1976 original. row: 0 (bottom) and up.
+  brick: (row = 0) => tone('square', 520 + row * 70, 520 + row * 70, 0.06, 0.08, 0, 3500),
+  steel: () => tone('square', 900, 880, 0.03, 0.06, 0, 4000),
+  miss: () => tone('sawtooth', 440, 70, 0.6, 0.12, 0, 1200),
   star: () => tone('triangle', 880, 1320, 0.25, 0.2),
   win: () => [523, 659, 784, 1047].forEach((f, k) => tone('triangle', f, f, 0.3, 0.2, k * 0.11)),
 };
 
-export function sfx(name) {
+export function sfx(name, arg) {
   if (!getSetting('sound') || !ac || !SFX[name]) return;
   try {
-    SFX[name]();
+    SFX[name](arg);
   } catch {
     // Never let audio problems break the game.
   }

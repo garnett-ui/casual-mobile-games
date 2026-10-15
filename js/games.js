@@ -18,6 +18,14 @@ export const GAMES = [
     load: () => import('../games/tap-maze/index.js'),
     art: () => import('../games/tap-maze/art.js'),
   },
+  {
+    id: 'breakout',
+    title: 'Breakout',
+    blurb: 'The arcade classic. Smash the wall, one bounce at a time — in portrait or landscape.',
+    color: '#e5383b',
+    load: () => import('../games/breakout/index.js'),
+    art: () => import('../games/breakout/art.js'),
+  },
 ];
 
 export const COMING_SOON = [

@@ -42,6 +42,24 @@ Clear every arrow to win; hearts left are your stars.
   level. Every maze is checked to be clearable.
 - **Hint** shows an arrow that is free to go; **Restart** resets the hearts.
 
+### Breakout
+
+The arcade classic. Pick **portrait** (8 columns) or **landscape** (14 columns,
+like the 1976 original) before you play; once a game starts the screen
+orientation is locked (Android Chrome: installed app, or fullscreen in a tab).
+Where it can't be locked (iOS), turning the phone pauses the game until you
+turn it back. Drag anywhere to move the paddle, tap to launch.
+
+- Classic rules: rows score 1/3/5/7 from the bottom, the ball speeds up after
+  4 and 12 hits and on reaching the orange and red rows, and the paddle
+  shrinks once the ball breaks through to the back wall. Three balls, a bonus
+  ball for each wall cleared.
+- Endless walls: later walls are faster, vary their pattern, and add tough
+  (multi-hit) and steel (unbreakable) bricks. Best score is kept per
+  orientation.
+- Square-wave sound effects for wall bounces, the paddle, and bricks (pitch
+  rises with the row).
+
 ## Installing on a device
 
 - **iPhone / iPad (Safari):** open the site, tap **Share**, then **Add to
@@ -94,6 +112,8 @@ games/car-jam/draw.js       vector sprites (cars, grannies, obstacles)
 games/car-jam/index.js      level select, HUD, win dialog
 games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
                             play.js, draw.js, index.js, worker.js
+games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
+js/lib/orientation.js       orientation lock with fallback
 js/lib/campaign.js          shared level select, progress and dialogs
 js/lib/level-source.js      builds levels in a worker, prefetches and caches
 sw.js, sw-manifest.js       offline support

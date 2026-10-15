@@ -4,6 +4,13 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.6.0
+- New game: Breakout. Choose portrait (8 columns) or landscape (14
+  columns, like the 1976 original); the screen orientation locks once a
+  game starts, and on phones that can't lock, turning the phone pauses the
+  game. Classic scoring and speed-ups, endless walls with tough and steel
+  bricks, arcade-style sound effects for walls, paddle and bricks.
+
 ## 1.5.2
 - App manifest lists PNG icons only (the SVG icon is still used as the
   browser favicon), to help Android Chrome create a full app install
