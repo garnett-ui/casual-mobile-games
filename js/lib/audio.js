@@ -15,7 +15,7 @@ export function unlockAudio() {
     master = ac.createGain();
     master.gain.value = 0.6;
     master.connect(ac.destination);
-    noise = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+    noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
     const d = noise.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
@@ -89,9 +89,63 @@ const SFX = {
   brick: (row = 0) => tone('square', 520 + row * 70, 520 + row * 70, 0.06, 0.08, 0, 3500),
   steel: () => tone('square', 900, 880, 0.03, 0.06, 0, 4000),
   miss: () => tone('sawtooth', 440, 70, 0.6, 0.12, 0, 1200),
+  // Lunar Lander
+  explode: () => {
+    thump(0.9, 1.6, 700);
+    thump(0.5, 0.5, 3000);
+    tone('sine', 110, 28, 1.4, 0.5);
+  },
+  alarm: () => {
+    tone('square', 1046, 1046, 0.09, 0.05, 0, 3000);
+    tone('square', 1046, 1046, 0.09, 0.05, 0.14, 3000);
+  },
+  contact: () => tone('sine', 1320, 1320, 0.12, 0.08),
   star: () => tone('triangle', 880, 1320, 0.25, 0.2),
   win: () => [523, 659, 784, 1047].forEach((f, k) => tone('triangle', f, f, 0.3, 0.2, k * 0.11)),
 };
+
+// Continuous sounds that play while a control is held (engine rumble,
+// thruster hiss). setLoop(name, true/false) starts/stops them.
+const LOOPS = {
+  engine: { type: 'lowpass', freq: 340, vol: 0.35 },
+  rcs: { type: 'highpass', freq: 2600, vol: 0.05 },
+};
+const playing = {};
+
+export function setLoop(name, on) {
+  if (!ac || !getSetting('sound')) on = false;
+  const cur = playing[name];
+  if (on && !cur) {
+    const spec = LOOPS[name];
+    const t = ac.currentTime;
+    const src = ac.createBufferSource();
+    src.buffer = noise;
+    src.loop = true;
+    src.loopStart = Math.random();
+    const f = ac.createBiquadFilter();
+    f.type = spec.type;
+    f.frequency.value = spec.freq;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(spec.vol, t + 0.06);
+    src.connect(f);
+    f.connect(g);
+    g.connect(master);
+    src.start(t, Math.random());
+    playing[name] = { src, g };
+  } else if (!on && cur) {
+    const t = ac.currentTime;
+    cur.g.gain.cancelScheduledValues(t);
+    cur.g.gain.setValueAtTime(Math.max(0.0001, cur.g.gain.value), t);
+    cur.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    cur.src.stop(t + 0.15);
+    delete playing[name];
+  }
+}
+
+export function stopLoops() {
+  for (const name of Object.keys(playing)) setLoop(name, false);
+}
 
 export function sfx(name, arg) {
   if (!getSetting('sound') || !ac || !SFX[name]) return;

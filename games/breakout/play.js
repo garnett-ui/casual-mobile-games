@@ -1,5 +1,7 @@
 // Draws a Breakout game and turns touches into paddle moves.
-import { Breakout, BALL_R } from './engine.js';
+import { Breakout, BALL_R, PADDLE_H } from './engine.js';
+
+const THUMB_ROOM = 50; // CSS px kept clear below the paddle
 import { shade } from '../car-jam/draw.js';
 
 export class Play {
@@ -133,6 +135,11 @@ export class Play {
     this.scale = Math.min(this.cssW / L.w, this.cssH / L.h);
     this.ox = (this.cssW - L.w * this.scale) / 2;
     this.oy = (this.cssH - L.h * this.scale) / 2;
+    // Keep ~1.3 cm (50 CSS px) between the paddle and the bottom of the
+    // screen, so a thumb can rest below the paddle without hiding it.
+    const below = window.innerHeight - (rect.top + this.oy + L.h * this.scale);
+    const room = (THUMB_ROOM - below) / this.scale;
+    this.game.setPaddleY(L.h - PADDLE_H - Math.max(0, room));
   }
 
   draw() {

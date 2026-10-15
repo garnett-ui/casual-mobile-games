@@ -344,6 +344,19 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
     // The lock turns the screen sideways.
     await page.setViewportSize({ width: 844, height: 390 });
     assert.equal(await page.evaluate(() => window.__breakout.game.L.cols), 14);
+    // The paddle sits high enough to leave thumb room (~1.3 cm) below it.
+    const gap = async (p) => p.evaluate(() => {
+      const b = window.__breakout;
+      const r = b.canvas.getBoundingClientRect();
+      const bottom = r.top + b.oy + (b.game.paddle.y + b.game.paddle.h) * b.scale;
+      return window.innerHeight - bottom;
+    });
+    await page.waitForFunction(() => {
+      const b = window.__breakout;
+      const r = b.canvas.getBoundingClientRect();
+      return window.innerHeight - (r.top + b.oy + (b.game.paddle.y + b.game.paddle.h) * b.scale) >= 49;
+    }, null, { timeout: 5000 }).catch(() => {});
+    assert.ok(await gap(page) >= 49, `room below paddle: ${await gap(page)}px`);
     // Play a little on autopilot: bricks break and the score goes up.
     await page.evaluate(() => (window.__breakout.autopilot = true));
     await page.waitForFunction(() => window.__breakout.game.score > 0, null, { timeout: 20000 });
@@ -376,6 +389,58 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
     await p2.waitForFunction(() => document.querySelector('.bo-overlay').textContent.includes('Tap to continue'));
     await p2.locator('.bo-overlay').click();
     assert.equal(await p2.evaluate(() => window.__breakout.paused), false);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('lunar lander: thrust button lifts off, a landing scores, a crash explodes', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=lander]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__lander);
+
+    // Hold THRUST with a real pointer: the lander leaves the pad.
+    const btn = await page.locator('.ll-thrust').boundingBox();
+    await page.mouse.move(btn.x + btn.width / 2, btn.y + btn.height / 2);
+    await page.mouse.down();
+    await page.waitForFunction(() => window.__lander.L.landed === null && window.__lander.L.y > window.__lander.level.startPad.y + 2);
+    await page.mouse.up();
+    assert.equal(await page.evaluate(() => window.__lander.input.thrust), false, 'releasing stops the engine');
+
+    // Let the autopilot fly the rest, fast-forwarded.
+    await page.evaluate(async () => {
+      const m = await import('/games/lander/engine.js');
+      window.__lander.timeScale = 6;
+      window.__lander.pilot = m.autopilot;
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 60000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /landed|landing|piece/i);
+    assert.ok(await page.locator('.dialog .ll-score').count());
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:lander:progress')));
+    assert.equal(saved.unlocked, 2);
+
+    // Fly again and crash on purpose.
+    await page.evaluate(() => (window.__lander.pilot = null));
+    await page.locator('[data-act=replay]').click();
+    await page.evaluate(() => {
+      const p = window.__lander;
+      p.L.landed = null;
+      p.L.y += 60;
+      p.L.vy = -20;
+    });
+    await page.waitForFunction(() => window.__lander.L.crashed);
+    assert.ok(await page.evaluate(() => window.__lander.debris.length > 5 && window.__lander.particles.length > 20), 'fireball and wreckage');
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /Crashed/);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

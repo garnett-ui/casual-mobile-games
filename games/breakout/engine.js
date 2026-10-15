@@ -22,7 +22,7 @@ export const ROW_STYLE = [
 ];
 
 export const BALL_R = 5;
-const PADDLE_H = 10;
+export const PADDLE_H = 10;
 const MAX_ANGLE = (60 * Math.PI) / 180;
 const MIN_ANGLE = (9 * Math.PI) / 180;
 
@@ -72,7 +72,7 @@ export function makeWall(layoutName, stage) {
 export class Breakout {
   constructor(layoutName, { lives = 3, stage = 1 } = {}) {
     this.layoutName = layoutName;
-    this.L = LAYOUTS[layoutName];
+    this.L = { ...LAYOUTS[layoutName] };
     this.score = 0;
     this.lives = lives;
     this.over = false;
@@ -106,6 +106,16 @@ export class Breakout {
 
   movePaddle(x) {
     this.paddle.target = x;
+  }
+
+  // Raise the paddle (never lower than the layout's default), e.g. to leave
+  // room for a thumb underneath it on screen.
+  setPaddleY(y) {
+    const L = this.L;
+    const def = LAYOUTS[this.layoutName].paddleY;
+    L.paddleY = Math.max(L.h * 0.72, Math.min(def, y));
+    this.paddle.y = L.paddleY;
+    if (!this.served) this.ball.y = this.paddle.y - BALL_R - 1;
   }
 
   // Speed-ups from the original: after 4 and 12 hits, and on first reaching

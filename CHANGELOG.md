@@ -4,6 +4,16 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.7.0
+- New game: Lunar Lander. Lift off, fly over the mountains and land gently
+  on the base. Realistic momentum and spin (side thrusters change the spin
+  rate; small spins are held steady automatically), limited fuel, a
+  green-phosphor instrument readout, Earthrise and stars, and a fireball
+  with flying wreckage on a crash. Endless missions, each checked to be
+  landable, with taller mountains, narrower bases and less spare fuel.
+- Breakout: the paddle now always leaves about 1.3 cm of screen below it,
+  so your thumb can rest underneath without hiding it.
+
 ## 1.6.0
 - New game: Breakout. Choose portrait (8 columns) or landscape (14
   columns, like the 1976 original); the screen orientation locks once a

@@ -26,6 +26,14 @@ export const GAMES = [
     load: () => import('../games/breakout/index.js'),
     art: () => import('../games/breakout/art.js'),
   },
+  {
+    id: 'lander',
+    title: 'Lunar Lander',
+    blurb: 'Fly over the mountains and set down gently on the base before the fuel runs out.',
+    color: '#3dff7a',
+    load: () => import('../games/lander/index.js'),
+    art: () => import('../games/lander/art.js'),
+  },
 ];
 
 export const COMING_SOON = [

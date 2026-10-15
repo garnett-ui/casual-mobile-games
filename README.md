@@ -60,6 +60,25 @@ turn it back. Drag anywhere to move the paddle, tap to launch.
 - Square-wave sound effects for wall bounces, the paddle, and bricks (pitch
   rises with the row).
 
+### Lunar Lander
+
+Lift off from the launch pad, fly over the mountains and set down gently on
+the base before the fuel runs out. Hold **THRUST** for the main engine and the
+two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
+
+- Realistic momentum and rotational inertia under lunar gravity (1.62 m/s²):
+  the side thrusters change the spin rate, so you counter-fire to stop; spins
+  under 4°/s are cancelled by an automatic attitude hold. The main engine gets
+  punchier as fuel burns off.
+- Green-phosphor instrument panel: altitude, horizontal/vertical velocity and
+  acceleration, attitude and spin rate, fuel, distance to base, an attitude
+  ball and a velocity box, with LOW FUEL / SINK RATE / DRIFT warnings.
+- Scored on touchdown speed, drift, tilt, centring and fuel left. Too hard,
+  too fast sideways, too tilted, or a hull strike: fireball and wreckage.
+- Endless missions: every one is test-flown by an autopilot when generated,
+  so it is always possible; fuel is what it needed plus a margin that shrinks
+  from 2× to 1.25×, while mountains rise and the base narrows.
+
 ## Installing on a device
 
 - **iPhone / iPad (Safari):** open the site, tap **Share**, then **Add to
@@ -113,6 +132,7 @@ games/car-jam/index.js      level select, HUD, win dialog
 games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
                             play.js, draw.js, index.js, worker.js
 games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
+games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 js/lib/orientation.js       orientation lock with fallback
 js/lib/campaign.js          shared level select, progress and dialogs
 js/lib/level-source.js      builds levels in a worker, prefetches and caches
