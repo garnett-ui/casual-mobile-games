@@ -214,7 +214,6 @@ svg { display: block; }
 }
 .lvl:active { transform: translateY(2px); box-shadow: 0 3px 0 rgba(0, 0, 0, .2); }
 .lvl-n { font-size: 22px; font-weight: 800; }
-.lvl.bonus { background: #ffe9b8; }
 .lvl.current { background: var(--accent); color: #fff; }
 .lvl.locked { background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .4); box-shadow: none; }
 .lvl.locked svg { width: 22px; height: 22px; fill: currentColor; }
@@ -244,6 +243,24 @@ svg { display: block; }
   touch-action: none;
   display: block;
 }
+.stage.building {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #1f4d1a;
+  font-weight: 700;
+}
+.spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, .5);
+  border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .controls {
   display: flex;
   justify-content: center;

@@ -1,7 +1,5 @@
 // Car Jam: screens (level select, play HUD, win dialog) around Play.
-import LEVELS from './levels.js';
-import { generateLevel } from './model.js';
-import { tierFor, LEVEL_COUNT } from './tiers.js';
+import { makeLevel, BASE_SEED, GEN_VERSION } from './levels.js';
 import { Play } from './play.js';
 
 const ICON = {
@@ -13,22 +11,58 @@ const ICON = {
 };
 const STAR = '<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
 const CHEERS = ['Lot cleared!', 'Smooth driving!', 'Nicely parked!', 'Traffic genius!', 'Beep beep, hooray!'];
-const bonusCache = new Map();
 
-function levelData(n) {
-  if (n <= LEVEL_COUNT) return LEVELS[n - 1];
-  // Past the campaign: endless bonus lots, generated on the device.
-  if (!bonusCache.has(n)) {
-    const tier = tierFor(n);
-    const level = generateLevel(n * 7919, tier.spec, 120);
-    bonusCache.set(n, { ...level, grannies: tier.grannies });
+// Levels are generated from a seed on the device. Building a big lot can take
+// a few seconds on a phone, so it happens in a worker, the next level is built
+// ahead while you play, and recent levels are kept in storage.
+function levelSource(ctx) {
+  const memo = new Map();
+  let worker = null;
+  const waiting = new Map();
+  try {
+    worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+    worker.onmessage = (e) => {
+      const done = waiting.get(e.data.n);
+      waiting.delete(e.data.n);
+      done?.(e.data.level);
+    };
+    // Older browsers without module workers: build on the main thread.
+    worker.onerror = () => {
+      worker = null;
+      for (const [n, done] of waiting) setTimeout(() => done(makeLevel(n)), 30);
+      waiting.clear();
+    };
+  } catch {
+    worker = null;
   }
-  return bonusCache.get(n);
+  const key = (n) => `level:${GEN_VERSION}:${BASE_SEED}:${n}`;
+  const get = (n) => {
+    if (memo.has(n)) return memo.get(n);
+    const stored = ctx.load(key(n), null);
+    const p = stored ? Promise.resolve(stored) : new Promise((resolve) => {
+      if (worker) {
+        waiting.set(n, resolve);
+        worker.postMessage({ n, base: BASE_SEED });
+      } else {
+        setTimeout(() => resolve(makeLevel(n)), 30);
+      }
+    }).then((level) => {
+      ctx.save(key(n), level);
+      // Keep storage tidy: drop levels well behind this one.
+      ctx.save(key(n - 6), null);
+      return level;
+    });
+    memo.set(n, p);
+    return p;
+  };
+  return { get, destroy: () => worker?.terminate() };
 }
 
 export function mount(root, ctx, sub) {
   const progress = { unlocked: 1, stars: {}, ...ctx.load('progress', {}) };
+  const levels = levelSource(ctx);
   let play = null;
+  let showing = 0;
   let onResize = null;
 
   const saveProgress = () => ctx.save('progress', progress);
@@ -37,6 +71,7 @@ export function mount(root, ctx, sub) {
     `<span class="stars ${cls}">${[1, 2, 3].map((k) => `<i class="${k <= n ? 'on' : ''}">${STAR}</i>`).join('')}</span>`;
 
   function teardown() {
+    showing = 0;
     if (play) play.destroy();
     play = null;
     if (onResize) window.removeEventListener('resize', onResize);
@@ -45,12 +80,11 @@ export function mount(root, ctx, sub) {
 
   function showLevels() {
     teardown();
-    const count = Math.max(LEVEL_COUNT, progress.unlocked);
+    const count = progress.unlocked + 11;
     let tiles = '';
     for (let n = 1; n <= count; n++) {
       const locked = n > progress.unlocked;
-      const bonus = n > LEVEL_COUNT;
-      tiles += `<button class="lvl ${locked ? 'locked' : ''} ${bonus ? 'bonus' : ''}" data-n="${n}" ${locked ? 'disabled' : ''}>
+      tiles += `<button class="lvl ${locked ? 'locked' : ''}" data-n="${n}" ${locked ? 'disabled' : ''}>
         <span class="lvl-n">${locked ? ICON.lock : n}</span>
         ${locked ? '' : starRow(progress.stars[n] || 0, 'small')}
       </button>`;
@@ -65,7 +99,7 @@ export function mount(root, ctx, sub) {
         <div class="levels-scroll">
           <p class="levels-intro">Swipe or tap cars to drive them out of the lot. Clear every car to win!</p>
           <div class="lvl-grid">${tiles}</div>
-          ${progress.unlocked > LEVEL_COUNT ? '<p class="levels-intro">Bonus lots never run out. Keep going!</p>' : ''}
+          <p class="levels-intro">The lots never run out, and every one is a little tougher than the last.</p>
         </div>
       </div>`;
     root.querySelector('[data-act=home]').onclick = () => ctx.back('#/');
@@ -75,14 +109,31 @@ export function mount(root, ctx, sub) {
         ctx.navigate(`#/car-jam/${b.dataset.n}`);
       };
     });
-    const cur = root.querySelector(`.lvl[data-n="${Math.min(progress.unlocked, count)}"]`);
+    const cur = root.querySelector(`.lvl[data-n="${progress.unlocked}"]`);
     cur?.classList.add('current');
     cur?.scrollIntoView({ block: 'center' });
   }
 
   function showPlay(n) {
     teardown();
-    const level = levelData(n);
+    showing = n;
+    root.innerHTML = `
+      <div class="screen play-screen">
+        <header class="bar">
+          <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
+          <h2>Level ${n}</h2>
+        </header>
+        <div class="stage building"><div class="spinner"></div><p>Building the lot…</p></div>
+      </div>`;
+    root.querySelector('[data-act=levels]').onclick = () => ctx.back('#/car-jam');
+    levels.get(n).then((level) => {
+      if (showing === n && !play) startPlay(n, level);
+    });
+  }
+
+  function startPlay(n, level) {
+    // Build the next lot in the background while this one is played.
+    levels.get(n + 1);
     root.innerHTML = `
       <div class="screen play-screen">
         <header class="bar">
@@ -179,5 +230,11 @@ export function mount(root, ctx, sub) {
   }
 
   route(sub);
-  return { route, destroy: teardown };
+  return {
+    route,
+    destroy() {
+      teardown();
+      levels.destroy();
+    },
+  };
 }

@@ -1,6 +1,7 @@
 {
   "name": "casual-mobile-games",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Pocket Arcade: an installable, offline-first collection of casual mobile games.",
   "scripts": {
@@ -8,7 +9,6 @@
     "test": "node --test test/*.test.mjs",
     "build": "node tools/build-sw.mjs",
     "check": "node tools/build-sw.mjs --check",
-    "levels": "node tools/gen-levels.mjs && node tools/build-sw.mjs",
     "icons": "node tools/gen-icons.mjs && node tools/build-sw.mjs"
   },
   "devDependencies": {

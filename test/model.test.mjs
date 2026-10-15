@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildModel, occupancy, slide, solve, obviouslyStuck, generateLevel, randomLayout, rng, FENCE, EMPTY } from '../games/car-jam/model.js';
-import LEVELS from '../games/car-jam/levels.js';
-import { LEVEL_COUNT, tierFor } from '../games/car-jam/tiers.js';
+import { buildModel, occupancy, slide, solve, obviouslyStuck, randomLayout, rng, waves, FENCE, EMPTY } from '../games/car-jam/model.js';
+import { makeLevel, specFor, seedFor } from '../games/car-jam/levels.js';
 
 test('a car with a clear path drives out of the lot', () => {
   const m = buildModel({ w: 4, h: 1, cars: [[1, 0, 2, 'E']] });
@@ -104,35 +103,51 @@ test('obviously unsolvable layouts are detected', () => {
   assert.equal(solve(m, m.start), null);
 });
 
-test(`campaign has ${LEVEL_COUNT} valid, solvable levels with the right par`, () => {
-  assert.equal(LEVELS.length, LEVEL_COUNT);
-  LEVELS.forEach((level, k) => {
+function checkLevel(level, n) {
+  const m = buildModel(level);
+  const seen = new Set();
+  const mark = (x, y) => {
+    assert.ok(x >= 0 && y >= 0 && x < level.w && y < level.h, `level ${n}: in bounds`);
+    assert.ok(!seen.has(`${x},${y}`), `level ${n}: no overlap at ${x},${y}`);
+    seen.add(`${x},${y}`);
+  };
+  for (const [x, y] of level.obs) mark(x, y);
+  for (const c of m.cars) for (let i = 0; i < c.len; i++) mark(c.horiz ? c.x + i : c.x, c.horiz ? c.y : c.y + i);
+  const sol = solve(m, m.start);
+  assert.ok(sol, `level ${n} solvable`);
+  assert.equal(sol.total, level.par, `level ${n} par`);
+  return { m, sol };
+}
+
+test('generated levels are valid and solvable, with par = optimal moves', () => {
+  for (const n of [1, 2, 3, 4, 5, 8, 12, 17, 21, 25, 30, 40]) checkLevel(makeLevel(n), n);
+});
+
+test('the same level number always builds the same lot', () => {
+  assert.deepEqual(makeLevel(23), makeLevel(23));
+  assert.notDeepEqual(makeLevel(23), makeLevel(24));
+  assert.notEqual(seedFor(1), seedFor(2));
+  assert.notDeepEqual(makeLevel(23, 1), makeLevel(23, 2), 'different base seed, different lot');
+});
+
+test('difficulty keeps rising with the level number, without limit', () => {
+  let prev = specFor(5);
+  for (let n = 6; n <= 5000; n++) {
+    const s = specFor(n);
+    assert.ok(s.w * s.h >= prev.w * prev.h, `lot never shrinks (level ${n})`);
+    assert.ok(s.hard[0] >= prev.hard[0], `hardness target never drops (level ${n})`);
+    assert.ok(s.budget >= prev.budget && s.climb >= prev.climb, `search effort never drops (level ${n})`);
+    prev = s;
+  }
+  assert.ok(specFor(5000).hard[0] > specFor(500).hard[0]);
+  // And the generator delivers: later lots need more forced moves and depth.
+  const hardness = (n) => {
+    const level = makeLevel(n);
     const m = buildModel(level);
-    const seen = new Set();
-    const mark = (x, y) => {
-      assert.ok(x >= 0 && y >= 0 && x < level.w && y < level.h, `level ${k + 1}: in bounds`);
-      assert.ok(!seen.has(`${x},${y}`), `level ${k + 1}: no overlap at ${x},${y}`);
-      seen.add(`${x},${y}`);
-    };
-    for (const [x, y] of level.obs) mark(x, y);
-    for (const c of m.cars) for (let i = 0; i < c.len; i++) mark(c.horiz ? c.x + i : c.x, c.horiz ? c.y : c.y + i);
-    const sol = solve(m, m.start);
-    assert.ok(sol, `level ${k + 1} solvable`);
-    assert.equal(sol.total, level.par, `level ${k + 1} par`);
-  });
-});
-
-test('levels get bigger as the campaign goes on', () => {
-  const area = (l) => l.w * l.h;
-  assert.ok(area(LEVELS[0]) < area(LEVELS[19]));
-  assert.ok(area(LEVELS[19]) < area(LEVELS[LEVEL_COUNT - 1]));
-});
-
-test('bonus level generation is deterministic and solvable', () => {
-  const tier = tierFor(LEVEL_COUNT + 5);
-  const a = generateLevel(1234, tier.spec, 40);
-  const b = generateLevel(1234, tier.spec, 40);
-  assert.deepEqual(a, b);
-  const m = buildModel(a);
-  assert.equal(solve(m, m.start).total, a.par);
+    return waves(m) + 3 * solve(m, m.start).shuffles;
+  };
+  const early = hardness(10) + hardness(11);
+  const mid = hardness(40) + hardness(41);
+  const late = hardness(90) + hardness(91);
+  assert.ok(early < mid && mid < late, `${early} < ${mid} < ${late}`);
 });

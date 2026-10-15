@@ -84,60 +84,89 @@ function applyMove(m, occ, pos, i, to) {
 
 // Let every car that can currently leave the lot do so (repeatedly, since one
 // leaving can free another). Leaving is never a bad move: it only frees space,
-// and every car has to leave exactly once anyway. Mutates pos.
-function drainExits(m, pos, moves) {
-  const occ = occupancy(m, pos);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (let i = 0; i < pos.length; i++) {
-      if (pos[i] < 0) continue;
-      for (const sign of [1, -1]) {
-        if (slide(m, occ, pos, i, sign).exit) {
-          applyMove(m, occ, pos, i, -1);
-          if (moves) moves.push({ car: i, sign });
-          changed = true;
-          break;
+// and every car has to leave exactly once anyway. Mutates pos and occ.
+// `candidates` limits the first check to cars that might newly be able to
+// leave (those sharing a row/column with freed tiles); omit to check all.
+function drainExits(m, occ, pos, moves, candidates) {
+  const queue = candidates ? [...candidates] : pos.map((_, i) => i);
+  const queued = new Uint8Array(pos.length);
+  for (const i of queue) queued[i] = 1;
+  while (queue.length) {
+    const i = queue.pop();
+    queued[i] = 0;
+    if (pos[i] < 0) continue;
+    for (const sign of [1, -1]) {
+      if (!slide(m, occ, pos, i, sign).exit) continue;
+      const tiles = carTiles(m, i, pos[i]);
+      applyMove(m, occ, pos, i, -1);
+      moves.push({ car: i, sign });
+      for (const j of linesThrough(m, tiles)) {
+        if (!queued[j] && pos[j] >= 0) {
+          queued[j] = 1;
+          queue.push(j);
         }
       }
+      break;
     }
   }
 }
+
+// Cars whose row or column passes through any of these tiles.
+function linesThrough(m, tiles) {
+  if (!m.rowCars) {
+    m.rowCars = Array.from({ length: m.h }, () => []);
+    m.colCars = Array.from({ length: m.w }, () => []);
+    m.cars.forEach((c, i) => (c.horiz ? m.rowCars[c.y] : m.colCars[c.x]).push(i));
+  }
+  const out = new Set();
+  for (const [x, y] of tiles) {
+    for (const i of m.rowCars[y]) out.add(i);
+    for (const i of m.colCars[x]) out.add(i);
+  }
+  return out;
+}
+
+const keyOf = (pos) => String.fromCharCode(...pos.map((p) => p + 2));
+
+// Running total of search states explored, so the generator can spend a
+// fixed amount of work per level (deterministic, unlike a time limit).
+let work = 0;
 
 // Breadth-first search for the fewest moves. Because every solution contains
 // exactly one exit move per car, we only search over the repositioning
 // ("shuffle") moves and drain exits greedily after each one.
 // Returns { moves, shuffles, total, states } or null if unsolvable / too big.
 export function solve(m, pos0, maxStates = 200000) {
+  work++;
   const start = pos0.slice();
+  const startOcc = occupancy(m, start);
   const firstExits = [];
-  drainExits(m, start, firstExits);
-  const done = (p) => p.every((v) => v < 0);
-  if (done(start)) {
-    return { moves: firstExits, shuffles: 0, total: firstExits.length, states: 1 };
-  }
-  const startKey = start.join(',');
+  drainExits(m, startOcc, start, firstExits);
+  let left = start.filter((v) => v >= 0).length;
+  if (!left) return { moves: firstExits, shuffles: 0, total: firstExits.length, states: 1 };
+  const startKey = keyOf(start);
   const parent = new Map([[startKey, null]]);
-  let frontier = [start];
+  let frontier = [{ pos: start, occ: startOcc, key: startKey }];
   let states = 1;
   while (frontier.length) {
     const next = [];
-    for (const pos of frontier) {
-      const occ = occupancy(m, pos);
-      const key = pos.join(',');
+    for (const { pos, occ, key } of frontier) {
       for (let i = 0; i < pos.length; i++) {
         if (pos[i] < 0) continue;
         for (const sign of [1, -1]) {
           const r = slide(m, occ, pos, i, sign);
           if (r.dist === 0) continue;
           const np = pos.slice();
-          np[i] = r.to;
+          const nocc = occ.slice();
+          const before = carTiles(m, i, pos[i]);
+          applyMove(m, nocc, np, i, r.to);
+          const freed = before.filter(([x, y]) => nocc[y * m.w + x] === EMPTY);
           const exits = [];
-          drainExits(m, np, exits);
-          const nk = np.join(',');
+          drainExits(m, nocc, np, exits, linesThrough(m, freed));
+          const nk = keyOf(np);
           if (parent.has(nk)) continue;
           parent.set(nk, { prev: key, moves: [{ car: i, sign }, ...exits] });
-          if (done(np)) {
+          if (np.every((v) => v < 0)) {
             const moves = [];
             let k = nk;
             while (parent.get(k)) {
@@ -149,8 +178,9 @@ export function solve(m, pos0, maxStates = 200000) {
             const shuffles = moves.length - m.cars.length;
             return { moves, shuffles, total: moves.length, states };
           }
+          work++;
           if (++states > maxStates) return null;
-          next.push(np);
+          next.push({ pos: np, occ: nocc, key: nk });
         }
       }
     }
@@ -202,13 +232,27 @@ export function randomLayout(r, spec) {
       }
     }
   }
+  const cars = [];
+  fillCars(r, spec, { w, h, obs, fence, cars });
+  for (const side of ['N', 'E', 'S', 'W']) if (!fence[side].length) delete fence[side];
+  const level = { w, h, cars, obs };
+  if (Object.keys(fence).length) level.fence = fence;
+  return level;
+}
+
+// Park cars in the empty spaces of a lot (mutates layout.cars). Only places
+// cars that could ever reach an open edge, so layouts stay mostly solvable.
+function fillCars(r, spec, layout) {
+  const { w, h, cars } = layout;
+  const fence = { N: [], E: [], S: [], W: [], ...layout.fence };
+  const occ = new Uint8Array(w * h);
+  for (const [x, y] of layout.obs) occ[y * w + x] = 1;
   const cells = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) cells.push([x, y]);
   for (let k = cells.length - 1; k > 0; k--) {
     const j = Math.floor(r() * (k + 1));
     [cells[k], cells[j]] = [cells[j], cells[k]];
   }
-  const cars = [];
   const fits = (x, y, len, horiz) => {
     for (let k = 0; k < len; k++) {
       const cx = horiz ? x + k : x;
@@ -218,6 +262,10 @@ export function randomLayout(r, spec) {
     return true;
   };
   const stat = occ.slice();
+  for (const [x, y, len, dir] of cars) {
+    const hz = dir === 'E' || dir === 'W';
+    for (let k = 0; k < len; k++) occ[(hz ? y : y + k) * w + (hz ? x + k : x)] = 1;
+  }
   const fenced = (side, k) => fence[side].includes(k);
   // Which lot edges could this car ever reach, ignoring other cars?
   const reach = (x, y, len, horiz) => {
@@ -278,10 +326,6 @@ export function randomLayout(r, spec) {
       }
     }
   }
-  for (const side of ['N', 'E', 'S', 'W']) if (!fence[side].length) delete fence[side];
-  const level = { w, h, cars, obs };
-  if (Object.keys(fence).length) level.fence = fence;
-  return level;
 }
 
 // Cheap check for layouts that can never be solved, so the solver doesn't
@@ -343,31 +387,66 @@ export function openCars(m) {
   return n;
 }
 
-// Generate the best of `tries` random layouts for a difficulty spec:
-// { w, h, density, obstacles, truckRate, fenceRate, edgeBias, minCars,
-//   hard: [lo, hi], wantShuffles }. Hardness = waves + 3 * forced repositioning moves.
+function evaluate(level, spec) {
+  if (level.cars.length < (spec.minCars || 2)) return null;
+  if (spec.maxCars && level.cars.length > spec.maxCars) return null;
+  const m = buildModel(level);
+  if (obviouslyStuck(m)) return null;
+  const sol = solve(m, m.start, spec.maxStates || 20000);
+  if (!sol) return null;
+  const hard = waves(m) + 3 * sol.shuffles;
+  const [lo, hi] = spec.hard || [0, 99];
+  const miss = hard < lo ? lo - hard : hard > hi ? hard - hi : 0;
+  // Hit the hardness band first, then prefer a tight opening and more cars.
+  // Harder levels also favour layouts that force cars to be moved aside.
+  const shuffleBonus = spec.wantShuffles ? Math.min(sol.shuffles, spec.wantShuffles) * 40 : 0;
+  const score = miss * 100 + openCars(m) * 4 - level.cars.length - shuffleBonus;
+  return { score, hard, level: { ...level, par: sol.total } };
+}
+
+// Small random change to a lot: drive a few cars away and refill the gaps,
+// sometimes nudging a hedge too.
+function mutate(r, spec, level) {
+  const cars = level.cars.slice();
+  const drop = 1 + Math.floor(r() * 3);
+  for (let k = 0; k < drop && cars.length; k++) cars.splice(Math.floor(r() * cars.length), 1);
+  const fence = {};
+  for (const [side, list] of Object.entries(level.fence || {})) fence[side] = list.slice();
+  if (spec.fenceRate && r() < 0.2) {
+    const side = 'NESW'[Math.floor(r() * 4)];
+    const n = side === 'N' || side === 'S' ? level.w : level.h;
+    const k = Math.floor(r() * n);
+    const list = fence[side] || (fence[side] = []);
+    const at = list.indexOf(k);
+    if (at >= 0) list.splice(at, 1);
+    else list.push(k);
+    if (!list.length) delete fence[side];
+  }
+  const next = { w: level.w, h: level.h, cars, obs: level.obs };
+  if (Object.keys(fence).length) next.fence = fence;
+  fillCars(r, spec, next);
+  return next;
+}
+
+// Generate a level for a difficulty spec: the best of `tries` random lots,
+// then up to `spec.climb` rounds of hill-climbing (mutate, keep if no
+// worse) within `spec.budget` solver states.
+// spec: { w, h, density, obstacles, truckRate, fenceRate, edgeBias, minCars,
+//   maxCars, hard: [lo, hi], wantShuffles: max forced moves to reward,
+//   climb, budget, maxStates }.
+// Hardness = waves + 3 * forced repositioning moves.
 export function generateLevel(seed, spec, tries = 200) {
   const r = rng(seed);
   let best = null;
-  const [lo, hi] = spec.hard || [0, 99];
   for (let t = 0; t < tries; t++) {
-    const level = randomLayout(r, spec);
-    if (level.cars.length < (spec.minCars || 2)) continue;
-    if (spec.maxCars && level.cars.length > spec.maxCars) continue;
-    const m = buildModel(level);
-    if (obviouslyStuck(m)) continue;
-    const sol = solve(m, m.start, spec.maxStates || 20000);
-    if (!sol) continue;
-    const hard = waves(m) + 3 * sol.shuffles;
-    const miss = hard < lo ? lo - hard : hard > hi ? hard - hi : 0;
-    const open = openCars(m);
-    // Hit the hardness band first, then prefer a tight opening and more cars.
-    // Later levels also favour layouts that force a car to be repositioned.
-    const shuffleBonus = spec.wantShuffles ? Math.min(sol.shuffles, 3) * 40 : 0;
-    const score = miss * 100 + open * 4 - level.cars.length - shuffleBonus;
-    if (!best || score < best.score) {
-      best = { score, level: { ...level, par: sol.total } };
-    }
+    const e = evaluate(randomLayout(r, spec), spec);
+    if (e && (!best || e.score < best.score)) best = e;
+  }
+  // Climb until the iteration count or the search-work budget runs out.
+  const budget = work + (spec.budget || Infinity);
+  for (let k = 0; best && k < (spec.climb || 0) && work < budget; k++) {
+    const e = evaluate(mutate(r, spec, best.level), spec);
+    if (e && e.score <= best.score) best = e;
   }
   return best && best.level;
 }

@@ -13,8 +13,12 @@ A top-down parking-lot puzzle. The lot is jammed full of cars; swipe a car
 way is clear it pulls out onto the ring road and heads for an exit. Clear every
 car to win.
 
-- **60 campaign levels** that grow from a 3×3 tutorial to packed 8×10 lots,
-  then **endless bonus levels** generated on the device.
+- **Endless levels, generated on the device from a seed.** Level *n* is the
+  same lot for everyone, and each level is a little tougher than the last,
+  forever: the lot grows from a 3×3 tutorial to a packed 9×11 (the most that
+  fits a phone), then the generator keeps raising the bar with more hedges,
+  obstacles, trucks and grannies and puzzles that need more cars shuffled out
+  of the way, searching harder for tough layouts the further you get.
 - **Grannies** cross the street at the crosswalks. Cars wait for them (and they
   let you know about it).
 - **Cones, trees, barriers and bollards** that never move, **trucks** that take
@@ -48,9 +52,10 @@ worker's precache list (`sw-manifest.js`); the tests fail if it is stale.
 
 Other scripts:
 
-- `npm run levels`: regenerate `games/car-jam/levels.js` from the difficulty
-  tiers in `games/car-jam/tiers.js`. Every level is verified solvable and its
-  par is the solver's optimum.
+- Levels come from `games/car-jam/levels.js`: `specFor(n)` is the difficulty
+  curve and `makeLevel(n)` builds level *n* from `seedFor(n)`. Every level is
+  verified solvable and its par is the solver's optimum. Bump `GEN_VERSION`
+  when generation changes so levels cached on devices are rebuilt.
 - `npm run icons`: re-render the PNG app icons from `icons/icon.svg`.
 
 ### Layout
@@ -59,11 +64,12 @@ Other scripts:
 index.html, css/, js/       app shell: hub, routing, audio, settings, install
 js/games.js                 registry of games
 games/car-jam/model.js      rules, solver, level generator (pure, shared with Node)
+games/car-jam/levels.js     seeded difficulty curve; worker.js builds levels off-thread
 games/car-jam/play.js       simulation, input, rendering for a level
 games/car-jam/draw.js       vector sprites (cars, grannies, obstacles)
 games/car-jam/index.js      level select, HUD, win dialog
 sw.js, sw-manifest.js       offline support
-tools/                      level, icon and service-worker generators
+tools/                      icon and service-worker generators
 test/                       node:test unit + Playwright end-to-end tests
 ```
 
@@ -75,6 +81,10 @@ returns `{ route(sub), destroy() }`, add an entry to `js/games.js`, and run
 
 ### Deployment
 
-`.github/workflows/ci.yml` runs the tests on every push and, on the default
-branch, publishes the site to GitHub Pages (Settings → Pages → Source:
-**GitHub Actions**).
+The app is a static site hosted on GitHub Pages. `.github/workflows/ci.yml`
+runs the tests on every push and, on the default branch, publishes the site to
+Pages. One-time setup: Settings → Pages → Source: **GitHub Actions**.
+
+## License
+
+[MIT](LICENSE)
