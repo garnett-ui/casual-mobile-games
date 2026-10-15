@@ -317,8 +317,8 @@ test('updates: progress on the home screen only, Update installs the newest, res
     delays.set('/games/tap-maze/model.js', 2500);
     await page.locator('.hub-foot .version').click();
     await page.locator('.update-bar[data-state=downloading] .progress-fill').waitFor({ timeout: 20000 });
-    assert.match(await bar.textContent(), /Downloading update 99\.0\.0/);
-    assert.match(await bar.textContent(), /\d+ of \d+ files/);
+    assert.match(await bar.textContent(), /Downloading update v99\.0\.0/);
+    assert.match(await bar.textContent(), new RegExp(`You have v${version.replace(/\./g, '\\.')} · \\d+ of \\d+ files`));
     // ...but never over a game.
     await page.locator('[data-game=breakout]').click();
     await page.locator('.bo-choice').first().waitFor();
@@ -326,7 +326,7 @@ test('updates: progress on the home screen only, Update installs the newest, res
     await page.locator('[data-act=home]').click();
     await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 20000 });
     assert.match(await bar.textContent(), /Version 99\.0\.0 is ready/);
-    assert.match(await bar.textContent(), /Update now/);
+    assert.equal(await page.locator('.update-bar .install-now').textContent(), 'Update to v99.0.0');
     assert.doesNotMatch(await bar.textContent(), /install/i);
     delays.clear();
 
@@ -456,11 +456,15 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     await page.mouse.up();
     assert.equal(await page.evaluate(() => window.__lander.input.thrust), false, 'releasing stops the engine');
 
-    // Let the autopilot fly the rest, fast-forwarded.
+    // Let the autopilot fly the rest, fast-forwarded. Top the tank back up
+    // first: on a slow test machine the button may have been held a long
+    // time, and this test is about landing, not fuel.
     await page.evaluate(async () => {
       const m = await import('/games/lander/engine.js');
-      window.__lander.timeScale = 6;
-      window.__lander.pilot = m.autopilot;
+      const p = window.__lander;
+      p.L.fuel = p.L.fuelMax;
+      p.timeScale = 6;
+      p.pilot = m.autopilot;
     });
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 60000 });
     assert.match(await page.locator('.dialog h3').textContent(), /landed|landing|piece/i);

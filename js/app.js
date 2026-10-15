@@ -236,7 +236,7 @@ function renderUpdateBar() {
     bar.setAttribute('role', 'status');
     document.body.appendChild(bar);
   }
-  const v = update.version ? ` ${update.version}` : '';
+  const v = update.version ? ` v${update.version}` : '';
   if (bar.dataset.state !== update.state) {
     bar.dataset.state = update.state;
     if (update.state === 'downloading') {
@@ -245,7 +245,7 @@ function renderUpdateBar() {
     } else if (update.state === 'ready') {
       bar.innerHTML = `<span><b class="dl-title"></b><small>You have v${VERSION}.</small></span>
         <button class="later">Later</button>
-        <button class="install-now">Update now</button>`;
+        <button class="install-now"></button>`;
       bar.querySelector('.later').onclick = () => setUpdate({ later: true });
       bar.querySelector('.install-now').onclick = () => applyUpdate();
     } else {
@@ -255,12 +255,13 @@ function renderUpdateBar() {
   const title = bar.querySelector('.dl-title');
   if (update.state === 'downloading') {
     title.textContent = `Downloading update${v}…`;
-    bar.querySelector('.dl-count').textContent = update.total ? `${update.done} of ${update.total} files` : 'Starting…';
+    bar.querySelector('.dl-count').textContent = `You have v${VERSION} · ${update.total ? `${update.done} of ${update.total} files` : 'starting…'}`;
     bar.querySelector('.progress-fill').style.width = update.total ? `${Math.round((100 * update.done) / update.total)}%` : '4%';
   } else if (update.state === 'ready') {
-    title.textContent = `Version${v} is ready`;
+    title.textContent = `Version${v ? ` ${update.version}` : ''} is ready`;
+    bar.querySelector('.install-now').textContent = `Update to${v || ' new version'}`;
   } else {
-    title.textContent = `Updating to${v || ' the new version'}…`;
+    title.textContent = `Updating v${VERSION} → ${update.version ? `v${update.version}` : 'new version'}…`;
   }
 }
 
