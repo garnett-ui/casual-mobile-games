@@ -208,7 +208,7 @@ online, so play while offline is uploaded on the next connection (tagged with
 
 The app is a static site hosted on GitHub Pages. `.github/workflows/ci.yml`
 runs the tests on every push and, on `main`, publishes the site to Pages at
-https://mckoss.com/casual-mobile-games/. One-time setup: Settings → Pages → Source: **GitHub Actions**.
+https://games.mckoss.com/ (custom domain set in Settings → Pages). One-time setup: Settings → Pages → Source: **GitHub Actions**.
 
 ## License
 
