@@ -84,8 +84,8 @@ returns `{ route(sub), destroy() }`, add an entry to `js/games.js`, and run
 ### Deployment
 
 The app is a static site hosted on GitHub Pages. `.github/workflows/ci.yml`
-runs the tests on every push and, on the default branch, publishes the site to
-Pages. One-time setup: Settings → Pages → Source: **GitHub Actions**.
+runs the tests on every push and, on `main`, publishes the site to Pages at
+https://mckoss.com/casual-mobile-games/. One-time setup: Settings → Pages → Source: **GitHub Actions**.
 
 ## License
 
