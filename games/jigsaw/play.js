@@ -1,7 +1,9 @@
 // One jigsaw in play. The picture fills the screen as fully as possible while
 // leaving a border all round for the loose pieces. Pieces start scattered
 // and turned; tap one to turn it a quarter, drag it near its spot (the right
-// way up) and it snaps in. The picture itself stays hidden until it's done --
+// way up) and it snaps in. Pieces that meet a neighbour edge to edge (turned
+// the same way) lock together anywhere on the table, and then move and turn
+// as one. The picture itself stays hidden until it's done --
 // hold Peek to see it in a pop-up. Positions are kept as fractions of the
 // screen so the puzzle survives rotation and resizing.
 import { gridFor, makeEdges, pieceSides, tracePiece, isEdgePiece, TAB } from './puzzle.js';
@@ -35,14 +37,17 @@ export class Play {
           edge: isEdgePiece(this.rows, this.cols, row, col), placed: false, fx: 0, fy: 0,
           rot: 0, // quarter turns clockwise; must be 0 to fit
           turn: 0, // the angle drawn (eases toward rot)
+          group: 0, // pieces locked together share a group number (0: none)
         });
       }
     }
+    this.nextGroup = 1 + Math.max(0, ...(saved?.pieces || []).map((p) => p.group || 0));
     this.elapsed = saved ? saved.elapsed : 0;
     this.moves = saved ? saved.moves : 0;
     this.resize();
     if (saved) {
-      saved.pieces.forEach((p, i) => Object.assign(this.pieces[i], p, { rot: p.rot || 0, turn: p.rot || 0 }));
+      saved.pieces.forEach((p, i) => Object.assign(this.pieces[i], p, { rot: p.rot || 0, turn: p.rot || 0, group: p.group || 0 }));
+      this.alignGroups();
       // Saved order = stacking order.
       this.order = saved.order || this.pieces.map((_, i) => i);
     } else {
@@ -89,7 +94,7 @@ export class Play {
   state() {
     return {
       seed: this.seed, rows: this.rows, cols: this.cols, elapsed: this.time(), moves: this.moves,
-      pieces: this.pieces.map(({ placed, fx, fy, rot }) => ({ placed, fx, fy, rot })), order: this.order,
+      pieces: this.pieces.map(({ placed, fx, fy, rot, group }) => ({ placed, fx, fy, rot, group })), order: this.order,
     };
   }
 
@@ -122,6 +127,7 @@ export class Play {
     this.pad = Math.ceil(Math.min(this.pw, this.ph) * (TAB + 0.05) + 6);
     this.table = woodTable(W, H, dpr);
     this.renderPieces();
+    if (this.order) this.alignGroups(); // the screen's shape changed
     this.dirty = true;
   }
 
@@ -223,10 +229,62 @@ export class Play {
     }
   }
 
-  // Turn a loose piece a quarter clockwise.
+  // Turn a loose piece -- and everything locked to it -- a quarter clockwise
+  // about the piece you tapped.
   rotate(p) {
-    p.rot = (p.rot + 1) % 4;
+    const pivot = this.centre(p);
+    for (const m of this.members(p)) {
+      const c = this.centre(m);
+      this.setCentre(m, pivot.x - (c.y - pivot.y), pivot.y + (c.x - pivot.x));
+      m.rot = (m.rot + 1) % 4;
+      m.pivot = pivot; // for drawing the turn
+    }
     this.hooks.sfx?.('whoosh');
+  }
+
+  // ------------------------------------------------------------- groups
+
+  members(p) {
+    return p.group ? this.pieces.filter((q) => q.group === p.group) : [p];
+  }
+
+  at(row, col) {
+    return row >= 0 && col >= 0 && row < this.rows && col < this.cols ? this.pieces[row * this.cols + col] : null;
+  }
+
+  centre(p) {
+    const { x, y } = this.pos(p);
+    return { x: x + this.pw / 2, y: y + this.ph / 2 };
+  }
+
+  setCentre(p, x, y) {
+    p.fx = (x - this.pw / 2) / this.W;
+    p.fy = (y - this.ph / 2) / this.H;
+  }
+
+  // Where piece n's centre sits if it's locked to piece m (turned with it).
+  beside(m, n) {
+    const c = this.centre(m);
+    const dx = (n.col - m.col) * this.pw;
+    const dy = (n.row - m.row) * this.ph;
+    const a = (m.rot * Math.PI) / 2;
+    return { x: c.x + dx * Math.cos(a) - dy * Math.sin(a), y: c.y + dx * Math.sin(a) + dy * Math.cos(a) };
+  }
+
+  // Line every group up exactly on its first piece (after loading, or when
+  // the screen's shape changes).
+  alignGroups() {
+    const seen = new Set();
+    for (const p of this.pieces) {
+      if (!p.group || p.placed || seen.has(p.group)) continue;
+      seen.add(p.group);
+      for (const m of this.members(p)) {
+        if (m === p) continue;
+        const c = this.beside(p, m);
+        this.setCentre(m, c.x, c.y);
+        m.rot = m.turn = p.rot;
+      }
+    }
   }
 
   // Where a piece belongs, in screen px.
@@ -242,7 +300,8 @@ export class Play {
   scatter(animate = true) {
     const r = rng(this.seed + this.moves * 31 + 1);
     const { W, H, pw, ph, board } = this;
-    const loose = this.pieces.filter((p) => !p.placed);
+    // Each loose piece, or each group as a whole (placed by its first piece).
+    const loose = this.pieces.filter((p) => !p.placed && (!p.group || this.members(p)[0] === p));
     for (const p of loose) {
       let best = null;
       for (let k = 0; k < 24; k++) {
@@ -255,13 +314,21 @@ export class Play {
       }
       p.fx = best.x / W;
       p.fy = best.y / H;
+      if (p.group) {
+        for (const m of this.members(p)) {
+          if (m === p) continue;
+          const c = this.beside(p, m);
+          this.setCentre(m, c.x, c.y);
+        }
+      }
     }
-    // Shuffle the stacking order of the loose pieces.
-    const ids = this.order.filter((i) => !this.pieces[i].placed);
+    // Shuffle the stacking order of the loose pieces (groups stay together).
+    const ids = this.order.filter((i) => !this.pieces[i].placed && !this.pieces[i].group);
     for (let k = ids.length - 1; k > 0; k--) {
       const j = Math.floor(r() * (k + 1));
       [ids[k], ids[j]] = [ids[j], ids[k]];
     }
+    ids.push(...this.order.filter((i) => !this.pieces[i].placed && this.pieces[i].group));
     this.order = [...this.order.filter((i) => this.pieces[i].placed), ...ids];
     this.dirty = true;
     if (animate) this.hooks.onChange?.();
@@ -275,7 +342,7 @@ export class Play {
     const pick = (x, y) => {
       for (let k = this.order.length - 1; k >= 0; k--) {
         const p = this.pieces[this.order[k]];
-        if (p.placed || (this.edgesOnly && !p.edge)) continue;
+        if (p.placed || (this.edgesOnly && !p.edge && !p.group)) continue;
         const { x: px, y: py } = this.pos(p);
         // Into the piece's own (unturned) frame, about its centre.
         const cx = this.pw / 2;
@@ -303,10 +370,16 @@ export class Play {
       const p = pick(x, y);
       if (!p) return;
       c.setPointerCapture?.(e.pointerId);
-      const idx = this.pieces.indexOf(p);
-      this.order = [...this.order.filter((i) => i !== idx), idx];
+      const group = this.members(p);
+      const ids = group.map((m) => this.pieces.indexOf(m));
+      this.order = [...this.order.filter((i) => !ids.includes(i)), ...ids];
       const at = this.pos(p);
-      this.drag = { p, id: e.pointerId, dx: x - at.x, dy: y - at.y, x, y, t: performance.now(), moved: false };
+      // Where each piece in the group sits relative to the one under the finger.
+      const rel = group.map((m) => {
+        const q = this.pos(m);
+        return { m, dx: q.x - at.x, dy: q.y - at.y };
+      });
+      this.drag = { p, group, rel, id: e.pointerId, dx: x - at.x, dy: y - at.y, x, y, t: performance.now(), moved: false };
       this.hooks.sfx?.('tap');
       this.dirty = true;
     };
@@ -316,8 +389,12 @@ export class Play {
       const p = this.drag.p;
       if (!this.drag.moved && Math.hypot(x - this.drag.x, y - this.drag.y) < 8) return;
       this.drag.moved = true;
-      p.fx = Math.max(-this.pw * 0.5, Math.min(this.W - this.pw * 0.5, x - this.drag.dx)) / this.W;
-      p.fy = Math.max(-this.ph * 0.5, Math.min(this.H - this.ph * 0.5, y - this.drag.dy)) / this.H;
+      const px = Math.max(-this.pw * 0.5, Math.min(this.W - this.pw * 0.5, x - this.drag.dx));
+      const py = Math.max(-this.ph * 0.5, Math.min(this.H - this.ph * 0.5, y - this.drag.dy));
+      for (const { m, dx, dy } of this.drag.rel) {
+        m.fx = (px + dx) / this.W;
+        m.fy = (py + dy) / this.H;
+      }
       this.dirty = true;
     };
     const up = (e) => {
@@ -341,24 +418,62 @@ export class Play {
     };
   }
 
-  // Snap into place when dropped close enough to its spot.
+  // After a drop: lock onto any matching neighbour it's been put against,
+  // then snap the lot into place if it's near its spot the right way up.
   drop(p) {
+    const tol = Math.max(14, Math.min(this.pw, this.ph) * 0.32);
+    let group = this.members(p);
+    let joined = false;
+    for (let again = true; again; ) {
+      again = false;
+      for (const m of group) {
+        for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+          const n = this.at(m.row + dr, m.col + dc);
+          if (!n || n.placed || group.includes(n) || n.rot !== m.rot || n.turn !== n.rot) continue;
+          const want = this.beside(m, n);
+          const c = this.centre(n);
+          if (Math.hypot(c.x - want.x, c.y - want.y) > tol) continue;
+          // Slide what was dropped so the two meet exactly, and join them.
+          for (const g of group) {
+            const gc = this.centre(g);
+            this.setCentre(g, gc.x + c.x - want.x, gc.y + c.y - want.y);
+          }
+          const id = n.group || m.group || this.nextGroup++;
+          for (const g of [...group, ...this.members(n)]) g.group = id;
+          group = this.members(n);
+          joined = again = true;
+          break;
+        }
+        if (again) break;
+      }
+    }
+    if (joined) {
+      const ids = group.map((g) => this.pieces.indexOf(g));
+      this.order = [...this.order.filter((i) => !ids.includes(i)), ...ids];
+      this.hooks.sfx?.('snap');
+      this.hooks.haptic?.(10);
+    }
     const at = this.pos(p);
     const home = this.home(p);
-    const tol = Math.max(14, Math.min(this.pw, this.ph) * 0.32);
-    if (p.rot === 0 && Math.hypot(at.x - home.x, at.y - home.y) < tol) this.place(p);
+    if (p.rot === 0 && Math.hypot(at.x - home.x, at.y - home.y) < tol) {
+      for (const g of group) this.place(g, g !== p);
+    }
     this.dirty = true;
     this.hooks.onChange?.();
   }
 
-  place(p) {
+  place(p, quiet = false) {
+    if (p.placed) return;
     p.placed = true;
+    p.group = 0;
     p.rot = p.turn = 0;
     this.renderPiece(p);
     const idx = this.pieces.indexOf(p);
     this.order = [idx, ...this.order.filter((i) => i !== idx)];
-    this.hooks.sfx?.('snap');
-    this.hooks.haptic?.(15);
+    if (!quiet) {
+      this.hooks.sfx?.('snap');
+      this.hooks.haptic?.(15);
+    }
     this.report();
     if (this.placedCount() === this.pieces.length) {
       this.elapsed = this.time();
@@ -391,30 +506,54 @@ export class Play {
     }
     const cw = this.pw + 2 * this.pad;
     const ch = this.ph + 2 * this.pad;
+    const drawn = new Set();
     for (const i of this.order) {
       const p = this.pieces[i];
-      if (!p.placed && this.edgesOnly && !p.edge && this.drag?.p !== p) continue;
-      const { x, y } = this.pos(p);
       if (p.placed) {
+        const { x, y } = this.pos(p);
         ctx.drawImage(p.canvas, x - this.pad, y - this.pad, cw, ch);
         continue;
       }
-      const lifted = this.drag?.p === p && this.drag.moved;
-      ctx.save();
-      if (lifted) {
-        // Held up off the table: a wider, softer shadow further away.
-        ctx.shadowColor = 'rgba(45,22,0,0.35)';
-        ctx.shadowBlur = 16;
-        ctx.shadowOffsetX = 6;
-        ctx.shadowOffsetY = 10;
+      if (this.edgesOnly && !p.edge && !p.group && this.drag?.p !== p) continue;
+      if (p.group) {
+        if (drawn.has(p.group)) continue;
+        drawn.add(p.group);
+        // Top-left pieces first, so each piece covers the shadows of the
+        // ones up and to its left (the light is top left).
+        const ms = this.members(p).map((m) => ({ m, c: this.centre(m) })).sort((a, b) => a.c.x + a.c.y - b.c.x - b.c.y);
+        for (const { m } of ms) this.drawLoose(m, cw, ch);
+      } else {
+        this.drawLoose(p, cw, ch);
       }
-      ctx.translate(x + this.pw / 2, y + this.ph / 2);
-      ctx.rotate((p.turn * Math.PI) / 2);
-      const s = lifted ? 1.06 : 1;
-      ctx.drawImage(p.canvas, (-this.pw / 2 - this.pad) * s, (-this.ph / 2 - this.pad) * s, cw * s, ch * s);
-      ctx.restore();
     }
     if (this.peek) this.drawPeek();
+  }
+
+  drawLoose(p, cw, ch) {
+    const { ctx } = this;
+    let { x: cx, y: cy } = this.centre(p);
+    // Part way through a turn: swing round the piece that was tapped.
+    if (p.turn !== p.rot && p.pivot) {
+      const left = ((p.rot < p.turn ? p.rot + 4 : p.rot) - p.turn) * (Math.PI / 2);
+      const dx = cx - p.pivot.x;
+      const dy = cy - p.pivot.y;
+      cx = p.pivot.x + dx * Math.cos(-left) - dy * Math.sin(-left);
+      cy = p.pivot.y + dx * Math.sin(-left) + dy * Math.cos(-left);
+    }
+    const held = this.drag && this.drag.moved && this.drag.group.includes(p);
+    ctx.save();
+    if (held) {
+      // Held up off the table: a wider, softer shadow further away.
+      ctx.shadowColor = 'rgba(45,22,0,0.35)';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetX = 6 * this.dpr;
+      ctx.shadowOffsetY = 10 * this.dpr;
+    }
+    ctx.translate(cx, cy);
+    ctx.rotate((p.turn * Math.PI) / 2);
+    const s = held && !p.group ? 1.06 : 1;
+    ctx.drawImage(p.canvas, (-this.pw / 2 - this.pad) * s, (-this.ph / 2 - this.pad) * s, cw * s, ch * s);
+    ctx.restore();
   }
 
   // The whole picture in a pop-up card over the table, while Peek is held.

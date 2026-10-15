@@ -4,6 +4,12 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.12.0
+- Jigsaw: pieces lock together whenever you put one against its neighbour
+  (turned the same way), anywhere on the table. The group then drags and
+  turns as one, and snaps into the picture as a whole when you bring it to
+  its spot.
+
 ## 1.11.1
 - Updates never switch versions by themselves any more, so nothing
   interrupts a game. A new version downloads in the background (progress on

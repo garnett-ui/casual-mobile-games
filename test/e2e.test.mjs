@@ -549,6 +549,57 @@ test('jigsaw: pick a photo, it is saved, pieces snap into place, progress resume
     assert.equal(await page.locator('[data-placed]').textContent(), '1');
     assert.equal(await page.evaluate((i) => window.__jigsaw.pieces[i].placed, drag.idx), true);
 
+    // Two neighbours put together away from their spot (turned the same
+    // way) lock into one piece...
+    const pair = await page.evaluate(() => {
+      const p = window.__jigsaw;
+      const a = p.pieces.find((q) => !q.placed && q.col + 1 < p.cols && !p.at(q.row, q.col + 1).placed);
+      const b = p.at(a.row, a.col + 1);
+      for (const q of [a, b]) {
+        q.rot = q.turn = 1;
+        p.renderPiece(q);
+      }
+      p.setCentre(a, p.W * 0.35, p.H * 0.25);
+      const want = p.beside(a, b);
+      p.setCentre(b, want.x + 50, want.y + 60);
+      const ia = p.pieces.indexOf(a);
+      const ib = p.pieces.indexOf(b);
+      p.order = [...p.order.filter((i) => i !== ia && i !== ib), ia, ib];
+      p.dirty = true;
+      const r = p.canvas.getBoundingClientRect();
+      const cb = p.centre(b);
+      return { ia, ib, from: [r.left + cb.x, r.top + cb.y], to: [r.left + want.x + 5, r.top + want.y - 4] };
+    });
+    await page.mouse.move(...pair.from);
+    await page.mouse.down();
+    await page.mouse.move(...pair.to, { steps: 8 });
+    await page.mouse.up();
+    const grouped = await page.evaluate(({ ia, ib }) => {
+      const p = window.__jigsaw;
+      return p.pieces[ia].group !== 0 && p.pieces[ia].group === p.pieces[ib].group;
+    }, pair);
+    assert.equal(grouped, true, 'locked together');
+    // ...and then drag as one.
+    const grab = await page.evaluate(({ ia }) => {
+      const p = window.__jigsaw;
+      const r = p.canvas.getBoundingClientRect();
+      const c = p.centre(p.pieces[ia]);
+      return [r.left + c.x, r.top + c.y];
+    }, pair);
+    await page.mouse.move(...grab);
+    await page.mouse.down();
+    await page.mouse.move(grab[0] + 40, grab[1] + 30, { steps: 6 });
+    await page.mouse.up();
+    const together = await page.evaluate(({ ia, ib }) => {
+      const p = window.__jigsaw;
+      const a = p.pieces[ia];
+      const b = p.pieces[ib];
+      const want = p.beside(a, b);
+      const c = p.centre(b);
+      return Math.hypot(c.x - want.x, c.y - want.y);
+    }, pair);
+    assert.ok(together < 0.5, `still locked together after the drag (${together})`);
+
     // The picture is hidden; Peek shows it only while held.
     const peekBox = await page.locator('[data-act=peek]').boundingBox();
     await page.mouse.move(peekBox.x + peekBox.width / 2, peekBox.y + peekBox.height / 2);
