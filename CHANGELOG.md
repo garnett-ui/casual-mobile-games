@@ -4,6 +4,10 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.5.1
+- The installed app is labelled "Pocket Arcade" (was "Arcade") on the home
+  screen and in the app drawer.
+
 ## 1.5.0
 - While a new version downloads, the update bar shows "Downloading version
   x.y.z…" with a progress bar and file count, then turns into the Update
