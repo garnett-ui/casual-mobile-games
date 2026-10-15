@@ -144,7 +144,17 @@ svg { display: block; }
 .inline-ico { display: inline-block; width: 18px; height: 18px; vertical-align: -3px; }
 
 .hub-foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 28px; }
-.hub-foot .version { display: block; margin-top: 6px; font-size: 11px; opacity: .7; letter-spacing: .3px; }
+.hub-foot .version {
+  display: block;
+  margin: 6px auto 0;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 11px;
+  opacity: .7;
+  letter-spacing: .3px;
+}
 
 .update-bar {
   position: fixed;

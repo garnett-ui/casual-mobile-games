@@ -122,7 +122,8 @@ function renderHub() {
             </span>
           </div>`).join('')}
       </section>
-      <footer class="hub-foot">No accounts, no ads. Works offline.<span class="version">v${VERSION}</span></footer>
+      <footer class="hub-foot">No accounts, no ads. Works offline.
+        <button class="version" data-act="update" aria-label="Check for updates">v${VERSION} · Check for updates</button></footer>
     </div>`;
 
   const paintTools = () => {
@@ -130,6 +131,7 @@ function renderHub() {
     view.querySelector('[data-act=haptics]').innerHTML = getSetting('haptics') ? ICONS.buzzOn : ICONS.buzzOff;
   };
   paintTools();
+  view.querySelector('[data-act=update]').onclick = checkForUpdate;
   view.querySelector('[data-act=sound]').onclick = () => {
     setSetting('sound', !getSetting('sound'));
     paintTools();
@@ -207,6 +209,22 @@ export function toast(msg, action) {
 
 // ---------------------------------------------------------- service worker
 
+let swReg = null;
+
+// Tapping the version on the home screen checks for a new version right now.
+async function checkForUpdate() {
+  if (!swReg) return toast('Updates are checked when the app is installed or online.');
+  if (!navigator.onLine) return toast("You're offline. Updates are checked when you're back online.");
+  if (swReg.waiting) return offerUpdate(swReg.waiting);
+  toast('Checking for updates…');
+  try {
+    await swReg.update();
+  } catch {
+    return toast("Couldn't reach the server. Try again in a moment.");
+  }
+  if (!swReg.installing && !swReg.waiting) toast(`You're up to date (v${VERSION}).`);
+}
+
 // Ask a waiting service worker which version it would install.
 function versionOf(worker) {
   return new Promise((resolve) => {
@@ -278,6 +296,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       // updateViaCache 'none': update checks always ask the server, including
       // for sw-manifest.js (GitHub Pages lets browsers cache files 10 min).
       const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+      swReg = reg;
       // Only updates get the bar; a first install just quietly goes offline-ready.
       const isUpdate = () => !!navigator.serviceWorker.controller;
       const watch = (w) => {

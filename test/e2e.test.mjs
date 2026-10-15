@@ -279,7 +279,7 @@ test('home screen shows the version; a new deploy prompts the installed app to u
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(`http://localhost:${server.address().port}/`);
-    assert.equal(await page.locator('.hub-foot .version').textContent(), `v${version}`);
+    assert.match(await page.locator('.hub-foot .version').textContent(), new RegExp(`^v${version.replace(/\./g, '\\.')}`));
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) {
@@ -295,8 +295,8 @@ test('home screen shows the version; a new deploy prompts the installed app to u
     overrides.set('/sw.js', (await rf(new URL('../sw.js', import.meta.url), 'utf8')) + '\n// new deploy\n');
     // Hold back one file so the download is still in progress when we look.
     delays.set('/games/tap-maze/model.js', 2500);
-    // Coming back to the app triggers an update check.
-    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    // Tapping the version label checks for updates right away.
+    await page.locator('.hub-foot .version').click();
     const bar = page.locator('.update-bar');
     await page.locator('.update-bar[data-state=downloading] .progress-fill').waitFor({ timeout: 20000 });
     assert.match(await bar.textContent(), /Downloading version 99\.0\.0/);

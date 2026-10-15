@@ -4,6 +4,10 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.8.2
+- Tap the version number at the bottom of the home screen to check for
+  updates right away.
+
 ## 1.8.1
 - Toast messages no longer block taps on the game underneath them.
 
