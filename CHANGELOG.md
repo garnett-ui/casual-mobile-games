@@ -4,6 +4,12 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.9.1
+- Jigsaw: knobs now fit their holes exactly (a neighbour's knob offset was
+  mirrored, leaving gaps). Pieces are lit consistently from the top left,
+  however they're turned; placed pieces show just a fine cut line.
+- Jigsaw: the shuffle button (far right) says what it did.
+
 ## 1.9.0
 - Jigsaw: pieces start scrambled *and turned*; tap a piece to turn it a
   quarter, and it only fits the right way up. The faint guide picture is

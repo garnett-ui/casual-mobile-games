@@ -51,3 +51,39 @@ test('piece outlines are closed and stay near their cell', () => {
   // A middle piece has a tab or hole on all four sides: the outline leaves the box.
   assert.ok(xy.some(([x, y]) => x < 0 || x > 100 || y < 0 || y > 80 || (x > 5 && x < 95 && y > 5 && y < 75)));
 });
+
+test('a knob and the hole it fits trace exactly the same curve', async () => {
+  const { traceEdge } = await import('../games/jigsaw/puzzle.js');
+  const rows = 4;
+  const cols = 5;
+  const edges = makeEdges(rows, cols, 7);
+  const points = (fn) => {
+    const pts = [];
+    const rec = { lineTo: (...a) => pts.push(a), bezierCurveTo: (...a) => { for (let i = 0; i < 6; i += 2) pts.push(a.slice(i, i + 2)); } };
+    fn(rec);
+    return pts.map(([x, y]) => `${x.toFixed(6)},${y.toFixed(6)}`).sort();
+  };
+  const w = 30;
+  const h = 40;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols - 1; c++) {
+      // Right side of (r, c), top to bottom; left side of (r, c+1), bottom to top.
+      const right = pieceSides(edges, rows, cols, r, c)[1];
+      const left = pieceSides(edges, rows, cols, r, c + 1)[3];
+      assert.deepEqual(
+        points((p) => traceEdge(p, w, 0, w, h, right, w)).filter((s) => s !== `${w.toFixed(6)},${h.toFixed(6)}`),
+        points((p) => traceEdge(p, w, h, w, 0, left, w)).filter((s) => s !== `${w.toFixed(6)},${(0).toFixed(6)}`),
+      );
+    }
+  }
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols; c++) {
+      const bottom = pieceSides(edges, rows, cols, r, c)[2];
+      const top = pieceSides(edges, rows, cols, r + 1, c)[0];
+      assert.deepEqual(
+        points((p) => traceEdge(p, w, h, 0, h, bottom, w)).filter((s) => s !== `${(0).toFixed(6)},${h.toFixed(6)}`),
+        points((p) => traceEdge(p, 0, h, w, h, top, w)).filter((s) => s !== `${w.toFixed(6)},${h.toFixed(6)}`),
+      );
+    }
+  }
+});

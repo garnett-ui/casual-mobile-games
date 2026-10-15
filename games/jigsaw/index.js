@@ -179,9 +179,9 @@ export function mount(root, ctx) {
           <span class="pill"><b data-placed>0</b>/<span data-total>0</span></span>
           <span class="pill" data-time>0:00</span>
           <span class="jg-tools">
-            <button class="icon-btn jg-peek" data-act="peek" aria-label="Hold to peek at the picture">${EYE}</button>
-            <button class="icon-btn" data-act="edges" aria-label="Edge pieces only">${EDGES}</button>
-            <button class="icon-btn" data-act="scatter" aria-label="Scatter pieces">${SCATTER}</button>
+            <button class="icon-btn jg-peek" data-act="peek" aria-label="Hold to peek at the picture" title="Hold to peek at the picture">${EYE}</button>
+            <button class="icon-btn" data-act="edges" aria-label="Edge pieces only" title="Show only edge pieces">${EDGES}</button>
+            <button class="icon-btn" data-act="scatter" aria-label="Shuffle the loose pieces" title="Shuffle the loose pieces">${SCATTER}</button>
           </span>
         </header>
         <div class="stage"><canvas class="board"></canvas></div>
@@ -258,9 +258,12 @@ export function mount(root, ctx) {
     peek.onpointerup = unpeek;
     peek.onpointercancel = unpeek;
     peek.onlostpointercapture = unpeek;
+    // Shuffle: deal the loose pieces out again around the picture.
     root.querySelector('[data-act=scatter]').onclick = () => {
       ctx.sfx('tap');
+      if (play.done || play.placedCount() === play.pieces.length) return ctx.toast('Every piece is in place.');
       play.scatter();
+      ctx.toast('Loose pieces shuffled around the picture.');
     };
     const resize = () => {
       if (!play) return;

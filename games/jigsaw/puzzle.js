@@ -32,7 +32,9 @@ export function makeEdges(rows, cols, seed) {
 // The four sides of piece (row, col), each null (flat border) or a tab spec
 // with dir +1 = sticks out, -1 = cut in. Order: top, right, bottom, left.
 export function pieceSides(edges, rows, cols, row, col) {
-  const flip = (e) => e && { ...e, dir: -e.dir };
+  // The neighbour traces a shared edge the other way round, so its knob
+  // offset is mirrored too -- otherwise knob and hole don't line up.
+  const flip = (e) => e && { ...e, dir: -e.dir, shift: -e.shift };
   return [
     row > 0 ? flip(edges.h[row - 1][col]) : null,
     col < cols - 1 ? edges.v[row][col] : null,
@@ -60,7 +62,7 @@ export function tracePiece(path, w, h, sides) {
 
 // One side: straight, or with a rounded knob on a narrow neck. Coordinates
 // are (along the side, out from the piece), scaled by the shorter piece side.
-function traceEdge(path, x0, y0, x1, y1, tab, size) {
+export function traceEdge(path, x0, y0, x1, y1, tab, size) {
   if (!tab) {
     path.lineTo(x1, y1);
     return;

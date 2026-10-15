@@ -51,6 +51,7 @@ export class Play {
       const r = rng(this.seed + 7);
       for (const p of this.pieces) p.rot = p.turn = Math.floor(r() * 4);
     }
+    for (const p of this.pieces) if (p.rot || p.placed) this.renderPiece(p); // re-light
     this.bindInput();
     this.started = performance.now();
     this.tick = setInterval(() => this.hooks.onTime?.(this.time()), 1000);
@@ -121,39 +122,61 @@ export class Play {
     this.dirty = true;
   }
 
-  // Pre-render every piece (picture clipped to its outline, with a bevel).
+  // Pre-render every piece: the picture clipped to its outline, with a bevel.
   renderPieces() {
+    for (const p of this.pieces) {
+      p.path = new Path2D();
+      tracePiece(p.path, this.pw, this.ph, p.sides);
+      this.renderPiece(p);
+    }
+  }
+
+  // The light comes from the top left of the screen whichever way a piece is
+  // turned, so the bevel is baked for the piece's current quarter turn.
+  renderPiece(p) {
     const { pw, ph, pad, dpr } = this;
     const sx = this.image.width / this.board.w;
     const sy = this.image.height / this.board.h;
-    for (const p of this.pieces) {
-      const path = new Path2D();
-      tracePiece(path, pw, ph, p.sides);
-      p.path = path;
-      const c = document.createElement('canvas');
-      c.width = Math.ceil((pw + 2 * pad) * dpr);
-      c.height = Math.ceil((ph + 2 * pad) * dpr);
-      const g = c.getContext('2d');
-      g.scale(dpr, dpr);
-      g.translate(pad, pad);
+    const c = p.canvas || document.createElement('canvas');
+    c.width = Math.ceil((pw + 2 * pad) * dpr);
+    c.height = Math.ceil((ph + 2 * pad) * dpr);
+    const g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, dpr * pad, dpr * pad);
+    g.save();
+    g.clip(p.path);
+    g.drawImage(this.image, (p.col * pw - pad) * sx, (p.row * ph - pad) * sy, (pw + 2 * pad) * sx, (ph + 2 * pad) * sy, -pad, -pad, pw + 2 * pad, ph + 2 * pad);
+    // Screen direction away from the light, in the piece's own frame.
+    const a = (p.rot * Math.PI) / 2;
+    const lx = Math.cos(a) + Math.sin(a);
+    const ly = -Math.sin(a) + Math.cos(a);
+    const b = Math.max(0.8, Math.min(pw, ph) * 0.03);
+    g.lineJoin = 'round';
+    // Inner bevel: a stroke nudged away from the light shows only along the
+    // lit edges (the clip hides the rest), and the reverse for the shade.
+    const bevel = (k, colour, width) => {
       g.save();
-      g.clip(path);
-      g.drawImage(this.image, (p.col * pw - pad) * sx, (p.row * ph - pad) * sy, (pw + 2 * pad) * sx, (ph + 2 * pad) * sy, -pad, -pad, pw + 2 * pad, ph + 2 * pad);
+      g.translate(lx * b * k, ly * b * k);
+      g.strokeStyle = colour;
+      g.lineWidth = width;
+      g.stroke(p.path);
       g.restore();
-      // Bevel: light edge top-left, dark edge bottom-right.
-      g.lineWidth = Math.max(1, Math.min(pw, ph) * 0.03);
-      g.save();
-      g.translate(-0.6, -0.6);
-      g.strokeStyle = 'rgba(255,255,255,0.45)';
-      g.stroke(path);
-      g.restore();
-      g.save();
-      g.translate(0.6, 0.6);
-      g.strokeStyle = 'rgba(0,0,0,0.35)';
-      g.stroke(path);
-      g.restore();
-      p.canvas = c;
+    };
+    if (p.placed) {
+      // In the picture: just a hint of relief either side of the cut.
+      bevel(0.5, 'rgba(255,255,255,0.3)', 1.6);
+      bevel(-0.5, 'rgba(0,0,0,0.22)', 1.6);
+    } else {
+      bevel(1, 'rgba(255,255,255,0.18)', 4 * b);
+      bevel(1, 'rgba(255,255,255,0.38)', 2 * b);
+      bevel(-1, 'rgba(0,0,0,0.16)', 4 * b);
+      bevel(-1, 'rgba(0,0,0,0.32)', 2 * b);
     }
+    // A fine, crisp cut line.
+    g.strokeStyle = p.placed ? 'rgba(0,0,0,0.38)' : 'rgba(0,0,0,0.5)';
+    g.lineWidth = 1;
+    g.stroke(p.path);
+    g.restore();
+    p.canvas = c;
   }
 
   // Ease each piece's drawn angle toward its quarter turn.
@@ -171,6 +194,7 @@ export class Play {
   // Turn a loose piece a quarter clockwise.
   rotate(p) {
     p.rot = (p.rot + 1) % 4;
+    this.renderPiece(p);
     this.hooks.sfx?.('whoosh');
   }
 
@@ -299,6 +323,7 @@ export class Play {
   place(p) {
     p.placed = true;
     p.rot = p.turn = 0;
+    this.renderPiece(p);
     const idx = this.pieces.indexOf(p);
     this.order = [idx, ...this.order.filter((i) => i !== idx)];
     this.hooks.sfx?.('snap');
@@ -342,6 +367,7 @@ export class Play {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
       ctx.shadowBlur = lifted ? 14 : 4;
+      ctx.shadowOffsetX = lifted ? 3 : 1; // same top-left light
       ctx.shadowOffsetY = lifted ? 6 : 2;
       ctx.translate(x + this.pw / 2, y + this.ph / 2);
       ctx.rotate((p.turn * Math.PI) / 2);
