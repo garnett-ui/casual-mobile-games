@@ -847,6 +847,20 @@ export class Play {
 
   // Retro green-phosphor instrument panel, top right.
   // The instruments: only what you need to land, big enough to read.
+  // Is there ground between here and the base higher than the lander is
+  // now? (The ALT readout flashes: you'll have to climb to get there.)
+  blocked() {
+    const { level, L } = this;
+    const b = level.base;
+    if (L.x >= b.x0 && L.x <= b.x1) return false;
+    const to = L.x < b.x0 ? b.x0 : b.x1;
+    const dir = Math.sign(to - L.x);
+    for (let x = L.x; (to - x) * dir > 0; x += dir * level.step) {
+      if (heightAt(level, x) > L.y) return true;
+    }
+    return false;
+  }
+
   drawPanel(W) {
     const { ctx } = this;
     const L = this.L;
@@ -879,11 +893,15 @@ export class Play {
     const flying = !L.landed;
     const rows = [
       ['TARGET', `${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0)} M`, PHOSPHOR],
-      ['ALT', `${altText(alt)} M`, PHOSPHOR],
+      // Green while climbing, red while sinking.
+      ['ALT', `${altText(alt)} M`, flying && L.vy < -0.05 ? RED : PHOSPHOR, flying && this.blocked()],
       ['V/S', `${L.vy >= 0 ? '▲' : '▼'} ${Math.abs(L.vy).toFixed(1)}`, flying && -L.vy > SAFE.vy ? RED : PHOSPHOR],
-      ['H/S', `${L.vx >= 0 ? '▶' : '◀'} ${Math.abs(L.vx).toFixed(1)}`, flying && Math.abs(L.vx) > SAFE.vx ? RED : PHOSPHOR],
+      // Green while drifting toward the base, red while drifting away.
+      ['H/S', `${L.vx >= 0 ? '▶' : '◀'} ${Math.abs(L.vx).toFixed(1)}`, flying && Math.abs(L.vx) > 0.05 && L.vx * dist < 0 ? RED : PHOSPHOR],
     ];
-    rows.forEach(([label, value, colour], i) => {
+    // Flashing: a few times a second, the value dims.
+    const flashOff = Math.floor(performance.now() / 180) % 2 === 1;
+    rows.forEach(([label, value, colour, flash], i) => {
       const y = 18 + i * 27;
       ctx.fillStyle = PHOSPHOR;
       ctx.shadowColor = PHOSPHOR;
@@ -894,7 +912,9 @@ export class Play {
       ctx.shadowColor = colour;
       ctx.textAlign = 'right';
       ctx.font = '700 19px ui-monospace, Menlo, Consolas, monospace';
+      if (flash && flashOff) ctx.globalAlpha = 0.2;
       ctx.fillText(value, 165, y);
+      ctx.globalAlpha = 1;
     });
     // Fuel bar
     const frac = L.fuel / L.fuelMax;

@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.23.0
+- Lunar Lander: the readouts tell you more at a glance.
+  - ALT is green while you're climbing and red while you're sinking, and
+    flashes when there's ground between you and the base higher than you
+    are: you'll need to climb to get over it.
+  - H/S is green while you're drifting toward the base and red while
+    you're drifting away from it, whichever way the base is.
+
 ## 1.22.3
 - Lunar Lander: the ALT readout (height above the base) goes negative when
   you're below the base, instead of stopping at zero.
