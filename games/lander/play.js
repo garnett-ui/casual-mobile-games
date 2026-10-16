@@ -60,6 +60,8 @@ export class Play {
     this.message = null;
     this.alarmAt = 0;
     this.cam = null;
+    this.track = []; // where this flight has been, for the replay after a crash
+    this.trackT = 0;
     this.hooks.onSound?.('stop');
   }
 
@@ -92,6 +94,16 @@ export class Play {
 
   // ------------------------------------------------------------ simulation
 
+  // Try again after a crash: the fly-over again, this time with the path you
+  // flew drawn in red, ending where (and saying how) you crashed.
+  retry() {
+    const path = this.track.slice();
+    const reason = this.crashInfo?.reason;
+    this.reset();
+    this.lastTry = path.length > 1 ? { path, reason } : null;
+    this.intro = { t: 0, dur: this.lastTry ? 6.4 : 5.4 };
+  }
+
   skipIntro() {
     if (!this.intro) return;
     this.intro = null;
@@ -115,9 +127,20 @@ export class Play {
         if (this.pilot) Object.assign(this.input, this.pilot(this.level, L));
         res = step(this.level, L, { ...this.input, assist: this.assist && !this.pilot }, dt / n);
       }
+      if (!L.landed) {
+        this.trackT += dt;
+        if (this.trackT >= 0.25 || !this.track.length) {
+          this.trackT = 0;
+          this.track.push([L.x, L.y]);
+        }
+      }
       if (res) {
         this.outcome = res;
-        if (res.kind === 'crash') this.explode();
+        if (res.kind === 'crash') {
+          this.track.push([L.x, L.y]);
+          this.crashInfo = { reason: res.reason };
+          this.explode();
+        }
         else if (res.kind === 'landed') {
           this.hooks.onSound?.('stop');
           this.hooks.sfx?.('contact');
@@ -682,7 +705,7 @@ export class Play {
   introCamera() {
     const { level, L, cssW, cssH } = this;
     const lo = Math.min(...level.terrain);
-    const hi = Math.max(level.maxH, ...level.route.map(([, y]) => y));
+    const hi = Math.max(level.maxH, ...level.route.map(([, y]) => y), ...(this.lastTry?.path || []).map(([, y]) => y));
     const fitW = (level.width * 1.04 * cssH) / cssW;
     const fitH = (hi - lo + 25) / (1 - 0.27 - (this.panelBottom || 0) / cssH - 0.04);
     const hA = Math.max(fitW, fitH);
@@ -710,7 +733,9 @@ export class Play {
       const y = P.y + (Q.y - P.y) * u;
       return { x: P.x + (Q.x - P.x) * u, h: h + (A.h * 0.85 - h) * arc, y: y + (A.y - y) * arc };
     };
-    const k = t < 1.8 ? A : t < 3.0 ? mix(A, B, ease((t - 1.8) / 1.2)) : t < 3.6 ? B : mix(B, C, ease((t - 3.6) / 1.6), 1);
+    const hold = this.lastTry ? 1 : 0; // a second longer on the overview for a replay
+    const tt = Math.max(0, t - hold);
+    const k = t < 1.8 + hold ? A : tt < 3.0 ? mix(A, B, ease((tt - 1.8) / 1.2)) : tt < 3.6 ? B : mix(B, C, ease((tt - 3.6) / 1.6), 1);
     k.bottom = k.y - k.h / 2;
     const scale = cssH / k.h;
     return { scale, left: k.x - cssW / scale / 2, bottom: k.bottom };
@@ -742,6 +767,44 @@ export class Play {
       ctx.fillStyle = '#ffd65a';
       ctx.fillText(text, x, y - 9);
     };
+    // Your last try, in red dots, drawn on alongside the route.
+    if (this.lastTry) {
+      const path = this.lastTry.path;
+      const m = Math.max(2, Math.floor(path.length * Math.min(1, t / 1.8)));
+      ctx.setLineDash([2, 5]);
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(255,90,70,0.95)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      path.slice(0, m).forEach(([x, y], i) => (i ? ctx.lineTo(sx(x), sy(y + 2.6)) : ctx.moveTo(sx(x), sy(y + 2.6))));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (m >= path.length) {
+        const [cx, cy] = path[path.length - 1];
+        const x = sx(cx);
+        const y = sy(cy + 2.6);
+        ctx.strokeStyle = '#ff5a46';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - 7, y - 7);
+        ctx.lineTo(x + 7, y + 7);
+        ctx.moveTo(x + 7, y - 7);
+        ctx.lineTo(x - 7, y + 7);
+        ctx.stroke();
+        if (this.lastTry.reason) {
+          ctx.font = '700 12px ui-monospace, Menlo, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const text = this.lastTry.reason.toUpperCase();
+          const w = ctx.measureText(text).width + 12;
+          const lx = Math.max(w / 2 + 4, Math.min(W - w / 2 - 4, x));
+          ctx.fillStyle = 'rgba(60,0,0,0.75)';
+          ctx.fillRect(lx - w / 2, y - 32, w, 18);
+          ctx.fillStyle = '#ffb4a8';
+          ctx.fillText(text, lx, y - 17);
+        }
+      }
+    }
     label('START', sx((level.startPad.x0 + level.startPad.x1) / 2), sy(level.startPad.y + 7));
     label('▼ BASE', sx((level.base.x0 + level.base.x1) / 2), sy(level.base.y + 4));
     // Caption
@@ -749,7 +812,7 @@ export class Play {
     ctx.font = '700 15px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const cap = `Mission ${level.n}: ${dist} m to the base · tap to skip`;
+    const cap = this.lastTry ? 'Red: your last try · yellow: a good route · tap to skip' : `Mission ${level.n}: ${dist} m to the base · tap to skip`;
     const w = ctx.measureText(cap).width + 24;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     const cy = Math.min(H * 0.8, H - 150);

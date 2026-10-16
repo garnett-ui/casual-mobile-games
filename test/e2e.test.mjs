@@ -510,6 +510,15 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     assert.ok(await page.evaluate(() => window.__lander.debris.length > 5 && window.__lander.particles.length > 20), 'fireball and wreckage');
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
     assert.match(await page.locator('.dialog h3').textContent(), /Crashed/);
+    // Try again: the fly-over replays, with the path just flown (ending in
+    // the crash) drawn on it, then the mission starts over.
+    await page.locator('[data-act=retry]').click();
+    const replay = await page.evaluate(() => {
+      const p = window.__lander;
+      return { intro: !!p.intro, points: p.lastTry?.path.length, reason: p.lastTry?.reason, landed: p.L.landed };
+    });
+    assert.ok(replay.intro && replay.points > 1 && /Impact/.test(replay.reason) && replay.landed === 'start', JSON.stringify(replay));
+    await page.waitForFunction(() => !window.__lander.intro, null, { timeout: 15000 });
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

@@ -199,7 +199,7 @@ export function mount(root, ctx, sub) {
         { label: 'Missions', act: 'levels', run: () => ctx.back('#/lander') },
         { label: 'Try again', act: 'retry', primary: true, run: () => {
           root.querySelector('.dialog').hidden = true;
-          play.reset();
+          play.retry();
         } },
       ],
     });

@@ -4,6 +4,12 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.19.0
+- Lunar Lander: after a crash, **Try again** replays the fly-over of the
+  course with the path you just flew drawn in red dots, ending in an ✕
+  where you crashed and how ("HULL STRUCK THE SURFACE"), next to a good
+  route in yellow. Then the mission starts again.
+
 ## 1.18.1
 - Lunar Lander assist: rotation now works like a stiff spring. Holding a
   turn button leans the lander against the spring until it settles at
