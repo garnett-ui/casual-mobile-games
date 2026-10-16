@@ -5,6 +5,7 @@ import { pour, goalMet, solve, starsFor } from './model.js';
 import { vessel, polygonArea, clipBelow } from './shapes.js';
 import { drawProfessor, goalLine, line } from './professor.js';
 
+const HEAD = 1.08; // glass above the top mark (as a share of its height)
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -80,7 +81,7 @@ export class Play {
     const gap = 0.14;
     const sumW = raw.reduce((a, r) => a + r.w, 0) + gap * (raw.length + 1) * Math.max(...raw.map((r) => r.w)) * 0.5;
     const maxH = Math.max(...raw.map((r) => r.h));
-    const s = Math.min((W * 0.94) / sumW, (this.bench - top) / maxH);
+    const s = Math.min((W * 0.94) / sumW, (this.bench - top) / (maxH * HEAD));
     const pad = gap * Math.max(...raw.map((r) => r.w)) * 0.5 * s;
     const total = raw.reduce((a, r) => a + r.w * s, 0) + pad * (raw.length - 1);
     let x = (W - total) / 2;
@@ -131,9 +132,10 @@ export class Play {
     // Tip toward the target: mouth over its mouth.
     const dir = target.x >= slot.x ? 1 : -1;
     const angle = dir * ((105 + Math.min(20, this.state[i] * 2)) * Math.PI) / 180;
-    const cx = target.x - (slot.h / 2) * Math.sin(angle) - dir * target.w * 0.18;
+    const mouth = slot.h * (HEAD - 0.5); // from the middle of the glass to its mouth
+    const cx = target.x - mouth * Math.sin(angle) - dir * target.w * 0.18;
     // (The mouth sits half a height from the middle, so place the middle there.)
-    const cy = target.y - target.h - 14 + (slot.h / 2) * Math.cos(angle);
+    const cy = target.y - target.h * HEAD - 14 + mouth * Math.cos(angle);
     this.anim = {
       i, j, amount: r.amount, before: this.state.slice(), after: r.state,
       phase: 'go', t: 0, p: 0,
@@ -462,18 +464,26 @@ export class Play {
     ctx.beginPath();
     ctx.ellipse(s.x, s.y + 3, s.w * 0.55, 6, 0, 0, Math.PI * 2);
     ctx.fill();
-    // How much is in it, and how much it holds.
+    // How much is in it, and how much it holds: "3 of 8", as big as fits.
     const v = Math.round(this.shown(i));
     const goal = this.level.goal;
     const good = goal.kind === 'any' ? v === goal.amount : goal.marks.some(([j, a]) => j === i && a === v);
-    ctx.textAlign = 'center';
+    const room = Math.max(s.w + 14, 70);
+    let size = 26;
+    const text = (sz) => {
+      ctx.font = `900 ${sz}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
+      return ctx.measureText(`${v} of ${this.level.caps[i]}`).width;
+    };
+    while (size > 14 && text(size) > room) size--;
+    const total = text(size);
     ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    const x0 = s.x - total / 2;
+    const head = `${v}`;
     ctx.fillStyle = good ? '#1e7d32' : '#1f2140';
-    ctx.font = '900 24px system-ui, sans-serif';
-    ctx.fillText(String(v), s.x, s.y + 12);
+    ctx.fillText(head, x0, s.y + 12);
     ctx.fillStyle = '#3a4650';
-    ctx.font = '600 12px system-ui, sans-serif';
-    ctx.fillText(`of ${this.level.caps[i]}`, s.x, s.y + 38);
+    ctx.fillText(` of ${this.level.caps[i]}`, x0 + ctx.measureText(head).width, s.y + 12);
   }
 
   drawVessel(i, time) {
@@ -483,7 +493,7 @@ export class Play {
     const pose = this.pose(i);
     const W = s.w;
     const H = s.h;
-    const local = v.outline().map(([x, y]) => [x * W, -y * H]);
+    const local = v.outline(HEAD).map(([x, y]) => [x * W, -y * H]);
     // Local -> screen: rotate about the vessel's middle.
     const ca = Math.cos(pose.angle);
     const sa = Math.sin(pose.angle);
@@ -574,25 +584,52 @@ export class Play {
   drawMarks(i, v, W, H) {
     const { ctx } = this;
     const cap = this.level.caps[i];
-    let gap = Infinity;
-    for (let u = 1; u <= cap; u++) gap = Math.min(gap, (v.level(u) - v.level(u - 1)) * H);
-    const every = gap >= 11 ? 1 : gap * 2 >= 11 ? 2 : 5;
+    // One straight scale, like a printed ruler: just inside the glass at its
+    // narrowest marked point, so every tick and number lines up.
+    let narrow = Infinity;
+    for (let u = 1; u <= cap; u++) narrow = Math.min(narrow, (v.width(v.level(u)) * W) / 2);
+    const xs = Math.max(8, narrow - 4);
+    const font = Math.round(Math.max(11, Math.min(15, W * 0.16)));
+    // Number each mark that has room (always the top one): where marks
+    // crowd together, as in a flask's bulb, some go unnumbered.
+    const room = font * 1.15;
+    const topY = v.level(cap) * H;
+    const labelled = new Set([cap]);
+    let last = -Infinity;
+    for (let u = 1; u < cap; u++) {
+      const y = v.level(u) * H;
+      if (y - last >= room && topY - y >= room) {
+        labelled.add(u);
+        last = y;
+      }
+    }
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.font = '700 10px system-ui, sans-serif';
+    ctx.font = `800 ${font}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
+    ctx.lineJoin = 'round';
     for (let u = 1; u <= cap; u++) {
       const y = -v.level(u) * H;
-      const edge = (v.width(v.level(u)) * W) / 2 - 2;
-      const len = u % 5 === 0 || u === cap ? Math.min(14, edge * 0.7) : Math.min(8, edge * 0.45);
-      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-      ctx.lineWidth = 1.3;
+      const major = labelled.has(u) || u % 5 === 0;
+      const len = Math.min(major ? 12 : 7, xs * 0.6);
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 3.4;
       ctx.beginPath();
-      ctx.moveTo(edge - len, y);
-      ctx.lineTo(edge, y);
+      ctx.moveTo(xs - len, y);
+      ctx.lineTo(xs, y);
       ctx.stroke();
-      if (u % every === 0 || u === cap) {
-        ctx.fillStyle = 'rgba(255,255,255,0.92)';
-        ctx.fillText(String(u), edge - len - 2, y);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(xs - len, y);
+      ctx.lineTo(xs, y);
+      ctx.stroke();
+      if (labelled.has(u)) {
+        // Dark edging so the number reads over water and glass alike.
+        ctx.strokeStyle = 'rgba(10,25,40,0.75)';
+        ctx.lineWidth = 3.5;
+        ctx.strokeText(String(u), xs - len - 3, y);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(String(u), xs - len - 3, y);
       }
     }
     // Goal: a gold line at the amount wanted in this beaker.
@@ -611,8 +648,9 @@ export class Play {
         ctx.lineTo(half + 6, y);
         ctx.stroke();
         ctx.setLineDash([]);
-        // A flag with the target amount, on the left (kept on screen).
-        const fx = Math.max(-half - 34, 4 - this.slots[i].x);
+        // A flag with the target amount, inside the glass on the left (the
+        // scale is on the right), clear of the next glass's numbers.
+        const fx = -half + 4;
         ctx.fillStyle = met ? '#3dff7a' : '#ffd23f';
         ctx.beginPath();
         ctx.roundRect(fx, y - 10, 26, 20, 5);
@@ -637,7 +675,7 @@ export class Play {
     const v = this.vessels[a.i];
     // The lip on the downhill side of the mouth.
     const lx = a.dir * (v.width(1) * s.w) / 2;
-    const ly = -s.h / 2;
+    const ly = -s.h * (HEAD - 0.5);
     const x0 = pose.x + lx * ca - ly * sa;
     const y0 = pose.y - s.h / 2 + lx * sa + ly * ca;
     const tv = this.vessels[a.j];

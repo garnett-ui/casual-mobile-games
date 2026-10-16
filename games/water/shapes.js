@@ -69,13 +69,16 @@ export function vessel(shape, capacity) {
       const t = (f - vol[i - 1]) / Math.max(1e-12, vol[i] - vol[i - 1]);
       return (i - 1 + Math.max(0, Math.min(1, t))) / N;
     },
-    // The outline: points [x, y] with x in -0.5..0.5 of the width, y 0..1.
-    outline() {
+    // The outline: points [x, y] with x in -0.5..0.5 of the width, y from 0
+    // up to `top` (1 is the top graduation; a little more leaves headroom,
+    // like real glassware, so the rim doesn't sit on the top mark).
+    outline(top = 1) {
       const right = [];
       for (let i = 0; i <= 40; i++) {
         const y = i / 40;
         right.push([halfWidth(pts, y) / 2, y]);
       }
+      if (top > 1) right.push([halfWidth(pts, 1) / 2, top]);
       return [...right.map(([x, y]) => [-x, y]).reverse(), ...right];
     },
   };

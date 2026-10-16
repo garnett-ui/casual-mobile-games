@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.21.3
+- Water Lab: the graduations line up on one straight scale in each glass,
+  with bigger, bolder numbers that read over water and glass alike; the
+  glass rises a little above its top mark so the rim no longer hides it.
+  Under each glass, a single large "3 of 8".
+
 ## 1.21.2
 - Water Lab: Professor Fizz explains how to play in his own speech bubble,
   instead of a note covering it.
