@@ -1,9 +1,24 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
-import { step, newLander, heightAt, flightPath, G, SAFE, FEET } from './engine.js';
+import { step, newLander, heightAt, flightPath, G, SAFE, FEET, TRACK_DT } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const PHOSPHOR = '#3dff7a';
+
+// Flights are drawn as dots at equal times, so they bunch up where the
+// craft went slowly and spread out where it went fast. How many seconds
+// apart: enough that at a walking pace (2 m/s) they don't run together at
+// this scale (pixels per metre).
+const DOT_TIMES = [0.25, 0.5, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20];
+function dotEvery(scale, gap = 6) {
+  return DOT_TIMES.find((s) => 2 * s * scale >= gap) ?? 20;
+}
+// The timed samples (those with a speed) of a recorded path, every `every`
+// seconds.
+function timedDots(path, every) {
+  const k = Math.max(1, Math.round(every / TRACK_DT));
+  return path.filter((p) => p.length > 2).filter((_, i) => i % k === 0);
+}
 
 // Scenery cut from Apollo 8's "Earthrise" photo (NASA, public domain): the
 // Earth, the far lunar horizon, and a seamless tile of the surface.
@@ -130,9 +145,9 @@ export class Play {
       }
       if (!L.landed) {
         this.trackT += dt;
-        if (this.trackT >= 0.25 || !this.track.length) {
-          this.trackT = 0;
-          this.track.push([L.x, L.y]);
+        if (this.trackT >= TRACK_DT || !this.track.length) {
+          this.trackT = Math.min(TRACK_DT, Math.max(0, this.trackT - TRACK_DT));
+          this.track.push([L.x, L.y, Math.hypot(L.vx, L.vy)]);
         }
       }
       if (res) {
@@ -441,7 +456,7 @@ export class Play {
       ctx.fillRect(-20, -20, W + 40, H + 40);
     }
 
-    if (this.intro) this.drawIntro(sx, sy, W, H);
+    if (this.intro) this.drawIntro(sx, sy, W, H, cam);
     else this.drawBaseMarker(sx, sy, W, H);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawPanel(W);
@@ -815,13 +830,14 @@ export class Play {
   routeSvg() {
     const { level } = this;
     const path = this.track;
-    const xs = [level.startPad.x0, level.startPad.x1, level.base.x0, level.base.x1, ...path.map(([x]) => x)];
+    const auto = (level.route ??= flightPath(level));
+    const xs = [level.startPad.x0, level.startPad.x1, level.base.x0, level.base.x1, ...path.map(([x]) => x), ...auto.map(([x]) => x)];
     const x0 = Math.min(...xs) - 12;
     const x1 = Math.max(...xs) + 12;
     const ground = [];
     for (let x = x0; x < x1 + level.step; x += level.step) ground.push([Math.min(x, x1), heightAt(level, Math.min(x, x1))]);
     const rocks = (level.rocks || []).filter((p) => p.x1 > x0 && p.x0 < x1);
-    const ys = [...ground.map(([, y]) => y), ...path.map(([, y]) => y + 5), ...rocks.flatMap((p) => p.hi)];
+    const ys = [...ground.map(([, y]) => y), ...path.map(([, y]) => y + 5), ...auto.map(([, y]) => y + 5), ...rocks.flatMap((p) => p.hi)];
     const lo = Math.min(...ys) - 10;
     const hi = Math.max(...ys) + 8;
     const W = 300;
@@ -830,6 +846,13 @@ export class Play {
     const Y = (y) => (H - ((y - lo) / (hi - lo)) * H).toFixed(1);
     const pts = (list) => list.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ');
     const pad = (p, colour) => `<line x1="${X(p.x0)}" y1="${Y(p.y)}" x2="${X(p.x1)}" y2="${Y(p.y)}" stroke="${colour}" stroke-width="3" stroke-linecap="round"/>`;
+    // Equal-time dots (see dotEvery), for your flight and the autopilot's.
+    const every = dotEvery(Math.min(W / (x1 - x0), H / (hi - lo)), 4.5);
+    const dotted = (list, r, fill, line) => {
+      const ds = timedDots(list, every);
+      return `<polyline points="${pts(list.filter((q) => q.length > 2))}" fill="none" stroke="${line}" stroke-width="1"/>`
+        + ds.map(([x, y]) => `<circle cx="${X(x)}" cy="${Y(y)}" r="${r}" fill="${fill}"/>`).join('');
+    };
     const [ex, ey] = path.length ? path[path.length - 1] : [(level.base.x0 + level.base.x1) / 2, level.base.y];
     const fx = +X(ex);
     const fy = +Y(ey);
@@ -843,13 +866,17 @@ export class Play {
         return `<polygon points="${pts([...top, ...under])}" fill="#5b5f6e" stroke="#9aa0b4" stroke-width="1"/>`;
       }).join('')}
       ${pad(level.startPad, '#cfd3dc')}${pad(level.base, '#3dff7a')}
-      <polyline points="${pts(path)}" fill="none" stroke="#ffd23f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-      <circle cx="${X(path[0]?.[0] ?? 0)}" cy="${Y(path[0]?.[1] ?? 0)}" r="3" fill="#ffd23f"/>
+      ${dotted(auto, 1.3, 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0.12)')}
+      ${dotted(path, 2.1, '#ffd23f', 'rgba(255,210,63,0.35)')}
       <line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy - 16}" stroke="#fff" stroke-width="1.2"/>
       <rect x="${fx}" y="${fy - 16}" width="11" height="7" fill="#c8102e"/>
       <rect x="${fx}" y="${fy - 14}" width="11" height="1.2" fill="#fff"/><rect x="${fx}" y="${fy - 11.6}" width="11" height="1.2" fill="#fff"/>
       <rect x="${fx}" y="${fy - 16}" width="4.5" height="3.8" fill="#0a3161"/>
-      <text x="8" y="15" fill="#cfd3dc" font-size="11" font-weight="700" font-family="system-ui, sans-serif">YOUR ROUTE</text>
+      <g font-size="10" font-weight="700" font-family="system-ui, sans-serif">
+        <circle cx="12" cy="12" r="3" fill="#ffd23f"/><text x="19" y="15.5" fill="#ffd23f">YOU</text>
+        <circle cx="50" cy="12" r="2.2" fill="rgba(255,255,255,0.6)"/><text x="57" y="15.5" fill="#cfd3dc">AUTOPILOT</text>
+        <text x="${W - 8}" y="15.5" fill="#cfd3dc" text-anchor="end">a dot every ${every} s</text>
+      </g>
     </svg>`;
   }
 
@@ -868,6 +895,7 @@ export class Play {
     // Keyframes as view centre (x, y) and height h, in metres.
     const at = (x, h, bottom) => ({ x, h, y: bottom + h / 2 });
     const A = at(level.width / 2, hA, lo - hA * 0.27);
+    this.overviewScale = cssH / hA;
     const b = level.base;
     const B = at((b.x0 + b.x1) / 2, 70, b.y - 70 * 0.27);
     const ground = heightAt(level, L.x);
@@ -898,21 +926,58 @@ export class Play {
   }
 
   // The fly-over's route line and labels.
-  drawIntro(sx, sy, W, H) {
+  drawIntro(sx, sy, W, H, cam) {
     const { ctx, level } = this;
     const t = this.intro.t;
     const show = Math.min(1, t / 0.5) * Math.min(1, (this.intro.dur - t) / 0.6);
     ctx.save();
     ctx.globalAlpha = show;
-    // The route, drawn on progressively during the overview.
-    const n = Math.max(2, Math.floor(level.route.length * Math.min(1, t / 1.6)));
-    ctx.setLineDash([6, 6]);
-    ctx.strokeStyle = 'rgba(255,214,90,0.9)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    level.route.slice(0, n).forEach(([x, y], i) => (i ? ctx.lineTo(sx(x), sy(y + 2.6)) : ctx.moveTo(sx(x), sy(y + 2.6))));
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // Dots at equal times along each flight, spaced for the overview.
+    const every = dotEvery(this.overviewScale || 1);
+    const r = Math.max(2, Math.min(4, cam.scale * 0.9));
+    const dots = (path, frac, colour, line) => {
+      const pts = timedDots(path, every);
+      const m = Math.max(1, Math.floor(pts.length * frac));
+      // A faint line through them to keep the shape where they're far apart.
+      ctx.strokeStyle = line;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      pts.slice(0, m).forEach(([x, y], i) => (i ? ctx.lineTo(sx(x), sy(y + 2.6)) : ctx.moveTo(sx(x), sy(y + 2.6))));
+      ctx.stroke();
+      ctx.fillStyle = colour;
+      for (const [x, y] of pts.slice(0, m)) {
+        ctx.beginPath();
+        ctx.arc(sx(x), sy(y + 2.6), r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return pts.slice(0, m);
+    };
+    // The route, drawn on progressively during the overview, with its speed
+    // marked every so often.
+    const shown = dots(level.route, Math.min(1, t / 1.6), 'rgba(255,214,90,0.95)', 'rgba(255,214,90,0.3)');
+    {
+      ctx.font = '700 11px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      const apart = 85 / (this.overviewScale || 1); // metres between labels
+      const pads = [level.startPad, level.base].map((q) => (q.x0 + q.x1) / 2);
+      let last = null;
+      for (const [x, y, v] of shown) {
+        if (v < 1.5 || (last && Math.hypot(x - last[0], y - last[1]) < apart)) continue;
+        if (pads.some((px) => Math.abs(sx(x) - sx(px)) < 45)) continue; // clear of START and BASE
+
+        last = [x, y];
+        const text = `${Math.round(v)} m/s`;
+        const lx = sx(x) + r + 3;
+        const ly = sy(y + 2.6) - 9;
+        ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(text, lx, ly);
+        ctx.fillStyle = '#ffe9a8';
+        ctx.fillText(text, lx, ly);
+      }
+    }
     const label = (text, x, y) => {
       ctx.font = '800 13px ui-monospace, Menlo, monospace';
       ctx.textAlign = 'center';
@@ -926,16 +991,9 @@ export class Play {
     // Your last try, in red dots, drawn on alongside the route.
     if (this.lastTry) {
       const path = this.lastTry.path;
-      const m = Math.max(2, Math.floor(path.length * Math.min(1, t / 1.8)));
-      ctx.setLineDash([2, 5]);
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = 'rgba(255,90,70,0.95)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      path.slice(0, m).forEach(([x, y], i) => (i ? ctx.lineTo(sx(x), sy(y + 2.6)) : ctx.moveTo(sx(x), sy(y + 2.6))));
-      ctx.stroke();
-      ctx.setLineDash([]);
-      if (m >= path.length) {
+      const frac = Math.min(1, t / 1.8);
+      dots(path, frac, 'rgba(255,90,70,0.95)', 'rgba(255,90,70,0.35)');
+      if (frac >= 1) {
         const [cx, cy] = path[path.length - 1];
         const x = sx(cx);
         const y = sy(cy + 2.6);
@@ -968,13 +1026,19 @@ export class Play {
     ctx.font = '700 15px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const cap = this.lastTry ? 'Red: your last try · yellow: a good route · tap to skip' : `Mission ${level.n}: ${dist} m to the base · tap to skip`;
-    const w = ctx.measureText(cap).width + 24;
+    const cap = this.lastTry ? 'Red: your last try · yellow: a good route' : `Mission ${level.n}: ${dist} m to the base`;
+    const sub = `A dot every ${every} s: close together = slow · tap to skip`;
+    const w = Math.max(ctx.measureText(cap).width, (ctx.font = '600 12px system-ui, sans-serif', ctx.measureText(sub).width)) + 24;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    const cy = Math.min(H * 0.8, H - 150);
-    ctx.fillRect(W / 2 - w / 2, cy - 16, w, 32);
+    // Above the thrust buttons; on a wide screen, down between them.
+    const cy = W > H ? H - 36 : Math.min(H * 0.8, H - 150);
+    ctx.fillRect(W / 2 - w / 2, cy - 18, w, 44);
     ctx.fillStyle = '#fff';
-    ctx.fillText(cap, W / 2, cy);
+    ctx.font = '700 15px system-ui, sans-serif';
+    ctx.fillText(cap, W / 2, cy - 2);
+    ctx.fillStyle = '#d6d8e4';
+    ctx.font = '600 12px system-ui, sans-serif';
+    ctx.fillText(sub, W / 2, cy + 16);
     ctx.restore();
   }
 

@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.26.0
+- Lunar Lander: flights are drawn as dots at equal times -- the good route
+  in the fly-over, your last try after a crash, and both on the map after a
+  landing -- so they bunch up where the craft went slowly and spread out
+  where it went fast. The time between dots suits the zoom (it says which,
+  e.g. "a dot every 4 s"), and the good route is labelled with its speed
+  along the way.
+
 ## 1.25.0
 - Lunar Lander: the missions are much more varied, and get harder more
   steadily: further each time, with taller and more numerous mountains and

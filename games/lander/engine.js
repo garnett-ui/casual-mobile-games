@@ -596,15 +596,17 @@ export function simulate(level, fuel = 2000, maxTime = 900) {
   return { kind: 'timeout', used: fuel - L.fuel };
 }
 
-// The way a careful pilot would fly it: points [x, y] every half second,
-// from the launch pad to the base (shown before each mission starts).
+// The way a careful pilot would fly it, from the launch pad to the base
+// (shown before each mission starts): [x, y, speed] every quarter second
+// (TRACK_DT), like the record of your own flights.
+export const TRACK_DT = 0.25;
 export function flightPath(level) {
   const L = newLander(level, 2000);
-  const dt = 1 / 30;
-  const path = [[L.x, L.y]];
-  for (let t = 0, k = 0; t < 900; t += dt, k++) {
+  const dt = TRACK_DT / 10;
+  const path = [[L.x, L.y, 0]];
+  for (let k = 1; k < 900 / dt; k++) {
     const res = step(level, L, autopilot(level, L, 9), dt);
-    if (k % 15 === 0) path.push([L.x, L.y]);
+    if (k % 10 === 0) path.push([L.x, L.y, Math.hypot(L.vx, L.vy)]);
     if (res && res.kind !== 'touchdown') break;
   }
   path.push([L.x, L.y]);
