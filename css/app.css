@@ -746,3 +746,4 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   text-align: center;
   box-shadow: 0 4px 0 rgba(0, 0, 0, .2);
 }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

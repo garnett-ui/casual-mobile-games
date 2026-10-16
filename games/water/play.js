@@ -3,6 +3,7 @@
 // empty or the other is full.
 import { pour, goalMet, solve, starsFor } from './model.js';
 import { vessel, polygonArea, clipBelow } from './shapes.js';
+import { drawProfessor, goalLine, line } from './professor.js';
 
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -44,6 +45,12 @@ export class Play {
     this.notes = [];
     this.sparks = [];
     this.hooks.onMoves?.(0);
+    this.say(goalLine(this.level));
+  }
+
+  // Professor Fizz speaks: `secs` until he goes back to the goal (0: stays).
+  say(text, mood = 'happy', secs = 0) {
+    this.speech = { text, mood, t: 0, secs };
   }
 
   // ------------------------------------------------------------- layout
@@ -57,7 +64,9 @@ export class Play {
     this.canvas.height = Math.round(this.H * this.dpr);
     const { W, H } = this;
     this.bench = H * 0.8;
-    const top = H * 0.12;
+    // Professor Fizz and his speech bubble across the top.
+    this.band = Math.max(96, Math.min(H * 0.24, 160));
+    const top = this.band + 16;
     // Sizes in proportion to capacity (by volume), then scaled to fit.
     const raw = this.vessels.map((v) => {
       const h = Math.cbrt(v.capacity / v.unitVolume);
@@ -106,6 +115,7 @@ export class Play {
     if (!r) {
       const why = this.state[i] === 0 ? 'Empty!' : 'Full!';
       this.note(why === 'Empty!' ? i : j, why);
+      this.say(line(why === 'Empty!' ? 'empty' : 'full'), 'oops', 2.6);
       this.hooks.sfx?.('bump');
       this.hooks.haptic?.(30);
       return false;
@@ -141,6 +151,8 @@ export class Play {
     if (goalMet(this.level.goal, this.state)) {
       this.won = true;
       this.celebrate();
+      const g = this.level.goal;
+      this.say(`${line('win')} ${g.kind === 'any' ? `Exactly ${g.amount}!` : 'Every line just right!'}`, 'joy');
       const stars = starsFor(this.moves, this.level.par);
       this.hooks.onWin?.({ moves: this.moves, par: this.level.par, stars });
     }
@@ -160,6 +172,7 @@ export class Play {
     if (!sol || !sol.length) return;
     const [i, j] = sol[0];
     this.hint = { i, j, t: 0 };
+    this.say(line('hint'), 'happy', 3);
   }
 
   note(i, text) {
@@ -216,6 +229,11 @@ export class Play {
           this.finish();
         }
       }
+    }
+    const sp = this.speech;
+    if (sp) {
+      sp.t += dt;
+      if (sp.secs && sp.t > sp.secs) this.say(goalLine(this.level));
     }
     for (const n of this.notes) n.t += dt;
     this.notes = this.notes.filter((n) => n.t < 1);
@@ -343,6 +361,7 @@ export class Play {
     ctx.fillStyle = bench;
     ctx.fillRect(0, this.bench, W, H - this.bench);
 
+    this.drawProfessorBand(time);
     // Hint: an arrow from the beaker to pour to the one to pour into.
     if (this.hint) this.drawHint(time);
     // Shadows and labels, then the glass (the moving one last, on top).
@@ -367,6 +386,63 @@ export class Play {
       ctx.fillRect(s.x - 3, s.y - 3, 6, 6);
     }
     ctx.globalAlpha = 1;
+  }
+
+  // Professor Fizz, top left, saying what he needs.
+  drawProfessorBand(time) {
+    const { ctx, W } = this;
+    const band = this.band;
+    const size = band * 0.86;
+    const px = size * 0.42;
+    const sp = this.speech || { text: '', t: 99, mood: 'happy' };
+    const speaking = sp.t < Math.min(2.6, 0.045 * sp.text.length);
+    const talk = speaking ? 0.5 + 0.5 * Math.sin(time * 19) : 0;
+    // Eyes on the beaker in hand (or the bench).
+    const held = this.anim ? this.anim.pose.x : this.held?.moved ? this.held.x : W * 0.6;
+    const look = Math.max(-1, Math.min(1, (held - px) / (W * 0.4)));
+    drawProfessor(ctx, px, band + 4, size, { t: time, talk, look, mood: this.won ? 'joy' : sp.mood });
+    // Speech bubble
+    const x0 = px + size * 0.36;
+    const x1 = W - 10;
+    const y0 = 10;
+    const y1 = band - 8;
+    if (x1 - x0 < 80) return;
+    ctx.fillStyle = '#fffdf3';
+    ctx.strokeStyle = sp.mood === 'oops' ? '#ff6b6b' : '#ffd23f';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, x1 - x0, y1 - y0, 16);
+    ctx.fill();
+    ctx.stroke();
+    // Tail toward his mouth
+    const my = band + 4 - size * 0.57;
+    ctx.beginPath();
+    ctx.moveTo(x0 + 1, my - 12);
+    ctx.lineTo(px + size * 0.17, my);
+    ctx.lineTo(x0 + 1, my + 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x0, my - 12);
+    ctx.lineTo(px + size * 0.17, my);
+    ctx.lineTo(x0, my + 2);
+    ctx.stroke();
+    // The words, wrapped and sized to fit.
+    const maxW = x1 - x0 - 24;
+    const maxH = y1 - y0 - 16;
+    let size2 = 18;
+    let lines;
+    for (; size2 >= 11; size2--) {
+      ctx.font = `800 ${size2}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
+      lines = wrap(ctx, sp.text, maxW);
+      if (lines.length * size2 * 1.22 <= maxH) break;
+    }
+    ctx.fillStyle = '#1f2140';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const lh = size2 * 1.22;
+    const start = (y0 + y1) / 2 - ((lines.length - 1) * lh) / 2;
+    lines.forEach((l, k) => ctx.fillText(l, x0 + 12, start + k * lh));
   }
 
   drawLabel(i) {
@@ -601,4 +677,21 @@ export class Play {
     ctx.lineTo(b.x - 14 * Math.cos(ang + 0.45), b.y - b.h - 10 - 14 * Math.sin(ang + 0.45));
     ctx.stroke();
   }
+}
+
+// Break text into lines no wider than maxW.
+function wrap(ctx, text, maxW) {
+  const out = [];
+  let cur = '';
+  for (const word of text.split(' ')) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (ctx.measureText(next).width > maxW && cur) {
+      out.push(cur);
+      cur = word;
+    } else {
+      cur = next;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
 }

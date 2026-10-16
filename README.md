@@ -111,7 +111,8 @@ keyboard, use the arrows or WASD.
 A water-pouring puzzle in a closed system: beakers of different sizes and
 shapes on a lab bench, some water, no tap and no drain. Drag a beaker onto
 another (or tap one, then the other) to pour: it tips over and pours until
-it's empty or the other is full. Measure the amount asked for.
+it's empty or the other is full. Measure the amount asked for: Professor
+Fizz, the lab's wild-haired host, tells you what he needs and reacts as you go.
 
 - Glassware of different shapes (graduated cylinder, beaker, Erlenmeyer and
   round-bottomed flasks, bottle, conical glass). Each is round in cross

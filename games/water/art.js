@@ -1,5 +1,6 @@
-// Card illustration for the arcade hub: three glasses of water on a bench.
+// Card illustration for the arcade hub: Professor Fizz and his glassware.
 import { vessel } from './shapes.js';
+import { drawProfessor } from './professor.js';
 
 export function paint(canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -18,7 +19,7 @@ export function paint(canvas) {
   const bench = H * 0.82;
   ctx.fillStyle = '#9aa5ad';
   ctx.fillRect(0, bench, W, H - bench);
-  const items = [['flask', 8, 5, 0.28], ['cylinder', 5, 4, 0.5], ['round', 3, 1, 0.7]];
+  const items = [['flask', 8, 5, 0.42], ['cylinder', 5, 4, 0.62], ['round', 3, 1, 0.8]];
   for (const [shape, cap, fill, fx] of items) {
     const v = vessel(shape, cap);
     const h = H * 0.62 * (shape === 'cylinder' ? 1 : 0.8);
@@ -50,5 +51,6 @@ export function paint(canvas) {
       ctx.stroke();
     }
   }
+  drawProfessor(ctx, W * 0.17, bench + 2, H * 0.72, { t: 0.5, talk: 0.6, look: 1, mood: 'happy' });
   return rect;
 }

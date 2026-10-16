@@ -49,7 +49,7 @@ export function mount(root, ctx, sub) {
           <h2>Level ${n}</h2>
           <span class="pill moves"><b data-moves>0</b>&nbsp;<span data-unit>pours</span> · par ${level.par}</span>
         </header>
-        <div class="wl-goal">${goalText(level)}</div>
+        <div class="wl-goal sr-only">${goalText(level)}</div>
         <div class="stage"><canvas class="board"></canvas></div>
         <footer class="controls">
           <button class="ctl" data-act="undo">${ICON.undo}<span>Undo</span></button>
