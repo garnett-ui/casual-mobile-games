@@ -35,7 +35,7 @@ export function mount(root, ctx, sub) {
       id: 'water',
       title: 'Water Lab',
       intro: 'Pour water between beakers to measure an exact amount. No tap, no drain: just the water you start with.',
-      outro: 'Every level is checked to be solvable, and par is the fewest pours it can be done in.',
+      outro: 'Every level is checked to be solvable in the fewest pours shown.',
       progress,
     });
   }
@@ -48,7 +48,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
           <h2>Level ${n}</h2>
-          <span class="pill moves"><b data-moves>0</b>&nbsp;<span data-unit>pours</span> · par ${level.par}</span>
+          <span class="pill moves"><b data-moves>0</b>&nbsp;<span data-unit>pours</span> · fewest ${level.par}</span>
         </header>
         <div class="wl-goal sr-only">${goalText(level)}</div>
         <div class="stage"><canvas class="board"></canvas></div>
@@ -95,7 +95,9 @@ export function mount(root, ctx, sub) {
     ctx.track('level_complete', { level: n, stars });
     ctx.sfx('win');
     ctx.haptic(40);
-    const note = moves <= par ? 'Perfect — you matched par!' : `Par is ${par}. Can you do it in fewer pours?`;
+    const note = moves <= par
+      ? 'Perfect — the fewest pours possible!'
+      : `It can be done in ${par} pour${par === 1 ? '' : 's'}. Can you find how?`;
     showDialog(root.querySelector('.dialog'), ctx, {
       title: CHEERS[Math.floor(Math.random() * CHEERS.length)],
       stars,

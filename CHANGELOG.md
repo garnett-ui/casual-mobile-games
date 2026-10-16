@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.21.4
+- Water Lab: Professor Fizz keeps it simple ("I need exactly 4 ml of
+  water."), amounts are in millilitres, and the top bar and finish card
+  talk about the fewest pours possible instead of "par".
+
 ## 1.21.3
 - Water Lab: the graduations line up on one straight scale in each glass,
   with bigger, bolder numbers that read over water and glass alike; the

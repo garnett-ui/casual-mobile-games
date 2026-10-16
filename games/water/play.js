@@ -159,7 +159,7 @@ export class Play {
       this.won = true;
       this.celebrate();
       const g = this.level.goal;
-      this.say(`${line('win')} ${g.kind === 'any' ? `Exactly ${g.amount}!` : 'Every line just right!'}`, 'joy');
+      this.say(`${line('win')} ${g.kind === 'any' ? `Exactly ${g.amount} ml!` : 'Every line just right!'}`, 'joy');
       const stars = starsFor(this.moves, this.level.par);
       this.hooks.onWin?.({ moves: this.moves, par: this.level.par, stars });
     }

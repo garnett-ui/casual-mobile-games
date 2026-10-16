@@ -226,22 +226,12 @@ const pick = (list, n) => list[((n % list.length) + list.length) % list.length];
 
 export function goalLine(level) {
   const g = level.goal;
-  if (g.kind === 'any') {
-    return pick([
-      `I need exactly ${g.amount} units of water. Any beaker will do!`,
-      `Quick! Measure me exactly ${g.amount}. Not ${g.amount + 1}, not ${Math.max(0, g.amount - 1)}: ${g.amount}!`,
-      `For my experiment I must have precisely ${g.amount}. In any beaker!`,
-      `Ah, a new batch! Get ${g.amount} units into one of these.`,
-    ], level.n);
-  }
+  if (g.kind === 'any') return `I need exactly ${g.amount} ml of water.`;
   const parts = level.caps.map((_, i) => {
     const m = g.marks.find(([j]) => j === i);
-    return m ? (m[1] ? m[1] : 'empty') : 'anything';
+    return m ? (m[1] ? `${m[1]} ml` : 'empty') : 'any amount';
   });
-  return pick([
-    `Left to right, I need: ${parts.join(', ')}. Match my gold lines!`,
-    `A delicate split! ${parts.join(' · ')} — exactly on the gold lines.`,
-  ], level.n);
+  return `Left to right, I need ${parts.join(', ')}.`;
 }
 
 export const LINES = {

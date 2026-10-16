@@ -120,12 +120,12 @@ tells you what he needs and reacts as you go.
   section, so the water level and the graduation marks follow real volume:
   marks crowd together in a wide bulb and spread out up a narrow neck. The
   number under each beaker says how much is in it.
-- Goals: "Measure exactly 4" (in any beaker) to begin with; from level 7,
-  every third level is an exact split ("Make 4 · 4 · empty"), with gold
+- Goals: "I need exactly 4 ml of water" (in any beaker) to begin with; from
+  level 7, every third level is an exact split (4 ml, 4 ml, empty), with gold
   lines on the beakers that must hold those amounts.
 - Endless levels from a seed. Each is explored by breadth-first search over
   its states (water is conserved, so states lie on a plane), which proves it
-  solvable and sets par to the fewest pours; harder levels have longer
+  solvable and finds the fewest pours possible; harder levels have longer
   shortest solutions, or more beakers. Hint shows the next pour of a
   shortest solution from wherever you are.
 

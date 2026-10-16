@@ -213,10 +213,10 @@ export function starsFor(moves, par) {
 // "Measure exactly 4" / "Make 4 · 4 · 0" (with dashes for unmarked beakers).
 export function goalText(level) {
   const g = level.goal;
-  if (g.kind === 'any') return `Measure exactly ${g.amount}`;
+  if (g.kind === 'any') return `Measure exactly ${g.amount} ml`;
   const parts = level.caps.map((_, i) => {
     const m = g.marks.find(([j]) => j === i);
-    return m ? (m[1] ? String(m[1]) : 'empty') : '–';
+    return m ? (m[1] ? `${m[1]} ml` : 'empty') : '–';
   });
   return `Make ${parts.join(' · ')}`;
 }
