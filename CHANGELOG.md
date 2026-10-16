@@ -6,6 +6,22 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.25.0
+- Lunar Lander: the missions are much more varied, and get harder more
+  steadily: further each time, with taller and more numerous mountains and
+  deeper false valleys between them.
+  - Each of the first ten has a shape of its own: a hop, a hill, a base far
+    below you, twin peaks, a base up on a mesa behind a cliff, a tall ridge,
+    a whole range, a base down in a crater.
+  - From mission 11, rock overhead: a base inside a cave you have to fly
+    into under the overhang, a mountain far too high to fly over with a
+    tunnel through it (which starts to bend up and down), and a base in a
+    cavern deep under a mesa, reached down a narrow shaft. Each comes round
+    again tighter: lower caves, longer tunnels, narrower shafts, and the base
+    further off to the side at the bottom.
+  - The fly-over before a mission frames the whole course properly on a
+    phone held sideways, and the route map after a landing shows the rock.
+
 ## 1.24.0
 - Lunar Lander: a proper celebration when you land at the base. A little
   American flag pops up out of the hatch and unfurls (hanging from a

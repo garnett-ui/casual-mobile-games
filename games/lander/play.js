@@ -383,8 +383,10 @@ export class Play {
       else ctx.lineTo(sx(x), sy(heightAt(this.level, x)));
     }
     ctx.stroke();
+    this.drawRocks(sx, sy, x0, x1, ground);
     for (const c of this.craters) {
       if (c.x < x0 - 10 || c.x > x1 + 10) continue;
+      if (this.level.rocks?.some((p) => c.x > p.x0 - c.r && c.x < p.x1 + c.r)) continue;
       const gy = heightAt(this.level, c.x);
       ctx.fillStyle = 'rgba(30,30,30,0.16)';
       ctx.beginPath();
@@ -705,6 +707,48 @@ export class Play {
     ctx.restore();
   }
 
+  // Overhanging rock (cave roofs, the mountain over a tunnel, a cavern's
+  // roof): the hollow beneath in deep shadow, then the rock in the same
+  // regolith as the ground, lit along its top and dark along its underside.
+  drawRocks(sx, sy, x0, x1, shade) {
+    const { ctx, level } = this;
+    for (const p of level.rocks || []) {
+      if (p.x1 < x0 - 10 || p.x0 > x1 + 10) continue;
+      const xs = p.lo.map((_, k) => p.x0 + k * level.step);
+      const trace = (ys, reverse) => {
+        const ks = xs.map((_, k) => k);
+        if (reverse) ks.reverse();
+        ks.forEach((k, j) => (j || reverse ? ctx.lineTo(sx(xs[k]), sy(ys[k])) : ctx.moveTo(sx(xs[k]), sy(ys[k]))));
+      };
+      ctx.beginPath();
+      trace(p.lo);
+      trace(xs.map((x, k) => Math.min(p.lo[k], heightAt(level, x))), true);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(0,0,10,0.55)';
+      ctx.fill();
+      ctx.beginPath();
+      trace(p.lo);
+      trace(p.hi, true);
+      ctx.closePath();
+      if (this.regolith) {
+        ctx.fillStyle = this.regolith;
+        ctx.fill();
+      }
+      ctx.fillStyle = shade;
+      ctx.fill();
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(236,233,224,0.75)';
+      ctx.beginPath();
+      trace(p.hi);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(20,20,26,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      trace(p.lo);
+      ctx.stroke();
+    }
+  }
+
   // The Stars and Stripes, popping up out of the hatch on a telescoping mast
   // and unfurling. Like the Apollo flags it hangs from a crossbar (there's no
   // air to hold it out), rippling from the jolt and slowly settling.
@@ -776,7 +820,8 @@ export class Play {
     const x1 = Math.max(...xs) + 12;
     const ground = [];
     for (let x = x0; x < x1 + level.step; x += level.step) ground.push([Math.min(x, x1), heightAt(level, Math.min(x, x1))]);
-    const ys = [...ground.map(([, y]) => y), ...path.map(([, y]) => y + 5)];
+    const rocks = (level.rocks || []).filter((p) => p.x1 > x0 && p.x0 < x1);
+    const ys = [...ground.map(([, y]) => y), ...path.map(([, y]) => y + 5), ...rocks.flatMap((p) => p.hi)];
     const lo = Math.min(...ys) - 10;
     const hi = Math.max(...ys) + 8;
     const W = 300;
@@ -792,6 +837,11 @@ export class Play {
       <rect width="${W}" height="${H}" fill="#0b0e24"/>
       <polygon points="0,${H} ${pts(ground)} ${W},${H}" fill="#5b5f6e"/>
       <polyline points="${pts(ground)}" fill="none" stroke="#9aa0b4" stroke-width="1"/>
+      ${rocks.map((p) => {
+        const top = p.hi.map((y, k) => [p.x0 + k * level.step, y]);
+        const under = p.lo.map((y, k) => [p.x0 + k * level.step, y]).reverse();
+        return `<polygon points="${pts([...top, ...under])}" fill="#5b5f6e" stroke="#9aa0b4" stroke-width="1"/>`;
+      }).join('')}
       ${pad(level.startPad, '#cfd3dc')}${pad(level.base, '#3dff7a')}
       <polyline points="${pts(path)}" fill="none" stroke="#ffd23f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
       <circle cx="${X(path[0]?.[0] ?? 0)}" cy="${Y(path[0]?.[1] ?? 0)}" r="3" fill="#ffd23f"/>
@@ -811,7 +861,9 @@ export class Play {
     const lo = Math.min(...level.terrain);
     const hi = Math.max(level.maxH, ...level.route.map(([, y]) => y), ...(this.lastTry?.path || []).map(([, y]) => y));
     const fitW = (level.width * 1.04 * cssH) / cssW;
-    const fitH = (hi - lo + 25) / (1 - 0.27 - (this.panelBottom || 0) / cssH - 0.04);
+    // (On a short landscape screen the panel covers most of the height; then
+    // just keep the course clear of the bottom.)
+    const fitH = (hi - lo + 25) / Math.max(0.5, 1 - 0.27 - (this.panelBottom || 0) / cssH - 0.04);
     const hA = Math.max(fitW, fitH);
     // Keyframes as view centre (x, y) and height h, in metres.
     const at = (x, h, bottom) => ({ x, h, y: bottom + h / 2 });

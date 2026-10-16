@@ -9,6 +9,12 @@ const TIPS = {
   1: 'Hold THRUST to lift off, then hold ▶ to lean right and drift over to the BASE. Let go to level out. Land gently!',
   2: 'Land slowly: under 3 m/s down (V/S) and 1.2 m/s sideways (H/S). Red numbers mean too fast.',
   3: 'A hill! Climb first, then lean toward the base. Tip: turn ASSIST off for faster, trickier flying.',
+  4: 'This time the base is far below you. Come down gently: watch V/S.',
+  6: 'The base is up on a mesa. Climb well above the cliff before you cross it.',
+  10: 'The base is down in a crater. Clear the rim, then sink straight down.',
+  11: 'The base is inside a cave! Come down outside the entrance, then fly in level and slowly under the overhang. Mind your head.',
+  12: 'That mountain is far too high to fly over on your fuel. Go through the tunnel, slow and level.',
+  13: 'The base is in a cavern deep under the mesa. Hover over the shaft, then sink straight down it, slowly.',
 };
 
 export function mount(root, ctx, sub) {
@@ -36,7 +42,7 @@ export function mount(root, ctx, sub) {
       id: 'lander',
       title: 'Lunar Lander',
       intro: 'Lift off, fly over the mountains and land gently on the base. Watch your fuel!',
-      outro: 'Every mission is a little higher, further and thirstier than the last.',
+      outro: 'Every mission is a little higher, further and thirstier than the last. From mission 11: caves, tunnels and shafts.',
       progress,
     });
   }

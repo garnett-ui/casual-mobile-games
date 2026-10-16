@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  makeLevel, makeTerrain, newLander, step, simulate, heightAt, scoreLanding,
-  G, SAFE, ROT_ACCEL, HOLD_BAND,
+  makeLevel, makeTerrain, newLander, step, simulate, heightAt, scoreLanding, missionKind, planRoute, inRock,
+  G, SAFE, ROT_ACCEL, HOLD_BAND, HEIGHT,
 } from '../games/lander/engine.js';
 
 const idle = { thrust: false, left: false, right: false };
@@ -91,7 +91,7 @@ test('touching down safely away from the base is not a win, and you can lift off
 
 test('every mission is flyable (autopilot lands it) and gets harder', () => {
   let prevMargin = Infinity;
-  for (const n of [1, 2, 3, 5, 8, 12, 16, 20]) {
+  for (const n of [1, 2, 3, 5, 8, 11, 12, 13, 16, 20]) {
     const level = makeLevel(n);
     assert.ok(level.checked, `mission ${n} checked`);
     const run = simulate(level, level.fuel);
@@ -113,8 +113,64 @@ test('mission 1 is a short hop over flat ground; mountains come later', async ()
   const hop = (one.base.x0 + one.base.x1) / 2 - (one.startPad.x0 + one.startPad.x1) / 2;
   assert.ok(hop >= 20 && hop <= 40, `hop ${hop}`);
   assert.ok(Math.max(...one.terrain) - Math.min(...one.terrain) < 8, 'flat');
-  assert.ok(Math.max(...makeTerrain(2).terrain) - 30 < 10, 'mission 2: still no hills');
-  assert.ok(Math.max(...makeTerrain(6).terrain) - 30 > 60, 'mission 6: a real hill');
+  const two = makeTerrain(2);
+  assert.ok(Math.max(...two.terrain) - two.startPad.y < 10, 'mission 2: still no hills');
+  const six = makeTerrain(6);
+  assert.ok(Math.max(...six.terrain) - six.startPad.y > 60, 'mission 6: a real hill');
+});
+
+test('the early missions differ in shape: high and low bases, ranges, false valleys', () => {
+  const kinds = new Set();
+  for (let n = 1; n <= 10; n++) kinds.add(missionKind(n));
+  assert.ok(kinds.size >= 7, [...kinds].join(' '));
+  const down = makeTerrain(4);
+  assert.ok(down.startPad.y - down.base.y > 25, 'mission 4: the base is well below the start');
+  const mesa = makeTerrain(6);
+  assert.ok(mesa.base.y - mesa.startPad.y > 40, 'mission 6: the base is up on a mesa');
+  const crater = makeTerrain(10);
+  assert.ok(crater.startPad.y - crater.base.y > 40, 'mission 10: the base is down in a crater');
+  // A range has dips between its peaks lower than the plain around them.
+  const range = makeTerrain(8);
+  const mid = range.terrain.slice(20, -20);
+  assert.ok(Math.min(...mid) < range.startPad.y - 10, 'mission 8: false valleys');
+});
+
+test('from mission 11: a cave, a tunnel and a shaft, flown through by the route, rock overhead', () => {
+  assert.deepEqual([11, 12, 13, 14, 15].map(missionKind).slice(0, 3), ['cave', 'tunnel', 'shaft']);
+  for (const n of [11, 12, 13, 17]) {
+    const level = makeTerrain(n);
+    assert.ok(level.rocks.length, `mission ${n} has overhanging rock`);
+    // The planned route passes under rock somewhere.
+    const plan = planRoute(level);
+    let under = false;
+    for (let k = 1; k < plan.length; k++) {
+      for (let u = 0; u <= 1; u += 0.05) {
+        const x = plan[k - 1].x + (plan[k].x - plan[k - 1].x) * u;
+        const y = plan[k - 1].y + (plan[k].y - plan[k - 1].y) * u;
+        // Down below the rock, within its span: inside the cave, tunnel or cavern.
+        const r0 = Math.min(...level.rocks.map((p) => p.x0));
+        const r1 = Math.max(...level.rocks.map((p) => p.x1));
+        if (x > r0 && x < r1 && y < Math.min(...level.rocks.flatMap((p) => p.lo))) under = true;
+        assert.ok(!inRock(level, x, y) && !inRock(level, x, y + HEIGHT), `route clear of rock (mission ${n})`);
+      }
+    }
+    assert.ok(under, `mission ${n}: the route goes in under the rock`);
+  }
+  // Later ones are tighter.
+  const room = (level) => {
+    const p = level.rocks[0];
+    return Math.min(...p.lo.map((lo, k) => lo - heightAt(level, p.x0 + k * level.step)).filter((d) => d > 0));
+  };
+  assert.ok(room(makeTerrain(23)) < room(makeTerrain(11)), 'caves get lower');
+  // Fly up into the cave roof: a crash.
+  const cave = makeTerrain(11);
+  const L = newLander(cave, 100);
+  L.landed = null;
+  L.x = (cave.base.x0 + cave.base.x1) / 2;
+  L.y = cave.base.y + 4;
+  const res = fly(cave, L, { thrust: true }, 10);
+  assert.equal(res.kind, 'crash');
+  assert.match(res.reason, /rock/);
 });
 
 test('stability assist: rotation is a spring -- held, it settles at 20°; let go, it springs back', async () => {
