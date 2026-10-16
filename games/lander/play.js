@@ -60,6 +60,7 @@ export class Play {
     this.message = null;
     this.alarmAt = 0;
     this.cam = null;
+    this.flagAt = 0; // when the flag goes up (after a landing)
     this.track = []; // where this flight has been, for the replay after a crash
     this.trackT = 0;
     this.hooks.onSound?.('stop');
@@ -142,9 +143,13 @@ export class Play {
           this.explode();
         }
         else if (res.kind === 'landed') {
+          this.track.push([L.x, L.y]);
           this.hooks.onSound?.('stop');
           this.hooks.sfx?.('contact');
-          setTimeout(() => this.hooks.onLanded?.(res), 900);
+          // The flag pops out of the hatch to a fanfare; then the score.
+          this.flagAt = performance.now() + 350;
+          setTimeout(() => this.hooks.sfx?.('fanfare'), 350);
+          setTimeout(() => this.hooks.onLanded?.(res), 2600);
         } else {
           this.hooks.sfx?.('contact');
           this.message = { text: res.where === 'start' ? 'BACK ON LAUNCH PAD' : 'TOUCHDOWN — NOT AT BASE. LIFT OFF AGAIN', t: 3 };
@@ -696,7 +701,106 @@ export class Play {
     ctx.stroke();
     ctx.fillStyle = '#e6e6e6';
     for (const k of [-1, 1]) ctx.fillRect(k * 1.95 - 0.25, -3.85, 0.5, 0.5);
+    if (this.flagAt) this.drawFlag((performance.now() - this.flagAt) / 1000, lw);
     ctx.restore();
+  }
+
+  // The Stars and Stripes, popping up out of the hatch on a telescoping mast
+  // and unfurling. Like the Apollo flags it hangs from a crossbar (there's no
+  // air to hold it out), rippling from the jolt and slowly settling.
+  // In the lander's own frame: metres, y up is negative.
+  drawFlag(t, lw) {
+    if (t <= 0) return;
+    const { ctx } = this;
+    const u = Math.min(1, t / 0.45);
+    const pop = 1 - (1 - u) ** 3 + Math.sin(u * Math.PI) * 0.12;
+    const mx = -0.3;
+    const top = -5.2 - 4.4 * pop;
+    ctx.strokeStyle = '#eceef2';
+    ctx.lineWidth = Math.max(lw * 1.3, 0.12);
+    ctx.beginPath();
+    ctx.moveTo(mx, -5.0);
+    ctx.lineTo(mx, top);
+    ctx.stroke();
+    const f = Math.max(0, Math.min(1, (t - 0.3) / 0.45));
+    if (!f) return;
+    const fw = 2.9 * (1 - (1 - f) ** 2);
+    const fh = 1.55;
+    const amp = 0.05 + 0.2 * Math.exp(-t * 0.7);
+    const wave = (d) => Math.sin(d * 6 - t * 4.5) * amp * d;
+    const cols = 16;
+    for (let c = 0; c < cols; c++) {
+      const d = (c + 0.5) / cols;
+      const x0 = mx + (fw * c) / cols;
+      const w = fw / cols + 0.02;
+      const y0 = top + 0.1 + wave(d);
+      for (let k = 0; k < 13; k++) {
+        ctx.fillStyle = k % 2 ? '#ffffff' : '#c8102e';
+        ctx.fillRect(x0, y0 + (fh * k) / 13, w, fh / 13 + 0.01);
+      }
+      if (d < 0.4) {
+        ctx.fillStyle = '#0a3161';
+        ctx.fillRect(x0, y0, w, (fh * 7) / 13);
+      }
+      // Shade the folds: darker where the cloth turns away.
+      const slope = Math.cos(d * 6 - t * 4.5) * amp * 3;
+      ctx.fillStyle = slope > 0 ? `rgba(0,0,0,${Math.min(0.3, slope * 0.6)})` : `rgba(255,255,255,${Math.min(0.15, -slope * 0.3)})`;
+      ctx.fillRect(x0, y0, w, fh);
+    }
+    // Stars: a few white dots on the blue.
+    ctx.fillStyle = '#ffffff';
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 5; c++) {
+        const d = ((c + 0.5 + (r % 2) * 0.4) / 5.4) * 0.4;
+        ctx.beginPath();
+        ctx.arc(mx + fw * d, top + 0.1 + wave(d) + ((r + 0.6) * (fh * 7) / 13) / 4.2, 0.055, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // The crossbar along the top.
+    ctx.strokeStyle = '#eceef2';
+    ctx.lineWidth = Math.max(lw, 0.08);
+    ctx.beginPath();
+    ctx.moveTo(mx, top + 0.1);
+    for (let i = 1; i <= 8; i++) ctx.lineTo(mx + (fw * i) / 8, top + 0.1 + wave(i / 8));
+    ctx.stroke();
+  }
+
+  // A small map of the whole flight -- the ground, the launch pad, the base
+  // and the route flown -- for the score card.
+  routeSvg() {
+    const { level } = this;
+    const path = this.track;
+    const xs = [level.startPad.x0, level.startPad.x1, level.base.x0, level.base.x1, ...path.map(([x]) => x)];
+    const x0 = Math.min(...xs) - 12;
+    const x1 = Math.max(...xs) + 12;
+    const ground = [];
+    for (let x = x0; x < x1 + level.step; x += level.step) ground.push([Math.min(x, x1), heightAt(level, Math.min(x, x1))]);
+    const ys = [...ground.map(([, y]) => y), ...path.map(([, y]) => y + 5)];
+    const lo = Math.min(...ys) - 10;
+    const hi = Math.max(...ys) + 8;
+    const W = 300;
+    const H = Math.round(Math.max(70, Math.min(120, (W * (hi - lo)) / (x1 - x0))));
+    const X = (x) => (((x - x0) / (x1 - x0)) * W).toFixed(1);
+    const Y = (y) => (H - ((y - lo) / (hi - lo)) * H).toFixed(1);
+    const pts = (list) => list.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ');
+    const pad = (p, colour) => `<line x1="${X(p.x0)}" y1="${Y(p.y)}" x2="${X(p.x1)}" y2="${Y(p.y)}" stroke="${colour}" stroke-width="3" stroke-linecap="round"/>`;
+    const [ex, ey] = path.length ? path[path.length - 1] : [(level.base.x0 + level.base.x1) / 2, level.base.y];
+    const fx = +X(ex);
+    const fy = +Y(ey);
+    return `<svg class="ll-route" viewBox="0 0 ${W} ${H}" role="img" aria-label="The route you flew">
+      <rect width="${W}" height="${H}" fill="#0b0e24"/>
+      <polygon points="0,${H} ${pts(ground)} ${W},${H}" fill="#5b5f6e"/>
+      <polyline points="${pts(ground)}" fill="none" stroke="#9aa0b4" stroke-width="1"/>
+      ${pad(level.startPad, '#cfd3dc')}${pad(level.base, '#3dff7a')}
+      <polyline points="${pts(path)}" fill="none" stroke="#ffd23f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${X(path[0]?.[0] ?? 0)}" cy="${Y(path[0]?.[1] ?? 0)}" r="3" fill="#ffd23f"/>
+      <line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy - 16}" stroke="#fff" stroke-width="1.2"/>
+      <rect x="${fx}" y="${fy - 16}" width="11" height="7" fill="#c8102e"/>
+      <rect x="${fx}" y="${fy - 14}" width="11" height="1.2" fill="#fff"/><rect x="${fx}" y="${fy - 11.6}" width="11" height="1.2" fill="#fff"/>
+      <rect x="${fx}" y="${fy - 16}" width="4.5" height="3.8" fill="#0a3161"/>
+      <text x="8" y="15" fill="#cfd3dc" font-size="11" font-weight="700" font-family="system-ui, sans-serif">YOUR ROUTE</text>
+    </svg>`;
   }
 
   // When the base is off screen, an arrow at the edge points to it.

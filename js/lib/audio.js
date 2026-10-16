@@ -46,6 +46,46 @@ function tone(type, f0, f1, dur, vol, at = 0, filter = 0) {
   o.stop(t + dur + 0.05);
 }
 
+// A brass note: two slightly detuned sawtooths through a filter that opens
+// on the attack (the "blat" of a trumpet), held, then released.
+function brass(f, at, dur, vol, vibrato = 0) {
+  const t = ac.currentTime + at;
+  const g = ac.createGain();
+  const lp = ac.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.Q.value = 2;
+  lp.frequency.setValueAtTime(f * 1.5, t);
+  lp.frequency.linearRampToValueAtTime(f * 7, t + 0.04);
+  lp.frequency.linearRampToValueAtTime(f * 4, t + Math.min(dur, 0.25));
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.03);
+  g.gain.linearRampToValueAtTime(vol * 0.7, t + 0.12);
+  g.gain.setValueAtTime(vol * 0.7, t + Math.max(0.12, dur - 0.06));
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  lp.connect(g);
+  g.connect(master);
+  for (const cents of [-6, 6]) {
+    const o = ac.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.value = f;
+    o.detune.value = cents;
+    if (vibrato) {
+      const lfo = ac.createOscillator();
+      const depth = ac.createGain();
+      lfo.frequency.value = 5.5;
+      depth.gain.setValueAtTime(0, t);
+      depth.gain.linearRampToValueAtTime(f * vibrato, t + dur * 0.6);
+      lfo.connect(depth);
+      depth.connect(o.frequency);
+      lfo.start(t);
+      lfo.stop(t + dur + 0.05);
+    }
+    o.connect(lp);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+}
+
 function thump(vol, dur, cutoff) {
   const t = ac.currentTime;
   const src = ac.createBufferSource();
@@ -130,6 +170,15 @@ const SFX = {
     tone('square', 1046, 1046, 0.09, 0.05, 0.14, 3000);
   },
   contact: () => tone('sine', 1320, 1320, 0.12, 0.08),
+  // A little trumpet fanfare for a landing: G C E G, E, G-g-g!
+  fanfare: () => {
+    const notes = [[392, 0.13], [523, 0.13], [659, 0.13], [784, 0.3], [659, 0.13], [784, 0.85]];
+    let at = 0;
+    notes.forEach(([f, d], k) => {
+      brass(f, at, d, 0.11, k === notes.length - 1 ? 0.012 : 0);
+      at += d + 0.03;
+    });
+  },
   // Jigsaw: a piece clicking into place.
   snap: () => {
     thump(0.25, 0.05, 2500);

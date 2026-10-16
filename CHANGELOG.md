@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.24.0
+- Lunar Lander: a proper celebration when you land at the base. A little
+  American flag pops up out of the hatch and unfurls (hanging from a
+  crossbar, like the Apollo flags) to a trumpet fanfare, and the score card
+  shows a map of the whole route you flew, from launch pad to base.
+
 ## 1.23.0
 - Lunar Lander: the readouts tell you more at a glance.
   - ALT is green while you're climbing and red while you're sinking, and

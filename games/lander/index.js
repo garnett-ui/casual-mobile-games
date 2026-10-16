@@ -166,19 +166,18 @@ export function mount(root, ctx, sub) {
     const { total, parts, stars } = res.score;
     progress.complete(n, stars);
     ctx.track('level_complete', { level: n, stars, score: total });
-    ctx.sfx('win');
     ctx.haptic(40);
     const row = (label, v) => `<tr><td>${label}</td><td>${v}</td></tr>`;
     showDialog(root.querySelector('.dialog'), ctx, {
       title: stars === 3 ? 'The Eagle has landed!' : stars === 2 ? 'Nice landing!' : 'Down in one piece',
       stars,
-      text: `<table class="ll-score">
+      text: `<div class="ll-result">${play.routeSvg()}<table class="ll-score">
         ${row(`Touchdown ${res.vy.toFixed(2)} m/s`, parts.soft)}
         ${row(`Drift ${res.vx.toFixed(2)} m/s`, parts.drift)}
         ${row(`Tilt ${((res.tilt * 180) / Math.PI).toFixed(1)}°`, parts.level)}
         ${row('On target', parts.centre)}
         ${row('Fuel left', parts.fuel)}
-        <tr class="total"><td>Score</td><td>${total}</td></tr></table>`,
+        <tr class="total"><td>Score</td><td>${total}</td></tr></table></div>`,
       buttons: [
         { label: 'Fly again', act: 'replay', run: () => {
           root.querySelector('.dialog').hidden = true;
