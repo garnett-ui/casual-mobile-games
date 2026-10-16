@@ -3,10 +3,11 @@ import { makeLevel, goalText } from './model.js';
 import { Play } from './play.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 
+// How to play, in Professor Fizz's words (said in his speech bubble).
 const TIPS = {
-  1: 'Drag a beaker onto another to pour (or tap one, then the other). It pours until it’s empty or the other is full.',
-  3: 'Three beakers and no tap: find a way to get exactly the amount asked for in any beaker.',
-  7: 'Gold lines mark exact amounts wanted in particular beakers. Get them all at once!',
+  1: 'Drag a beaker onto another to pour, or tap one and then the other. It pours until it’s empty or the other is full!',
+  3: 'No tap and no drain: only the water we’ve got. Pour it back and forth until you have my amount.',
+  7: 'See my gold lines? Every marked beaker must hold exactly that much, all at once.',
 };
 const CHEERS = ['Precisely!', 'Well measured!', 'Eureka!', 'Lab genius!', 'Spot on!'];
 
@@ -56,7 +57,6 @@ export function mount(root, ctx, sub) {
           <button class="ctl" data-act="restart">${ICON.restart}<span>Restart</span></button>
           <button class="ctl" data-act="hint">${ICON.hint}<span>Hint</span></button>
         </footer>
-        <div class="tip" hidden></div>
         <div class="dialog" hidden></div>
       </div>`;
     ctx.track('level_start', { level: n });
@@ -67,10 +67,9 @@ export function mount(root, ctx, sub) {
       onMoves: (m) => {
         movesEl.textContent = m;
         root.querySelector('[data-unit]').textContent = m === 1 ? 'pour' : 'pours';
-        if (m > 0) root.querySelector('.tip').hidden = true;
       },
       onWin: (res) => setTimeout(() => win(n, res), 700),
-    });
+    }, { tip: TIPS[n] || '' });
     // Handle for the end-to-end tests (test/e2e.test.mjs).
     window.__water = play;
     onResize = () => play?.resize();
@@ -88,12 +87,6 @@ export function mount(root, ctx, sub) {
       ctx.sfx('tap');
       play.showHint();
     };
-    if (TIPS[n]) {
-      const tip = root.querySelector('.tip');
-      tip.textContent = TIPS[n];
-      tip.hidden = false;
-      tip.onclick = () => (tip.hidden = true);
-    }
   }
 
   function win(n, { moves, par, stars }) {

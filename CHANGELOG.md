@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.21.2
+- Water Lab: Professor Fizz explains how to play in his own speech bubble,
+  instead of a note covering it.
+- Water Lab: no more one-move puzzles. Every level takes at least two
+  pours and offers a wrong first pour, so there's always a real choice.
+
 ## 1.21.1
 - Professor Fizz has a new look: wavy salt-and-pepper hair swept back, big
   aviator glasses, a thick dark moustache, and a tie under his lab coat.

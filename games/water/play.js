@@ -9,7 +9,8 @@ const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 export class Play {
-  constructor(canvas, level, hooks) {
+  constructor(canvas, level, hooks, { tip = '' } = {}) {
+    this.tip = tip;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.level = level;
@@ -45,10 +46,14 @@ export class Play {
     this.notes = [];
     this.sparks = [];
     this.hooks.onMoves?.(0);
-    this.say(goalLine(this.level));
+    // He states the goal; on teaching levels, then explains how (all in
+    // his speech bubble), then repeats the goal.
+    this.queue = this.tip ? [{ text: this.tip, mood: 'happy', secs: 9 }] : [];
+    this.say(goalLine(this.level), 'happy', this.tip ? 4 : 0);
   }
 
-  // Professor Fizz speaks: `secs` until he goes back to the goal (0: stays).
+  // Professor Fizz speaks: `secs` until he moves on (to whatever's queued,
+  // else back to the goal); 0: until something else happens.
   say(text, mood = 'happy', secs = 0) {
     this.speech = { text, mood, t: 0, secs };
   }
@@ -233,7 +238,11 @@ export class Play {
     const sp = this.speech;
     if (sp) {
       sp.t += dt;
-      if (sp.secs && sp.t > sp.secs) this.say(goalLine(this.level));
+      if (sp.secs && sp.t > sp.secs) {
+        const next = this.queue.shift();
+        if (next) this.say(next.text, next.mood, next.secs);
+        else this.say(goalLine(this.level));
+      }
     }
     for (const n of this.notes) n.t += dt;
     this.notes = this.notes.filter((n) => n.t < 1);

@@ -83,7 +83,7 @@ export function solve(caps, start, goal, limit = 60000) {
 // How many pours a level should take at its best: a gentle start, then
 // longer and longer.
 export function targetSteps(n) {
-  if (n <= 2) return [n, n];
+  if (n <= 2) return [2, 3];
   const lo = Math.min(14, 2 + Math.floor(n * 0.4));
   return [lo, lo + 2 + Math.min(4, Math.floor(n / 15))];
 }
@@ -93,12 +93,22 @@ export function targetSteps(n) {
 export function makeLevel(n) {
   const r = rng(seedFor(n, BASE_SEED));
   const pick = (arr) => arr[Math.floor(r() * arr.length)];
+  // (A Fisher-Yates shuffle: sorting with a random comparator differs from
+  // one browser engine to the next, and levels must be the same everywhere.)
+  const shuffle = (arr) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(r() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
   const [lo0, hi0] = targetSteps(n);
   const split = n >= 7 && n % 3 === 1; // every third level from 7: an exact split
   let best = null;
   for (let attempt = 0; attempt < 250; attempt++) {
     const reservoir = n >= 12 && attempt % 2 === 0;
-    const k = n <= 2 ? 2 : n < 12 || reservoir ? 3 : n < 30 ? (r() < 0.55 ? 3 : 4) : r() < 0.5 ? 4 : 5;
+    const k = n < 12 || reservoir ? 3 : n < 30 ? (r() < 0.55 ? 3 : 4) : r() < 0.5 ? 4 : 5;
     // More beakers means more ways round, so shorter best solutions -- the
     // difficulty is in the choices instead. Ask for fewer pours.
     const lo = Math.max(3, lo0 - 3 * (k - 3));
@@ -120,7 +130,7 @@ export function makeLevel(n) {
       caps.add(b);
     }
     while (caps.size < k) caps.add(2 + Math.floor(r() * (maxCap - 1)));
-    const capList = [...caps].sort(() => r() - 0.5);
+    const capList = shuffle([...caps]);
     // Where the water starts: the classic way (the biggest full, the rest
     // empty) to begin with; later, poured out unevenly.
     const biggest = capList.indexOf(Math.max(...capList));
@@ -161,7 +171,7 @@ export function makeLevel(n) {
       });
       for (let t = 0; t < 30 && far.length && !goal; t++) {
         const s = pick(far);
-        const idx = k === 3 ? [0, 1, 2] : [...Array(k).keys()].sort(() => r() - 0.5).slice(0, 2);
+        const idx = k === 3 ? [0, 1, 2] : shuffle([...Array(k).keys()]).slice(0, 2);
         const marks = idx.map((i) => [i, s[i]]);
         const g = { kind: 'split', marks };
         // Marks must pin it down to a state about as far away as s.
@@ -173,6 +183,18 @@ export function makeLevel(n) {
       }
     }
     if (!goal) continue;
+    // There must be a real choice: at least one first pour that is wrong
+    // (doesn't lead to the goal as quickly).
+    let wrong = false;
+    for (let i = 0; i < k && !wrong; i++) {
+      for (let j = 0; j < k && !wrong; j++) {
+        const m = pour(capList, start, i, j);
+        if (!m) continue;
+        const rest = solve(capList, m.state, goal, 20000);
+        if (!rest || rest.length >= par) wrong = true;
+      }
+    }
+    if (!wrong) continue;
     const shapes = capList.map(() => pick(SHAPES));
     const level = { n, caps: capList, start, goal, par, shapes };
     if (!best || Math.abs(par - lo0) < Math.abs(best.par - lo0)) best = level;

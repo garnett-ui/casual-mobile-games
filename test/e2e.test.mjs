@@ -819,11 +819,12 @@ test('water lab: drag a beaker onto another to pour, and measure the amount aske
     await page.locator('.lvl[data-n="1"]').click();
     await page.waitForFunction(() => window.__water);
     assert.match(await page.locator('.wl-goal').textContent(), /Measure exactly \d+/);
-    const { from, to } = await page.evaluate(() => {
+    // The first pour of a shortest solution, by really dragging a beaker.
+    const { from, to } = await page.evaluate(async () => {
       const p = window.__water;
+      const { solve } = await import('/games/water/model.js');
+      const [i, j] = solve(p.level.caps, p.state, p.level.goal)[0];
       const r = p.canvas.getBoundingClientRect();
-      const i = p.state.findIndex((v) => v > 0);
-      const j = p.state.findIndex((v, k) => k !== i);
       const at = (k) => [r.left + p.slots[k].x, r.top + p.slots[k].y - p.slots[k].h / 2];
       return { from: at(i), to: at(j) };
     });
@@ -831,9 +832,20 @@ test('water lab: drag a beaker onto another to pour, and measure the amount aske
     await page.mouse.down();
     await page.mouse.move(...to, { steps: 10 });
     await page.mouse.up();
-    await page.waitForFunction(() => window.__water.moves === 1);
+    await page.waitForFunction(() => window.__water.moves === 1 && !window.__water.anim);
+    // The rest of it, one pour at a time.
+    const par = await page.evaluate(() => window.__water.level.par);
+    for (let k = 1; k < par; k++) {
+      await page.evaluate(async () => {
+        const p = window.__water;
+        const { solve } = await import('/games/water/model.js');
+        const [i, j] = solve(p.level.caps, p.state, p.level.goal)[0];
+        p.tryPour(i, j);
+      });
+      await page.waitForFunction((m) => window.__water.moves === m && !window.__water.anim, k + 1);
+    }
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
-    assert.match(await page.locator('.dialog p').textContent(), /1 pour/);
+    assert.match(await page.locator('.dialog p').textContent(), new RegExp(`${par} pours`));
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:water:progress')));
     assert.equal(saved.unlocked, 2);
     assert.deepEqual(errors, []);

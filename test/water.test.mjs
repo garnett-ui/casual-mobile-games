@@ -37,10 +37,18 @@ test('every level is solvable in exactly its par, not already solved, and gets h
     assert.ok(l.caps.every((c, i) => l.start[i] <= c));
     assert.ok(goalText(l).length > 5);
     if (n > 30) longest = Math.max(longest, l.par);
+    assert.ok(l.par >= 2, `level ${n} takes more than one pour`);
+    // Some first pour is a wrong turn: it's never just one obvious move.
+    const firsts = [];
+    for (let i = 0; i < l.caps.length; i++) for (let j = 0; j < l.caps.length; j++) {
+      const m = pour(l.caps, l.start, i, j);
+      if (m) firsts.push(solve(l.caps, m.state, l.goal)?.length ?? Infinity);
+    }
+    assert.ok(firsts.length >= 2 && firsts.some((d) => d >= l.par), `level ${n} has a real choice`);
   }
   assert.ok(longest >= targetSteps(30)[0], `later levels are long (${longest})`);
   assert.deepEqual(makeLevel(17), makeLevel(17), 'same level every time');
-  assert.equal(makeLevel(1).caps.length, 2);
+  assert.equal(makeLevel(1).caps.length, 3);
   assert.ok(makeLevel(40).caps.length >= 3);
 });
 
