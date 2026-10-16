@@ -69,25 +69,39 @@ export class Play {
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
     const { W, H } = this;
-    this.bench = H * 0.8;
-    // Professor Fizz and his speech bubble across the top.
-    this.band = Math.max(96, Math.min(H * 0.24, 160));
-    const top = this.band + 16;
+    // Professor Fizz and his speech bubble: across the top on a tall screen,
+    // in a column on the left on a wide one (so the glasses get the height).
+    this.side = W > H * 1.2;
+    this.profW = this.side ? Math.min(W * 0.34, 340) : W;
+    this.band = this.side ? Math.min(H * 0.62, 190) : Math.max(96, Math.min(H * 0.24, 160));
+    // The bench, with room on it for the labels and the goal.
+    this.bench = H - Math.max(100, H * 0.2);
+    const top = this.side ? 18 : this.band + 16;
+    const x0 = this.side ? this.profW + 8 : 0;
+    const vw = W - x0;
     // Sizes in proportion to capacity (by volume), then scaled to fit.
     const raw = this.vessels.map((v) => {
       const h = Math.cbrt(v.capacity / v.unitVolume);
       return { h, w: h * v.aspect };
     });
-    const gap = 0.14;
-    const sumW = raw.reduce((a, r) => a + r.w, 0) + gap * (raw.length + 1) * Math.max(...raw.map((r) => r.w)) * 0.5;
+    const k = raw.length;
+    const sumW = raw.reduce((a, r) => a + r.w, 0) * 1.12;
     const maxH = Math.max(...raw.map((r) => r.h));
-    const s = Math.min((W * 0.94) / sumW, (this.bench - top) / (maxH * HEAD));
-    const pad = gap * Math.max(...raw.map((r) => r.w)) * 0.5 * s;
-    const total = raw.reduce((a, r) => a + r.w * s, 0) + pad * (raw.length - 1);
-    let x = (W - total) / 2;
-    this.slots = raw.map((r) => {
-      const slot = { x: x + (r.w * s) / 2, y: this.bench, w: r.w * s, h: r.h * s };
-      x += r.w * s + pad;
+    const s = Math.min((vw * 0.92) / sumW, (this.bench - top) / (maxH * HEAD));
+    // Each glass gets at least room for its "13 of 16" label, and the row
+    // spreads out across the space (not so far that they look scattered).
+    const label = 100;
+    const cells = raw.map((r) => Math.max(r.w * s + 10, label));
+    let used = cells.reduce((a, b) => a + b, 0);
+    const squeeze = Math.min(1, (vw * 0.96) / used);
+    for (let i = 0; i < k; i++) cells[i] *= squeeze;
+    used *= squeeze;
+    const gap = k > 1 ? Math.max(0, Math.min((vw * 0.92 - used) / (k - 1), 70)) : 0;
+    let x = x0 + (vw - used - gap * (k - 1)) / 2;
+    this.goalX = x0 + vw / 2;
+    this.slots = raw.map((r, i) => {
+      const slot = { x: x + cells[i] / 2, y: this.bench, w: r.w * s, h: r.h * s, room: cells[i] + gap - 6 };
+      x += cells[i] + gap;
       return slot;
     });
   }
@@ -379,6 +393,7 @@ export class Play {
     const order = [...this.slots.keys()];
     const moving = this.anim?.i ?? (this.held?.moved ? this.held.i : -1);
     for (const i of order) this.drawLabel(i);
+    this.drawGoal();
     for (const i of order) if (i !== moving) this.drawVessel(i, time);
     if (moving >= 0) this.drawVessel(moving, time);
     if (this.anim?.phase === 'pour') this.drawStream(time);
@@ -403,7 +418,7 @@ export class Play {
   drawProfessorBand(time) {
     const { ctx, W } = this;
     const band = this.band;
-    const size = band * 0.86;
+    const size = this.side ? Math.min(band * 0.86, this.profW * 0.42) : band * 0.86;
     const px = size * 0.42;
     const sp = this.speech || { text: '', t: 99, mood: 'happy' };
     const speaking = sp.t < Math.min(2.6, 0.045 * sp.text.length);
@@ -414,7 +429,7 @@ export class Play {
     drawProfessor(ctx, px, band + 4, size, { t: time, talk, look, mood: this.won ? 'joy' : sp.mood });
     // Speech bubble
     const x0 = px + size * 0.36;
-    const x1 = W - 10;
+    const x1 = this.profW - 10;
     const y0 = 10;
     const y1 = band - 8;
     if (x1 - x0 < 80) return;
@@ -456,6 +471,37 @@ export class Play {
     lines.forEach((l, k) => ctx.fillText(l, x0 + 12, start + k * lh));
   }
 
+  // The goal, always on show at the front of the bench.
+  drawGoal() {
+    const { ctx, H } = this;
+    const g = this.level.goal;
+    const text = g.kind === 'any'
+      ? `Goal: ${g.amount} ml`
+      : `Goal: ${this.level.caps.map((_, i) => {
+        const m = g.marks.find(([j]) => j === i);
+        return m ? (m[1] ? `${m[1]} ml` : 'empty') : 'any';
+      }).join(' · ')}`;
+    let size = 24;
+    ctx.font = `900 ${size}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
+    const maxW = (this.side ? this.W - this.profW : this.W) - 24;
+    while (size > 13 && ctx.measureText(text).width + 32 > maxW) {
+      size--;
+      ctx.font = `900 ${size}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
+    }
+    const w = ctx.measureText(text).width + 32;
+    const h = size + 16;
+    const y = Math.min(H - h - 6, this.bench + 50);
+    const met = this.won;
+    ctx.fillStyle = met ? '#1e7d32' : '#1f2140';
+    ctx.beginPath();
+    ctx.roundRect(this.goalX - w / 2, y, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = met ? '#ffffff' : '#ffd23f';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, this.goalX, y + h / 2 + 1);
+  }
+
   drawLabel(i) {
     const { ctx } = this;
     const s = this.slots[i];
@@ -468,7 +514,7 @@ export class Play {
     const v = Math.round(this.shown(i));
     const goal = this.level.goal;
     const good = goal.kind === 'any' ? v === goal.amount : goal.marks.some(([j, a]) => j === i && a === v);
-    const room = Math.max(s.w + 14, 70);
+    const room = s.room;
     let size = 26;
     const text = (sz) => {
       ctx.font = `900 ${sz}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
