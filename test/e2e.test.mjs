@@ -807,7 +807,7 @@ test('about box: the version history, newest first', { skip: !chromium, timeout:
   }
 });
 
-test('pour it: drag a beaker onto another to pour, and measure the amount asked for', { skip: !chromium, timeout: 60000 }, async () => {
+test('water lab: drag a beaker onto another to pour, and measure the amount asked for', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {

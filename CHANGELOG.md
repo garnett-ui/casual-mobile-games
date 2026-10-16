@@ -4,8 +4,11 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.20.2
+- Back to the name **Water Lab**.
+
 ## 1.20.1
-- Water Lab is now called **Pour It**.
+- Water Lab was briefly called Pour It.
 
 ## 1.20.0
 - New game: **Water Lab**, a water-pouring puzzle. Drag a beaker onto

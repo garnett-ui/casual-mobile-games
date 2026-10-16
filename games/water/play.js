@@ -1,4 +1,4 @@
-// Pour It in play: beakers on a lab bench. Drag one onto another (or tap
+// Water Lab in play: beakers on a lab bench. Drag one onto another (or tap
 // one, then the other) to pour: it tips over the other and pours until it's
 // empty or the other is full.
 import { pour, goalMet, solve, starsFor } from './model.js';

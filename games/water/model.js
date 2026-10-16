@@ -1,4 +1,4 @@
-// Pour It: the rules and the level generator. No DOM, so the tests can run
+// Water Lab: the rules and the level generator. No DOM, so the tests can run
 // it in Node.
 //
 // A closed system: beakers of whole-number capacities, some water in them,
