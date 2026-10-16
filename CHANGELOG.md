@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.22.3
+- Lunar Lander: the ALT readout (height above the base) goes negative when
+  you're below the base, instead of stopping at zero.
+
 ## 1.22.2
 - Lunar Lander: the turn indicator is now a curved arrow round the bottom
   of the artificial horizon -- green sweeping up the right side when you're

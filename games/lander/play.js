@@ -869,11 +869,17 @@ export class Play {
     ctx.textBaseline = 'middle';
     const base = this.level.base;
     const dist = (base.x0 + base.x1) / 2 - L.x;
+    // Height above the base -- negative (with a proper minus) when you're
+    // down in a valley below it.
     const alt = L.y - base.y;
+    const altText = (h) => {
+      const t = Math.abs(h).toFixed(Math.abs(h) < 20 ? 1 : 0);
+      return h < 0 && Number(t) > 0 ? `−${t}` : t;
+    };
     const flying = !L.landed;
     const rows = [
       ['TARGET', `${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0)} M`, PHOSPHOR],
-      ['ALT', `${Math.max(0, alt).toFixed(alt < 20 ? 1 : 0)} M`, PHOSPHOR],
+      ['ALT', `${altText(alt)} M`, PHOSPHOR],
       ['V/S', `${L.vy >= 0 ? '▲' : '▼'} ${Math.abs(L.vy).toFixed(1)}`, flying && -L.vy > SAFE.vy ? RED : PHOSPHOR],
       ['H/S', `${L.vx >= 0 ? '▶' : '◀'} ${Math.abs(L.vx).toFixed(1)}`, flying && Math.abs(L.vx) > SAFE.vx ? RED : PHOSPHOR],
     ];
