@@ -43,6 +43,14 @@ export const GAMES = [
     art: () => import('../games/night-driver/art.js'),
   },
   {
+    id: 'water',
+    title: 'Water Lab',
+    blurb: 'Pour water between beakers of different sizes and shapes to measure exactly the amount asked for.',
+    color: '#4cc9f0',
+    load: () => import('../games/water/index.js'),
+    art: () => import('../games/water/art.js'),
+  },
+  {
     id: 'jigsaw',
     title: 'Jigsaw',
     blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',

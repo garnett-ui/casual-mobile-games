@@ -4,6 +4,14 @@ Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
 The version shows at the bottom of the home screen.
 
+## 1.20.0
+- New game: **Water Lab**, a water-pouring puzzle. Drag a beaker onto
+  another to pour until it's empty or the other is full, and measure the
+  amount asked for. Glassware of many shapes, with graduation marks that
+  follow each shape's real volume; endless levels, each proven solvable,
+  with par, hints, undo and stars. Exact splits ("Make 4 · 4 · empty") from
+  level 7.
+
 ## 1.19.0
 - Lunar Lander: after a crash, **Try again** replays the fly-over of the
   course with the path you just flew drawn in red dots, ending in an ✕

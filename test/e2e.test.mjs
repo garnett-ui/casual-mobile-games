@@ -806,3 +806,39 @@ test('about box: the version history, newest first', { skip: !chromium, timeout:
     server.close();
   }
 });
+
+test('water lab: drag a beaker onto another to pour, and measure the amount asked for', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=water]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__water);
+    assert.match(await page.locator('.wl-goal').textContent(), /Measure exactly \d+/);
+    const { from, to } = await page.evaluate(() => {
+      const p = window.__water;
+      const r = p.canvas.getBoundingClientRect();
+      const i = p.state.findIndex((v) => v > 0);
+      const j = p.state.findIndex((v, k) => k !== i);
+      const at = (k) => [r.left + p.slots[k].x, r.top + p.slots[k].y - p.slots[k].h / 2];
+      return { from: at(i), to: at(j) };
+    });
+    await page.mouse.move(...from);
+    await page.mouse.down();
+    await page.mouse.move(...to, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForFunction(() => window.__water.moves === 1);
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
+    assert.match(await page.locator('.dialog p').textContent(), /1 pour/);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:water:progress')));
+    assert.equal(saved.unlocked, 2);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

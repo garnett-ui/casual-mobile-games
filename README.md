@@ -106,6 +106,27 @@ keyboard, use the arrows or WASD.
 - No 3D engine: it's a hand-written perspective projection on a 2D canvas,
   with particle flames, smoke and embers, and short animated falls.
 
+### Water Lab
+
+A water-pouring puzzle in a closed system: beakers of different sizes and
+shapes on a lab bench, some water, no tap and no drain. Drag a beaker onto
+another (or tap one, then the other) to pour: it tips over and pours until
+it's empty or the other is full. Measure the amount asked for.
+
+- Glassware of different shapes (graduated cylinder, beaker, Erlenmeyer and
+  round-bottomed flasks, bottle, conical glass). Each is round in cross
+  section, so the water level and the graduation marks follow real volume:
+  marks crowd together in a wide bulb and spread out up a narrow neck. The
+  number under each beaker says how much is in it.
+- Goals: "Measure exactly 4" (in any beaker) to begin with; from level 7,
+  every third level is an exact split ("Make 4 · 4 · empty"), with gold
+  lines on the beakers that must hold those amounts.
+- Endless levels from a seed. Each is explored by breadth-first search over
+  its states (water is conserved, so states lie on a plane), which proves it
+  solvable and sets par to the fewest pours; harder levels have longer
+  shortest solutions, or more beakers. Hint shows the next pour of a
+  shortest solution from wherever you are.
+
 ### Jigsaw
 
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo
@@ -179,6 +200,7 @@ games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
 games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
+games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback

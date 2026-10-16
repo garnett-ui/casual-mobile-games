@@ -164,6 +164,33 @@ const SFX = {
     thump(0.7, 1.2, 1200);
     thump(0.3, 0.8, 6000);
   },
+  // Water Lab: water glugging from one glass into another, and a glass clink.
+  pour: (dur = 0.8) => {
+    const t = ac.currentTime;
+    const src = ac.createBufferSource();
+    src.buffer = noise;
+    src.loop = true;
+    const f = ac.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 3;
+    // Glugs: the pitch wobbles, rising as the glass fills.
+    f.frequency.setValueAtTime(500, t);
+    for (let k = 0, x = t; x < t + dur; k++, x += 0.11) f.frequency.setValueAtTime(500 + 500 * ((x - t) / dur) + (k % 2) * 260, x);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.06);
+    g.gain.setValueAtTime(0.5, t + Math.max(0.07, dur - 0.12));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f);
+    f.connect(g);
+    g.connect(master);
+    src.start(t, Math.random());
+    src.stop(t + dur + 0.05);
+  },
+  clink: () => {
+    tone('sine', 2650, 2650, 0.25, 0.06);
+    tone('sine', 3980, 3980, 0.18, 0.035);
+  },
   checkpoint: () => [784, 988, 1175].forEach((f, k) => tone('square', f, f, 0.12, 0.06, k * 0.09, 4000)),
 };
 

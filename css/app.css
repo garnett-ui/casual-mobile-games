@@ -732,3 +732,17 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .jg-time.idle { opacity: .55; }
 .jg-chart { display: block; width: 100%; max-width: 320px; margin: 6px auto 0; }
 .jg-screen .board { touch-action: none; }
+
+/* Water Lab */
+.wl-screen { background: #16303f; }
+.wl-goal {
+  margin: 4px auto 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #ffd23f;
+  color: #1f2140;
+  font-weight: 900;
+  font-size: 17px;
+  text-align: center;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .2);
+}
