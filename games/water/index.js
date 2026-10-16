@@ -1,4 +1,4 @@
-// Water Lab: level select, the bench, and the end-of-level card.
+// Pour It: level select, the bench, and the end-of-level card.
 import { makeLevel, goalText } from './model.js';
 import { Play } from './play.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
@@ -32,7 +32,7 @@ export function mount(root, ctx, sub) {
     teardown();
     renderLevelSelect(root, ctx, {
       id: 'water',
-      title: 'Water Lab',
+      title: 'Pour It',
       intro: 'Pour water between beakers to measure an exact amount. No tap, no drain: just the water you start with.',
       outro: 'Every level is checked to be solvable, and par is the fewest pours it can be done in.',
       progress,

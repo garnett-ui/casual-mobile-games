@@ -164,7 +164,7 @@ const SFX = {
     thump(0.7, 1.2, 1200);
     thump(0.3, 0.8, 6000);
   },
-  // Water Lab: water glugging from one glass into another, and a glass clink.
+  // Pour It: water glugging from one glass into another, and a glass clink.
   pour: (dur = 0.8) => {
     const t = ac.currentTime;
     const src = ac.createBufferSource();

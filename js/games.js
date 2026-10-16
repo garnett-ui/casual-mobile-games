@@ -44,7 +44,7 @@ export const GAMES = [
   },
   {
     id: 'water',
-    title: 'Water Lab',
+    title: 'Pour It',
     blurb: 'Pour water between beakers of different sizes and shapes to measure exactly the amount asked for.',
     color: '#4cc9f0',
     load: () => import('../games/water/index.js'),

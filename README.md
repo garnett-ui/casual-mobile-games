@@ -106,7 +106,7 @@ keyboard, use the arrows or WASD.
 - No 3D engine: it's a hand-written perspective projection on a 2D canvas,
   with particle flames, smoke and embers, and short animated falls.
 
-### Water Lab
+### Pour It
 
 A water-pouring puzzle in a closed system: beakers of different sizes and
 shapes on a lab bench, some water, no tap and no drain. Drag a beaker onto
@@ -200,7 +200,7 @@ games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
 games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
-games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
+games/water/                Pour It: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback
