@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.22.0
+- Water Lab: on the first nine levels a gold line shows which beaker the
+  amount should end up in (Professor Fizz: "…right up to my gold line").
+  After that you work it out yourself, but Hint shows where it's headed as
+  well as the next pour. Any beaker with the amount still wins.
+
 ## 1.21.6
 - Lunar Lander: you can now touch down at up to 3 m/s (was 2.2), the
   Apollo Lunar Module's limit. Harder landings still score lower.

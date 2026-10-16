@@ -226,7 +226,11 @@ const pick = (list, n) => list[((n % list.length) + list.length) % list.length];
 
 export function goalLine(level) {
   const g = level.goal;
-  if (g.kind === 'any') return `I need exactly ${g.amount} ml of water.`;
+  if (g.kind === 'any') {
+    return level.n <= 9 && level.target >= 0
+      ? `I need exactly ${g.amount} ml of water, right up to my gold line.`
+      : `I need exactly ${g.amount} ml of water.`;
+  }
   const parts = level.caps.map((_, i) => {
     const m = g.marks.find(([j]) => j === i);
     return m ? (m[1] ? `${m[1]} ml` : 'empty') : 'any amount';

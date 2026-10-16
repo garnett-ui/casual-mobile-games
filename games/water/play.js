@@ -1,7 +1,7 @@
 // Water Lab in play: beakers on a lab bench. Drag one onto another (or tap
 // one, then the other) to pour: it tips over the other and pours until it's
 // empty or the other is full.
-import { pour, goalMet, solve, starsFor } from './model.js';
+import { pour, goalMet, solve, starsFor, endsIn, GUIDED_UNTIL } from './model.js';
 import { vessel, polygonArea, clipBelow } from './shapes.js';
 import { drawProfessor, goalLine, line } from './professor.js';
 
@@ -44,6 +44,10 @@ export class Play {
     this.held = null;
     this.selected = null;
     this.hint = null;
+    // Where the amount should end up, shown as a gold line: from the start on
+    // early levels; otherwise only once a hint has been asked for.
+    const g = this.level.goal;
+    this.target = g.kind === 'any' && this.level.n <= GUIDED_UNTIL ? this.level.target ?? -1 : -1;
     this.notes = [];
     this.sparks = [];
     this.hooks.onMoves?.(0);
@@ -193,6 +197,7 @@ export class Play {
     if (!sol || !sol.length) return;
     const [i, j] = sol[0];
     this.hint = { i, j, t: 0 };
+    if (this.level.goal.kind === 'any') this.target = endsIn(this.level.caps, this.state, this.level.goal);
     this.say(line('hint'), 'happy', 3);
   }
 
@@ -680,8 +685,8 @@ export class Play {
     }
     // Goal: a gold line at the amount wanted in this beaker.
     const g = this.level.goal;
-    if (g.kind === 'split') {
-      const m = g.marks.find(([j]) => j === i);
+    const m = g.kind === 'split' ? g.marks.find(([j]) => j === i) : this.target === i ? [i, g.amount] : null;
+    {
       if (m) {
         const y = -v.level(m[1]) * H;
         const half = (v.width(v.level(m[1])) * W) / 2;

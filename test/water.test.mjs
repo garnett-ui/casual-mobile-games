@@ -72,3 +72,17 @@ test('graduations follow the glass: equal steps up a cylinder, crowded in a flas
     for (let u = 1; u <= 7; u++) assert.ok(v.level(u) > v.level(u - 1), `${shape} rises`);
   }
 });
+
+test('early levels know where the amount should end up (shown as a gold line)', async () => {
+  const { endsIn, GUIDED_UNTIL } = await import('../games/water/model.js');
+  for (let n = 1; n <= GUIDED_UNTIL; n++) {
+    const l = makeLevel(n);
+    if (l.goal.kind !== 'any') continue;
+    assert.ok(l.target >= 0, `level ${n} has a target beaker`);
+    // Following a shortest solution really ends with the amount there.
+    let s = l.start;
+    for (const [i, j] of solve(l.caps, l.start, l.goal)) s = pour(l.caps, s, i, j).state;
+    assert.equal(s[l.target], l.goal.amount);
+    assert.equal(endsIn(l.caps, l.start, l.goal), l.target);
+  }
+});

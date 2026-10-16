@@ -197,11 +197,26 @@ export function makeLevel(n) {
     if (!wrong) continue;
     const shapes = capList.map(() => pick(SHAPES));
     const level = { n, caps: capList, start, goal, par, shapes };
+    // Where a shortest solution leaves the amount: early levels show it.
+    if (goal.kind === 'any') level.target = endsIn(capList, start, goal);
     if (!best || Math.abs(par - lo0) < Math.abs(best.par - lo0)) best = level;
     if (par >= lo && par <= hi) return level;
   }
   return best || { n, caps: [5, 3], start: [5, 0], goal: { kind: 'any', amount: 2 }, par: 1, shapes: ['beaker', 'flask'] };
 }
+
+// Which beaker holds the amount at the end of a shortest solution from
+// `state` (or -1 if there is none).
+export function endsIn(caps, state, goal) {
+  const sol = solve(caps, state, goal);
+  if (!sol) return -1;
+  let s = state;
+  for (const [i, j] of sol) s = pour(caps, s, i, j).state;
+  return s.findIndex((v) => v === goal.amount);
+}
+
+// Early levels show where the amount should end up (a gold line).
+export const GUIDED_UNTIL = 9;
 
 // Stars: par or better earns 3.
 export function starsFor(moves, par) {
