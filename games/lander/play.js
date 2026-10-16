@@ -946,42 +946,45 @@ export class Play {
     ctx.stroke();
     ctx.textAlign = 'center';
     ctx.font = '700 15px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillText(`${Math.abs(Math.round(L.angle * DEG))}°`, bx, by + R + 14);
-    // Turn indicator under the horizon, as in an aircraft: a bar from the
-    // middle, green to the right (turning clockwise) and red to the left,
-    // like a ship's starboard and port lights.
+    ctx.fillText(`${Math.abs(Math.round(L.angle * DEG))}°`, bx, by + R + 20);
+    // Turn indicator: a curved arrow round the bottom of the horizon, green
+    // up the right side when turning right (clockwise) and red up the left
+    // when turning left, like a ship's starboard and port lights; longer the
+    // faster the turn. Then the rate in °/s, signed.
     {
-      const y = 124;
-      const half = 36;
       const rate = L.omega * DEG; // degrees per second, + clockwise
-      const full = 30;
-      const len = Math.max(-1, Math.min(1, rate / full)) * half;
-      ctx.strokeStyle = PHOSPHOR;
-      ctx.shadowColor = PHOSPHOR;
-      ctx.lineWidth = 1.2;
-      ctx.strokeRect(bx - half, y - 6, half * 2, 12);
-      if (Math.abs(rate) > 0.05) {
+      const r = R + 7;
+      if (Math.abs(rate) > 0.3) {
+        const dir = rate > 0 ? -1 : 1; // which way round from the bottom
+        const sweep = Math.max(0.15, Math.min(1, Math.abs(rate) / 30)) * Math.PI * 0.55;
+        const a0 = Math.PI / 2;
+        const a1 = a0 + dir * sweep;
         const c = rate > 0 ? '#3dff7a' : '#ff4d3d';
+        ctx.strokeStyle = c;
         ctx.fillStyle = c;
         ctx.shadowColor = c;
-        ctx.fillRect(len > 0 ? bx : bx + len, y - 4, Math.abs(len), 8);
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(bx, by, r, Math.min(a0, a1), Math.max(a0, a1));
+        ctx.stroke();
+        // Arrowhead along the direction of travel.
+        const px = bx + r * Math.cos(a1);
+        const py = by + r * Math.sin(a1);
+        const tx = -Math.sin(a1) * dir;
+        const ty = Math.cos(a1) * dir;
+        ctx.beginPath();
+        ctx.moveTo(px + tx * 8, py + ty * 8);
+        ctx.lineTo(px - tx * 2 - ty * 6, py - ty * 2 + tx * 6);
+        ctx.lineTo(px - tx * 2 + ty * 6, py - ty * 2 - tx * 6);
+        ctx.closePath();
+        ctx.fill();
       }
-      ctx.strokeStyle = PHOSPHOR;
-      ctx.shadowColor = PHOSPHOR;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(bx, y - 9);
-      ctx.lineTo(bx, y + 9);
-      for (const sx of [-1, 1]) {
-        ctx.moveTo(bx + (sx * half) / 2, y + 6);
-        ctx.lineTo(bx + (sx * half) / 2, y + 9);
-      }
-      ctx.stroke();
-      ctx.fillStyle = Math.abs(rate) < 0.05 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
+      ctx.fillStyle = Math.abs(rate) < 0.3 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
       ctx.shadowColor = ctx.fillStyle;
       ctx.textAlign = 'center';
-      ctx.font = '700 12px ui-monospace, Menlo, Consolas, monospace';
-      ctx.fillText(`${Math.abs(rate).toFixed(0)}°/s`, bx, y + 18);
+      ctx.font = '700 13px ui-monospace, Menlo, Consolas, monospace';
+      const shown = Math.round(rate);
+      ctx.fillText(`${shown > 0 ? '+' : shown < 0 ? '−' : '±'}${Math.abs(shown)}°/s`, bx, by + R + 36);
     }
     if (this.assist) {
       ctx.fillStyle = PHOSPHOR;

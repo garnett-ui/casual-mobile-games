@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.22.2
+- Lunar Lander: the turn indicator is now a curved arrow round the bottom
+  of the artificial horizon -- green sweeping up the right side when you're
+  turning right, red up the left when turning left, longer the faster you
+  turn -- with the rate shown signed, like +12°/s or −8°/s.
+
 ## 1.22.1
 - Lunar Lander: a turn indicator under the artificial horizon, like an
   aircraft's. A bar grows from the middle, green to the right when you're
