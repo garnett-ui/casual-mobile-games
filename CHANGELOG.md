@@ -7,9 +7,10 @@ players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
 ## 1.22.1
-- Lunar Lander: a rotation-rate bar on the instrument panel. It grows from
-  the middle, green to the right when you're turning right and red to the
-  left when turning left (like a ship's lights), with the rate in °/s.
+- Lunar Lander: a turn indicator under the artificial horizon, like an
+  aircraft's. A bar grows from the middle, green to the right when you're
+  turning right and red to the left when turning left (like a ship's
+  lights), with the rate in °/s.
 
 ## 1.22.0
 - Water Lab: on the first nine levels a gold line shows which beaker the

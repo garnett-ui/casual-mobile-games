@@ -852,7 +852,7 @@ export class Play {
     const L = this.L;
     const pw = Math.min(W * 0.66, 300);
     const k = pw / 250;
-    const ph = 176 * k;
+    const ph = 168 * k;
     const px = W - pw - 8;
     const py = 8;
     const RED = '#ff4d3d';
@@ -862,8 +862,8 @@ export class Play {
     ctx.fillStyle = 'rgba(0,18,6,0.74)';
     ctx.strokeStyle = 'rgba(61,255,122,0.6)';
     ctx.lineWidth = 1.5;
-    ctx.fillRect(0, 0, 250, 176);
-    ctx.strokeRect(0.5, 0.5, 249, 175);
+    ctx.fillRect(0, 0, 250, 168);
+    ctx.strokeRect(0.5, 0.5, 249, 167);
     ctx.shadowColor = PHOSPHOR;
     ctx.shadowBlur = 5;
     ctx.textBaseline = 'middle';
@@ -902,42 +902,6 @@ export class Play {
     ctx.lineWidth = 1.2;
     ctx.strokeRect(52, 123, 113, 14);
     if (!low || Math.floor(performance.now() / 300) % 2) ctx.fillRect(54, 125, 109 * frac, 10);
-    // Rotation rate: a bar from the middle, green to the right (clockwise)
-    // and red to the left, like a ship's starboard and port lights.
-    {
-      const y = 156;
-      const x0 = 52;
-      const x1 = 200;
-      const mid = (x0 + x1) / 2;
-      const rate = L.omega * DEG; // degrees per second, + clockwise
-      const full = 30;
-      const len = Math.max(-1, Math.min(1, rate / full)) * (x1 - x0) / 2;
-      ctx.fillStyle = PHOSPHOR;
-      ctx.shadowColor = PHOSPHOR;
-      ctx.textAlign = 'left';
-      ctx.font = '600 13px ui-monospace, Menlo, Consolas, monospace';
-      ctx.fillText('ROT', 10, y);
-      ctx.strokeStyle = PHOSPHOR;
-      ctx.lineWidth = 1.2;
-      ctx.strokeRect(x0, y - 7, x1 - x0, 14);
-      if (Math.abs(rate) > 0.05) {
-        const col = rate > 0 ? '#3dff7a' : '#ff4d3d';
-        ctx.fillStyle = col;
-        ctx.shadowColor = col;
-        ctx.fillRect(len > 0 ? mid : mid + len, y - 5, Math.abs(len), 10);
-      }
-      ctx.strokeStyle = PHOSPHOR;
-      ctx.shadowColor = PHOSPHOR;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(mid, y - 9);
-      ctx.lineTo(mid, y + 9);
-      ctx.stroke();
-      ctx.fillStyle = Math.abs(rate) < 0.05 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.font = '700 13px ui-monospace, Menlo, Consolas, monospace';
-      ctx.fillText(`${Math.abs(rate).toFixed(0)}°/s`, x1 + 6, y);
-    }
     // Artificial horizon: red past 10° (too tilted to land).
     const tilted = Math.abs(L.angle) > SAFE.angle;
     const col = tilted ? RED : PHOSPHOR;
@@ -983,16 +947,53 @@ export class Play {
     ctx.textAlign = 'center';
     ctx.font = '700 15px ui-monospace, Menlo, Consolas, monospace';
     ctx.fillText(`${Math.abs(Math.round(L.angle * DEG))}°`, bx, by + R + 14);
+    // Turn indicator under the horizon, as in an aircraft: a bar from the
+    // middle, green to the right (turning clockwise) and red to the left,
+    // like a ship's starboard and port lights.
+    {
+      const y = 124;
+      const half = 36;
+      const rate = L.omega * DEG; // degrees per second, + clockwise
+      const full = 30;
+      const len = Math.max(-1, Math.min(1, rate / full)) * half;
+      ctx.strokeStyle = PHOSPHOR;
+      ctx.shadowColor = PHOSPHOR;
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(bx - half, y - 6, half * 2, 12);
+      if (Math.abs(rate) > 0.05) {
+        const c = rate > 0 ? '#3dff7a' : '#ff4d3d';
+        ctx.fillStyle = c;
+        ctx.shadowColor = c;
+        ctx.fillRect(len > 0 ? bx : bx + len, y - 4, Math.abs(len), 8);
+      }
+      ctx.strokeStyle = PHOSPHOR;
+      ctx.shadowColor = PHOSPHOR;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bx, y - 9);
+      ctx.lineTo(bx, y + 9);
+      for (const sx of [-1, 1]) {
+        ctx.moveTo(bx + (sx * half) / 2, y + 6);
+        ctx.lineTo(bx + (sx * half) / 2, y + 9);
+      }
+      ctx.stroke();
+      ctx.fillStyle = Math.abs(rate) < 0.05 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.textAlign = 'center';
+      ctx.font = '700 12px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillText(`${Math.abs(rate).toFixed(0)}°/s`, bx, y + 18);
+    }
     if (this.assist) {
       ctx.fillStyle = PHOSPHOR;
       ctx.shadowColor = PHOSPHOR;
+      ctx.textAlign = 'left';
       ctx.font = '600 10px ui-monospace, Menlo, Consolas, monospace';
-      ctx.fillText('ASSIST', bx, 131);
+      ctx.fillText('ASSIST', 10, 156);
     }
     // Scanlines
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(0,0,0,0.16)';
-    for (let yy = 0; yy < 176; yy += 3) ctx.fillRect(0, yy, 250, 1);
+    for (let yy = 0; yy < 168; yy += 3) ctx.fillRect(0, yy, 250, 1);
     ctx.restore();
     this.panelBottom = py + ph;
   }
