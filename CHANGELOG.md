@@ -6,9 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.21.1
+- Professor Fizz has a new look: wavy salt-and-pepper hair swept back, big
+  aviator glasses, a thick dark moustache, and a tie under his lab coat.
+
 ## 1.21.0
-- Water Lab has a host: **Professor Fizz**, a wild-haired scientist in a
-  white lab coat, who tells you what to measure in a speech bubble, follows
+- Water Lab has a host: **Professor Fizz**, a scientist in a white lab
+  coat, who tells you what to measure in a speech bubble, follows
   your pours with his eyes, groans when you try to pour into a full beaker,
   whispers hints, and shouts "Eureka!" when you get it. He's on the home
   screen card too.
