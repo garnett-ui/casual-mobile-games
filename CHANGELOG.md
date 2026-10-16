@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.21.6
+- Lunar Lander: you can now touch down at up to 3 m/s (was 2.2), the
+  Apollo Lunar Module's limit. Harder landings still score lower.
+
 ## 1.21.5
 - Water Lab: the goal is always on show on the bench ("Goal: 4 ml").
 - Water Lab in landscape: Professor Fizz moves to the left, and the

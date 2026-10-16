@@ -7,7 +7,7 @@ const ROT_L = '<svg viewBox="0 0 24 24"><path d="M8 5H3v5" fill="none" stroke="c
 const ROT_R = '<svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const TIPS = {
   1: 'Hold THRUST to lift off, then hold ▶ to lean right and drift over to the BASE. Let go to level out. Land gently!',
-  2: 'Land slowly: under 2.2 m/s down (V/S) and 1.2 m/s sideways (H/S). Red numbers mean too fast.',
+  2: 'Land slowly: under 3 m/s down (V/S) and 1.2 m/s sideways (H/S). Red numbers mean too fast.',
   3: 'A hill! Climb first, then lean toward the base. Tip: turn ASSIST off for faster, trickier flying.',
 };
 
@@ -194,7 +194,7 @@ export function mount(root, ctx, sub) {
     ctx.track('level_fail', { level: n, reason: res.reason });
     showDialog(root.querySelector('.dialog'), ctx, {
       title: 'Crashed!',
-      text: `${res.reason}. Safe landings are under ${2.2} m/s down, ${1.2} m/s sideways and 10° of tilt.`,
+      text: `${res.reason}. Safe landings are under 3 m/s down, 1.2 m/s sideways and 10° of tilt.`,
       buttons: [
         { label: 'Missions', act: 'levels', run: () => ctx.back('#/lander') },
         { label: 'Try again', act: 'retry', primary: true, run: () => {

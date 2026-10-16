@@ -13,7 +13,8 @@ export const ROT_ACCEL = (26 * Math.PI) / 180; // rad/s^2 from the side thruster
 export const ROT_MAX = (90 * Math.PI) / 180;
 export const HOLD_BAND = (4 * Math.PI) / 180; // attitude hold cancels slower spins
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
-export const SAFE = { vy: 2.2, vx: 1.2, angle: (10 * Math.PI) / 180 };
+// Touchdown limits, as for the Apollo LM: 3 m/s down, 1.2 m/s sideways.
+export const SAFE = { vy: 3, vx: 1.2, angle: (10 * Math.PI) / 180 };
 // With assist on, rotation acts like a stiff, well-damped spring back to
 // level: holding a turn button leans the lander against the spring until it
 // settles at ASSIST_TILT; let go and it springs back upright in about a second.
