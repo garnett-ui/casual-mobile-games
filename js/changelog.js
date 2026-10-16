@@ -7,18 +7,6 @@ export const CHANGELOG = [
     ]
   },
   {
-    "v": "1.20.2",
-    "notes": [
-      "Back to the name **Water Lab**."
-    ]
-  },
-  {
-    "v": "1.20.1",
-    "notes": [
-      "Water Lab was briefly called Pour It."
-    ]
-  },
-  {
     "v": "1.20.0",
     "notes": [
       "New game: **Water Lab**, a water-pouring puzzle. Drag a beaker onto another to pour until it's empty or the other is full, and measure the amount asked for. Glassware of many shapes, with graduation marks that follow each shape's real volume; endless levels, each proven solvable, with par, hints, undo and stars. Exact splits (\"Make 4 · 4 · empty\") from level 7."

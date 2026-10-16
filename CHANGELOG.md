@@ -2,7 +2,9 @@
 
 Pocket Arcade follows [semantic versioning](https://semver.org/): the minor
 version goes up for new games and features, the patch version for fixes.
-The version shows at the bottom of the home screen.
+The version shows at the bottom of the home screen. Entries describe what
+players can see: new games and features, changes to how things play, and
+anything taken away (not internal fixes or renames along the way).
 
 ## 1.21.0
 - Water Lab has a host: **Professor Fizz**, a wild-haired scientist in a
@@ -10,12 +12,6 @@ The version shows at the bottom of the home screen.
   your pours with his eyes, groans when you try to pour into a full beaker,
   whispers hints, and shouts "Eureka!" when you get it. He's on the home
   screen card too.
-
-## 1.20.2
-- Back to the name **Water Lab**.
-
-## 1.20.1
-- Water Lab was briefly called Pour It.
 
 ## 1.20.0
 - New game: **Water Lab**, a water-pouring puzzle. Drag a beaker onto
