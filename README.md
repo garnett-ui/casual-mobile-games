@@ -237,4 +237,5 @@ https://games.mckoss.com/ (custom domain set in Settings → Pages). One-time se
 ## License
 
 [MIT](LICENSE). The Lunar Lander scenery is cut from *Earthrise* (Apollo 8,
-AS08-14-2383, NASA), which is in the public domain.
+AS08-14-2383, NASA), and its landing sound is Apollo 11's "The Eagle has
+landed" (NASA audio); both are in the public domain.

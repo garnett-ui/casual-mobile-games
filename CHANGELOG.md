@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.27.2
+- Lunar Lander: a landing now plays the real thing instead of the trumpet
+  fanfare -- Apollo 11's "Houston, Tranquility Base here. The Eagle has
+  landed." It plays on while you look at your score, and stops when you fly
+  again, go on to the next mission or leave.
+
 ## 1.27.1
 - Night Driver: the tyre squeal is a steady screech now (it used to
   flutter), its pitch climbing a little as the slide gets harder.

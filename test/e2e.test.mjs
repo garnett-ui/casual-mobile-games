@@ -496,10 +496,19 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     assert.ok(await page.locator('.dialog .ll-score').count());
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:lander:progress')));
     assert.equal(saved.unlocked, 2);
+    // "The Eagle has landed" plays (it decodes), until you leave the score card.
+    const clip = await page.evaluate(async () => {
+      const a = await import('/js/lib/audio.js');
+      const buf = await a.loadClip(new URL('/games/lander/audio/eagle-has-landed.mp3', location.href).href);
+      return { playing: a.clipCount(), seconds: buf?.duration };
+    });
+    assert.equal(clip.playing, 1);
+    assert.ok(clip.seconds > 14 && clip.seconds < 16, `clip is ${clip.seconds} s`);
 
-    // Fly again and crash on purpose.
+    // Fly again (which stops the clip) and crash on purpose.
     await page.evaluate(() => (window.__lander.pilot = null));
     await page.locator('[data-act=replay]').click();
+    assert.equal(await page.evaluate(async () => (await import('/js/lib/audio.js')).clipCount()), 0);
     await page.evaluate(() => {
       const p = window.__lander;
       p.L.landed = null;

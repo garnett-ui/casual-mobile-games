@@ -161,9 +161,10 @@ export class Play {
           this.track.push([L.x, L.y]);
           this.hooks.onSound?.('stop');
           this.hooks.sfx?.('contact');
-          // The flag pops out of the hatch to a fanfare; then the score.
+          // The flag pops out of the hatch -- "The Eagle has landed" -- then
+          // the score.
           this.flagAt = performance.now() + 350;
-          setTimeout(() => this.hooks.sfx?.('fanfare'), 350);
+          setTimeout(() => this.hooks.onCelebrate?.(), 350);
           setTimeout(() => this.hooks.onLanded?.(res), 2600);
         } else {
           this.hooks.sfx?.('contact');

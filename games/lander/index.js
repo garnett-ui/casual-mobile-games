@@ -3,6 +3,10 @@ import { makeLevel } from './engine.js';
 import { Play } from './play.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 
+// Apollo 11's touchdown, from NASA: "Houston, Tranquility Base here. The
+// Eagle has landed." Played on a landing, until you leave the score card.
+const EAGLE = new URL('./audio/eagle-has-landed.mp3', import.meta.url).href;
+
 const ROT_L = '<svg viewBox="0 0 24 24"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const ROT_R = '<svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const TIPS = {
@@ -22,6 +26,11 @@ export function mount(root, ctx, sub) {
   const cache = new Map();
   let play = null;
   let cleanup = [];
+  let stopClip = null;
+  const quiet = () => {
+    stopClip?.();
+    stopClip = null;
+  };
 
   const levelFor = (n) => {
     if (!cache.has(n)) cache.set(n, makeLevel(n));
@@ -29,6 +38,7 @@ export function mount(root, ctx, sub) {
   };
 
   function teardown() {
+    quiet();
     if (play) play.destroy();
     play = null;
     cleanup.forEach((fn) => fn());
@@ -71,6 +81,7 @@ export function mount(root, ctx, sub) {
         <div class="dialog" hidden></div>
       </div>`;
     ctx.track('level_start', { level: n });
+    ctx.loadClip?.(EAGLE); // ready for the landing
     const tip = root.querySelector('.tip');
     play = new Play(root.querySelector('canvas'), level, {
       sfx: ctx.sfx,
@@ -80,6 +91,10 @@ export function mount(root, ctx, sub) {
         else ctx.setLoop?.(name, on);
       },
       onLanded: (res) => landed(n, res),
+      onCelebrate: () => {
+        quiet();
+        stopClip = ctx.playClip?.(EAGLE);
+      },
       onCrash: (res) => crashed(n, res),
     }, { intro: true });
     // Any touch ends the fly-over early.
@@ -156,6 +171,7 @@ export function mount(root, ctx, sub) {
 
     root.querySelector('[data-act=levels]').onclick = () => ctx.back('#/lander');
     root.querySelector('[data-act=restart]').onclick = () => {
+      quiet();
       ctx.sfx('tap');
       root.querySelector('.dialog').hidden = true;
       play.reset();
@@ -186,10 +202,14 @@ export function mount(root, ctx, sub) {
         <tr class="total"><td>Score</td><td>${total}</td></tr></table></div>`,
       buttons: [
         { label: 'Fly again', act: 'replay', run: () => {
+          quiet();
           root.querySelector('.dialog').hidden = true;
           play.reset();
         } },
-        { label: 'Next mission', act: 'next', primary: true, run: () => ctx.navigate(`#/lander/${n + 1}`, { replace: true }) },
+        { label: 'Next mission', act: 'next', primary: true, run: () => {
+          quiet();
+          ctx.navigate(`#/lander/${n + 1}`, { replace: true });
+        } },
       ],
     });
   }
