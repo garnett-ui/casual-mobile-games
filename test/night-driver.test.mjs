@@ -164,3 +164,72 @@ test('the volcano is the end of the road', () => {
   assert.equal(events.find((e) => e.type === 'crash')?.kind, 'volcano');
   assert.ok(car.crashes === 1);
 });
+
+test('tyres grip to about 1 g: past it they squeal and slide; brakes chatter, then lock if held', async () => {
+  const { GRIP } = await import('../games/night-driver/engine.js');
+  const bendAt = (v0) => {
+    const road = new Road(1);
+    road.sections = [{ z0: 0, z1: 600, k: 0 }, { z0: 600, z1: 1400, k: 1 / 110 }, { z0: 1400, z1: 1e6, k: 0 }];
+    const car = new Car(road);
+    car.z = 300;
+    car.v = v0;
+    car.time = 1e9;
+    let squeal = 0;
+    let slide = 0;
+    for (let t = 0; t < 12 && car.z < 1000; t += 1 / 60) {
+      const ev = car.step(1 / 60, { steer: autopilot(car).steer, gas: car.v < v0 });
+      squeal = Math.max(squeal, car.squeal);
+      slide = Math.max(slide, Math.abs(car.u));
+      if (ev.some((e) => e.type === 'crash')) break;
+    }
+    return { squeal, slide };
+  };
+  const easy = bendAt(28); // 0.73 g
+  assert.equal(easy.squeal, 0);
+  assert.equal(easy.slide, 0);
+  const hard = bendAt(38); // 1.34 g
+  assert.ok(hard.squeal > 0.9 && hard.slide > 2, JSON.stringify(hard));
+
+  // Braking on a straight: chatter at the limit, a lock-up if held too long.
+  const straight = new Road(1);
+  straight.sections = [{ z0: 0, z1: 1e6, k: 0 }];
+  const brakeFrom = (pump) => {
+    const car = new Car(straight);
+    car.v = 50;
+    car.time = 1e9;
+    let chatter = 0;
+    let locked = false;
+    for (let t = 0; t < 10 && car.v > 0; t += 1 / 60) {
+      car.step(1 / 60, { brake: pump ? t % 1 < 0.9 : true });
+      chatter = Math.max(chatter, car.chatter);
+      locked ||= car.locked;
+    }
+    return { chatter, locked, dist: car.z };
+  };
+  const held = brakeFrom(false);
+  assert.ok(held.chatter > 0.9 && held.locked, JSON.stringify(held));
+  const pumped = brakeFrom(true);
+  assert.ok(pumped.chatter > 0.5 && !pumped.locked, JSON.stringify(pumped));
+  assert.ok(held.dist < 200 && pumped.dist < 200, 'about a second faster than 1 g stops');
+  assert.ok(GRIP > 9 && GRIP < 10.5);
+
+  // Locked wheels don't steer.
+  const car = new Car(straight);
+  car.v = 40;
+  car.time = 1e9;
+  for (let t = 0; t < 2; t += 1 / 60) car.step(1 / 60, { brake: true });
+  assert.ok(car.locked);
+  const x = car.x;
+  for (let t = 0; t < 0.5; t += 1 / 60) car.step(1 / 60, { brake: true, steer: 1 });
+  assert.ok(Math.abs(car.x - x) < 0.2, 'no steering while locked');
+
+  // The autopilot drives 10 km without a squeal.
+  const pilot = new Car(new Road(5));
+  pilot.time = 1e9;
+  let worst = 0;
+  for (let t = 0; t < 600 && pilot.z < 10000; t += 1 / 60) {
+    pilot.step(1 / 60, autopilot(pilot));
+    worst = Math.max(worst, pilot.squeal);
+  }
+  assert.equal(worst, 0);
+});

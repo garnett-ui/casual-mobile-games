@@ -50,6 +50,13 @@ export function mount(root, ctx) {
       ctx.setLoop?.('motor', on && !play?.paused);
       if (on) ctx.loopLevel?.('motor', level);
     },
+    onSkid: (squeal, chatter) => {
+      for (const [name, level] of [['squeal', squeal], ['chatter', chatter]]) {
+        const on = level > 0.02 && !play?.paused;
+        ctx.setLoop?.(name, on);
+        if (on) ctx.loopLevel?.(name, level);
+      }
+    },
     onOver: (res) => setTimeout(() => over(res), 600),
   });
   // Handle for the end-to-end tests (test/e2e.test.mjs).
@@ -178,6 +185,7 @@ export function mount(root, ctx) {
       text: `Race through the night between the roadside lights.<br><br>
         <b>Left thumb:</b> drag the wheel to steer.<br>
         <b>Right thumb:</b> hold GAS, tap BRAKE.<br><br>
+        Too fast into a bend and the tyres squeal and slide. Stand on the brake too long and it locks: pump it.<br><br>
         Hit a post and you lose time. Later the road forks: <b>read the green signs</b> and take the safe way.
         ${best ? `<br><br>Best: <b>${best}</b>` : ''}`,
       buttons: [{ label: 'Start driving', act: 'start', primary: true, run: start }],

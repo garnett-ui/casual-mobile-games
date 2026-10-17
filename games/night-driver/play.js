@@ -41,6 +41,7 @@ export class Play {
   destroy() {
     cancelAnimationFrame(this.raf);
     this.hooks.onMotor?.(false);
+    this.hooks.onSkid?.(0, 0);
   }
 
   reset(seed = Math.floor(Math.random() * 1e9)) {
@@ -85,10 +86,11 @@ export class Play {
       const input = this.autopilot ? autopilot(car, this.pilotOpts) : this.input;
       for (const e of car.step(dt / n, input)) this.handle(e);
     }
-    // Tyres squeal when you stand on the brake at speed.
-    const hard = this.input.brake && car.v > 22 && !this.autopilot;
-    if (hard && !this.braking) this.hooks.sfx?.('screech');
-    this.braking = hard;
+    // Tyres squealing in a slide or a skid, brakes chattering at the limit;
+    // a jolt through the wheel when they lock.
+    this.hooks.onSkid?.(car.squeal, car.chatter);
+    if (car.locked && !this.wasLocked) this.hooks.haptic?.([20, 30, 20, 30, 20]);
+    this.wasLocked = car.locked;
     const running = !car.over && car.freeze <= 0;
     this.hooks.onMotor?.(running || car.v > 0, car.v / VMAX * 0.85 + (this.input.gas ? 0.15 : 0));
     // Flying over a drawbridge: how high the car is.
@@ -159,6 +161,7 @@ export class Play {
       h.sfx?.('screech');
     } else if (e.type === 'over') {
       h.onMotor?.(false);
+      h.onSkid?.(0, 0);
       h.onOver?.({ score: e.score, miles: this.car.dist / 1609.34, crashes: this.car.crashes, calls: this.car.goodCalls });
     }
   }
@@ -178,7 +181,8 @@ export class Play {
       slope += road.kappa(car.z + i * STEP) * STEP;
       x += slope * STEP;
     }
-    this.yaw = car.steer * MAX_HEAD * 0.6;
+    // Where the car points: the steering, plus the tail swinging out in a slide.
+    this.yaw = car.steer * MAX_HEAD * 0.6 + car.fish * 0.5;
   }
 
   bend(d, curveScale = 1) {

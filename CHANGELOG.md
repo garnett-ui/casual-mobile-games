@@ -6,6 +6,17 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.27.0
+- Night Driver: the tyres have limits. They grip up to about 1 g, shared
+  between cornering and braking.
+  - Take a bend too fast, or turn too hard into one, and they squeal; push
+    past the grip and the car slides wide with its tail swinging out --
+    ease off and it catches, keep your foot in and you're into the posts.
+  - Braking builds up to the limit and you hear the brakes chatter. Stand
+    on them for more than a second and a half (or brake hard in a bend) and
+    they lock: a screech, a jolt, and no steering until you let go. Pump
+    them instead.
+
 ## 1.26.0
 - Lunar Lander: flights are drawn as dots at equal times -- the good route
   in the fly-over, your last try after a crash, and both on the map after a

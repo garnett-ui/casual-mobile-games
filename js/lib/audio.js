@@ -250,14 +250,24 @@ const LOOPS = {
   rcs: { type: 'highpass', freq: 2600, vol: 0.05 },
   // A car engine: buzzy oscillators whose pitch follows loopLevel().
   motor: { osc: true, vol: 0.09 },
+  // Night Driver's tyres: a squeal (a narrow band of noise, wavering in
+  // pitch) and the brakes chattering at their limit (a low judder, pulsing
+  // 17 times a second). Their loudness follows loopLevel().
+  squeal: { type: 'bandpass', freq: 2300, q: 12, vol: 1.0, level: true, waver: 9 },
+  chatter: { type: 'lowpass', freq: 520, vol: 0.9, level: true, pulse: 17 },
 };
 const playing = {};
 
 // Set a looping sound's level, 0..1 (for the motor: revs).
 export function loopLevel(name, value) {
   const cur = playing[name];
-  if (!cur || !cur.oscs) return;
+  if (!cur) return;
   const t = ac.currentTime;
+  if (!cur.oscs) {
+    // A noise loop: just its loudness.
+    if (LOOPS[name]?.level) cur.g.gain.setTargetAtTime(Math.max(0.0001, LOOPS[name].vol * value), t, 0.04);
+    return;
+  }
   const hz = 38 + value * 120;
   cur.oscs[0].frequency.setTargetAtTime(hz, t, 0.05);
   cur.oscs[1].frequency.setTargetAtTime(hz * 1.503, t, 0.05);
@@ -303,14 +313,44 @@ export function setLoop(name, on) {
     const f = ac.createBiquadFilter();
     f.type = spec.type;
     f.frequency.value = spec.freq;
+    if (spec.q) f.Q.value = spec.q;
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(spec.vol, t + 0.06);
+    // Level-driven loops start silent; loopLevel() brings them up.
+    if (!spec.level) g.gain.exponentialRampToValueAtTime(spec.vol, t + 0.06);
     src.connect(f);
-    f.connect(g);
+    let out = f;
+    const lfos = [];
+    if (spec.waver) {
+      // The pitch of the squeal wavers.
+      const lfo = ac.createOscillator();
+      const depth = ac.createGain();
+      lfo.frequency.value = spec.waver;
+      depth.gain.value = spec.freq * 0.12;
+      lfo.connect(depth);
+      depth.connect(f.frequency);
+      lfos.push(lfo);
+    }
+    if (spec.pulse) {
+      // Chatter: the sound pulses on and off.
+      const am = ac.createGain();
+      am.gain.value = 0.5;
+      const lfo = ac.createOscillator();
+      lfo.type = 'square';
+      lfo.frequency.value = spec.pulse;
+      const depth = ac.createGain();
+      depth.gain.value = 0.5;
+      lfo.connect(depth);
+      depth.connect(am.gain);
+      f.connect(am);
+      out = am;
+      lfos.push(lfo);
+    }
+    out.connect(g);
     g.connect(master);
     src.start(t, Math.random());
-    playing[name] = { src, g };
+    lfos.forEach((o) => o.start(t));
+    playing[name] = { src: { stop: (at) => [src, ...lfos].forEach((o) => o.stop(at)) }, g };
   } else if (!on && cur) {
     const t = ac.currentTime;
     cur.g.gain.cancelScheduledValues(t);
