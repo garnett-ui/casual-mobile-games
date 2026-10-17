@@ -1,6 +1,6 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
-import { step, newLander, heightAt, flightPath, G, SAFE, FEET, TRACK_DT } from './engine.js';
+import { step, newLander, heightAt, flightPath, autopilot, bestTilt, G, SAFE, FEET, TRACK_DT } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const PHOSPHOR = '#3dff7a';
@@ -65,6 +65,12 @@ export class Play {
   }
 
   reset() {
+    if (this.demo) {
+      this.demo = false;
+      this.pilot = null;
+      this.timeScale = 1;
+      this.hooks.onDemo?.(false);
+    }
     this.L = newLander(this.level, this.level.fuel);
     this.outcome = null;
     this.particles = [];
@@ -118,6 +124,20 @@ export class Play {
     this.reset();
     this.lastTry = path.length > 1 ? { path, reason } : null;
     this.intro = { t: 0, dur: this.lastTry ? 6.4 : 5.4 };
+  }
+
+  // "Show me": the autopilot flies the mission as well as it knows how
+  // (the style that scores best), at double speed, for you to watch.
+  showMe() {
+    const tilt = bestTilt(this.level);
+    this.reset();
+    this.lastTry = null;
+    this.intro = null;
+    this.cam = null;
+    this.demo = true;
+    this.pilot = (level, L) => autopilot(level, L, tilt);
+    this.timeScale = 2;
+    this.hooks.onDemo?.(true);
   }
 
   skipIntro() {

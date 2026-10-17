@@ -78,10 +78,12 @@ export function mount(root, ctx, sub) {
             <button class="ll-btn ll-thrust" data-key="thrust" aria-label="Thrust">THRUST</button>
           </div>
         </div>
+        <button class="ll-demo" hidden aria-label="Autopilot demo speed">AUTOPILOT · <b>2×</b></button>
         <div class="ll-paused" hidden><div><b>Paused</b><span>Tap to carry on flying.</span></div></div>
         <div class="tip" hidden></div>
         <div class="dialog" hidden></div>
       </div>`;
+    const demoBtn = root.querySelector('.ll-demo');
     ctx.track('level_start', { level: n });
     ctx.loadClip?.(EAGLE); // ready for the landing
     const tip = root.querySelector('.tip');
@@ -92,7 +94,11 @@ export function mount(root, ctx, sub) {
         if (name === 'stop') ctx.stopLoops?.();
         else ctx.setLoop?.(name, on);
       },
-      onLanded: (res) => landed(n, res),
+      onLanded: (res) => (play.demo ? demoLanded(n, res) : landed(n, res)),
+      onDemo: (on) => {
+        demoBtn.hidden = !on;
+        demoBtn.querySelector('b').textContent = `${play?.timeScale ?? 2}×`;
+      },
       onCelebrate: () => {
         quiet();
         stopClip = ctx.playClip?.(EAGLE);
@@ -103,6 +109,14 @@ export function mount(root, ctx, sub) {
     root.querySelector('.stage').addEventListener('pointerdown', () => play?.skipIntro(), { capture: true });
     // Handle for the end-to-end tests (test/e2e.test.mjs).
     window.__lander = play;
+    // Watching the autopilot: tap for 1×, 2× or 4×.
+    demoBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (!play.demo) return;
+      ctx.sfx('tap');
+      play.timeScale = { 1: 2, 2: 4, 4: 1 }[play.timeScale] || 2;
+      demoBtn.querySelector('b').textContent = `${play.timeScale}×`;
+    });
     // Stability assist (on unless you've turned it off).
     const assistBtn = root.querySelector('[data-act=assist]');
     const setAssist = (on) => {
@@ -254,9 +268,38 @@ export function mount(root, ctx, sub) {
       text: `${res.reason}. Safe landings are under 3 m/s down, 1.2 m/s sideways and 10° of tilt.`,
       buttons: [
         { label: 'Missions', act: 'levels', run: () => ctx.back('#/lander') },
+        { label: 'Show me', act: 'showme', run: () => {
+          root.querySelector('.dialog').hidden = true;
+          play.showMe();
+        } },
         { label: 'Try again', act: 'retry', primary: true, run: () => {
           root.querySelector('.dialog').hidden = true;
           play.retry();
+        } },
+      ],
+    });
+  }
+
+  // The autopilot's landing: how it scored, and over to you. (It doesn't
+  // count toward your progress.)
+  function demoLanded(n, res) {
+    if (!play) return;
+    const { total, stars } = res.score;
+    ctx.track('lander_demo', { level: n, score: total });
+    showDialog(root.querySelector('.dialog'), ctx, {
+      title: 'That’s how it’s done',
+      stars,
+      text: `The autopilot scored <b>${total}</b>, with ${Math.round((100 * play.L.fuel) / play.L.fuelMax)}% of its fuel left. Your turn!`,
+      buttons: [
+        { label: 'Watch again', act: 'showme', run: () => {
+          quiet();
+          root.querySelector('.dialog').hidden = true;
+          play.showMe();
+        } },
+        { label: 'Try it yourself', act: 'retry', primary: true, run: () => {
+          quiet();
+          root.querySelector('.dialog').hidden = true;
+          play.reset();
         } },
       ],
     });

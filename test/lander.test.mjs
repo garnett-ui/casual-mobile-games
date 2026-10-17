@@ -202,3 +202,17 @@ test('stability assist: sideways drift dies away once level (but not without ass
   assert.ok(drift(true) < 0.3, `damped (${drift(true).toFixed(2)} m/s left)`);
   assert.ok(Math.abs(drift(false) - 4) < 0.01, 'coasts on without assist');
 });
+
+test('show me: the autopilot picks the way of flying that scores best, and lands', async () => {
+  const { bestTilt, autopilot } = await import('../games/lander/engine.js');
+  for (const n of [3, 11]) {
+    const level = makeLevel(n);
+    const tilt = bestTilt(level);
+    assert.ok(tilt >= 15 && tilt <= 35, `mission ${n}: ${tilt}°`);
+    const L = newLander(level, level.fuel);
+    let res = null;
+    for (let t = 0; t < 900 && (!res || res.kind === 'touchdown'); t += 1 / 120) res = step(level, L, autopilot(level, L, tilt), 1 / 120);
+    assert.equal(res.kind, 'landed', `mission ${n}`);
+    assert.ok(res.score.total > 700, `mission ${n} scores ${res.score.total}`);
+  }
+});

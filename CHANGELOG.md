@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.29.0
+- Lunar Lander: **Show me**. After a crash you can watch the autopilot fly
+  the mission as well as it knows how -- it tries a few ways and flies the
+  one that scores best -- at double speed (tap the AUTOPILOT badge for 1×,
+  2× or 4×). It shows you its score and fuel left, then it's your turn; its
+  landing doesn't count as yours.
+
 ## 1.28.0
 - Lunar Lander: a pause button (or P / Esc). Everything holds still --
   engines off, controls let go -- until you tap to carry on. Switching away

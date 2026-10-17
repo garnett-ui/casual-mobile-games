@@ -537,6 +537,27 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     });
     assert.ok(replay.intro && replay.points > 1 && /Impact/.test(replay.reason) && replay.landed === 'start', JSON.stringify(replay));
     await page.waitForFunction(() => !window.__lander.intro, null, { timeout: 15000 });
+
+    // Crash again and ask to be shown: the autopilot flies it (fast-forwarded
+    // here) and lands, and that doesn't count toward your progress.
+    await page.evaluate(() => {
+      const p = window.__lander;
+      p.L.landed = null;
+      p.L.y += 60;
+      p.L.vy = -20;
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
+    await page.locator('[data-act=showme]').click();
+    assert.ok(await page.evaluate(() => window.__lander.demo));
+    assert.ok(await page.locator('.ll-demo:not([hidden])').count());
+    await page.evaluate(() => (window.__lander.timeScale = 6));
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 60000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /how it/);
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:lander:progress')));
+    assert.deepEqual(after, saved);
+    await page.locator('[data-act=retry]').click();
+    assert.equal(await page.evaluate(() => window.__lander.demo), false);
+    assert.equal(await page.locator('.ll-demo:not([hidden])').count(), 0);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

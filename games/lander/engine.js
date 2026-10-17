@@ -583,6 +583,23 @@ export function autopilot(level, L, maxTiltDeg = 35) {
   return { thrust, left: de < -0.04, right: de > 0.04 };
 }
 
+// The autopilot's best: it flies the level (on its fuel) leaning up to each
+// of a few limits, and the one that lands with the best score wins. Returns
+// that lean (degrees).
+export function bestTilt(level) {
+  let best = { tilt: 9, score: -1 };
+  for (const tilt of [15, 20, 25, 30, 35]) {
+    const L = newLander(level, level.fuel ?? 2000);
+    for (let t = 0; t < 900; t += 1 / 60) {
+      const res = step(level, L, autopilot(level, L, tilt), 1 / 60);
+      if (!res || res.kind === 'touchdown') continue;
+      if (res.kind === 'landed' && res.score.total > best.score) best = { tilt, score: res.score.total };
+      break;
+    }
+  }
+  return best.tilt;
+}
+
 // Fly the level with the autopilot (plenty of fuel) and report fuel used.
 // It flies gently (tilting no more than an assisted pilot can), so the fuel
 // it needs is what a careful player needs.
