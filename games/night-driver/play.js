@@ -298,7 +298,6 @@ export class Play {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawHood();
     this.drawHud();
-    this.drawSignCopy();
     if (this.message) this.drawMessage();
   }
 
@@ -363,23 +362,6 @@ export class Play {
       const [x1, y1] = this.P(c + b, top - 3, d);
       drawPanel(ctx, x0, y0, x1 - x0, y1 - y0, f.panels[i], dir, light);
     });
-  }
-
-  // A copy of the sign up top, from just before it until you've chosen, so
-  // there's time to read it at speed.
-  drawSignCopy() {
-    const f = this.road.upcoming(this.car.z);
-    if (!f || this.car.z < f.z - SIGN_LEAD - 200 || this.closeup || this.scene) return;
-    const { ctx, W } = this;
-    let total = Math.min(W - 24, 560);
-    // On a short (landscape) screen keep the copy small enough to see past.
-    total = Math.min(total, ((this.H * 0.2) / 0.46) * 2 + 10);
-    const pw = (total - 10) / 2;
-    const ph = pw * 0.46;
-    const y = this.hudBottom + 8;
-    const x = (W - total) / 2;
-    drawPanel(ctx, x, y, pw, ph, f.panels[0], -1, 1);
-    drawPanel(ctx, x + pw + 10, y, pw, ph, f.panels[1], 1, 1);
   }
 
   drawHood() {

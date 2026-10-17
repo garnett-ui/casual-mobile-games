@@ -250,10 +250,11 @@ const LOOPS = {
   rcs: { type: 'highpass', freq: 2600, vol: 0.05 },
   // A car engine: buzzy oscillators whose pitch follows loopLevel().
   motor: { osc: true, vol: 0.09 },
-  // Night Driver's tyres: a squeal (a narrow band of noise, wavering in
-  // pitch) and the brakes chattering at their limit (a low judder, pulsing
-  // 17 times a second). Their loudness follows loopLevel().
-  squeal: { type: 'bandpass', freq: 2300, q: 12, vol: 1.0, level: true, waver: 9 },
+  // Night Driver's tyres: a squeal (a steady, slightly gritty screech whose
+  // pitch climbs a little as the slide gets harder) and the brakes
+  // chattering at their limit (a low judder, pulsing 17 times a second).
+  // Their loudness follows loopLevel().
+  squeal: { type: 'bandpass', freq: 2400, q: 4, vol: 0.32, level: true, tone: 1050, toneVol: 0.7 },
   chatter: { type: 'lowpass', freq: 520, vol: 0.9, level: true, pulse: 17 },
 };
 const playing = {};
@@ -264,8 +265,10 @@ export function loopLevel(name, value) {
   if (!cur) return;
   const t = ac.currentTime;
   if (!cur.oscs) {
-    // A noise loop: just its loudness.
-    if (LOOPS[name]?.level) cur.g.gain.setTargetAtTime(Math.max(0.0001, LOOPS[name].vol * value), t, 0.04);
+    // A noise loop: its loudness (and a squeal's pitch, rising gently).
+    const spec = LOOPS[name];
+    if (spec?.level) cur.g.gain.setTargetAtTime(Math.max(0.0001, spec.vol * value), t, 0.04);
+    if (cur.voice) cur.voice.frequency.setTargetAtTime(spec.tone * (0.94 + 0.1 * value), t, 0.25);
     return;
   }
   const hz = 38 + value * 120;
@@ -321,15 +324,22 @@ export function setLoop(name, on) {
     src.connect(f);
     let out = f;
     const lfos = [];
-    if (spec.waver) {
-      // The pitch of the squeal wavers.
-      const lfo = ac.createOscillator();
-      const depth = ac.createGain();
-      lfo.frequency.value = spec.waver;
-      depth.gain.value = spec.freq * 0.12;
-      lfo.connect(depth);
-      depth.connect(f.frequency);
-      lfos.push(lfo);
+    let voice = null;
+    if (spec.tone) {
+      // A screech: a buzzy tone, filtered to a bright squeak, under the noise.
+      voice = ac.createOscillator();
+      voice.type = 'sawtooth';
+      voice.frequency.value = spec.tone;
+      const vf = ac.createBiquadFilter();
+      vf.type = 'bandpass';
+      vf.frequency.value = spec.tone * 2;
+      vf.Q.value = 2;
+      const vg = ac.createGain();
+      vg.gain.value = spec.toneVol;
+      voice.connect(vf);
+      vf.connect(vg);
+      vg.connect(g);
+      lfos.push(voice);
     }
     if (spec.pulse) {
       // Chatter: the sound pulses on and off.
@@ -350,7 +360,7 @@ export function setLoop(name, on) {
     g.connect(master);
     src.start(t, Math.random());
     lfos.forEach((o) => o.start(t));
-    playing[name] = { src: { stop: (at) => [src, ...lfos].forEach((o) => o.stop(at)) }, g };
+    playing[name] = { src: { stop: (at) => [src, ...lfos].forEach((o) => o.stop(at)) }, g, voice };
   } else if (!on && cur) {
     const t = ac.currentTime;
     cur.g.gain.cancelScheduledValues(t);

@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.27.1
+- Night Driver: the tyre squeal is a steady screech now (it used to
+  flutter), its pitch climbing a little as the slide gets harder.
+- Night Driver: no more copy of the fork's sign at the top of the screen.
+  You read the sign on the road itself, while you have the chance.
+
 ## 1.27.0
 - Night Driver: the tyres have limits. They grip up to about 1 g, shared
   between cornering and braking.
