@@ -66,6 +66,7 @@ export function mount(root, ctx, sub) {
           <button class="icon-btn" data-act="levels" aria-label="Missions">${ICON.back}</button>
           <h2>Mission ${n}</h2>
           <button class="ll-assist" data-act="assist" aria-pressed="true" title="Stability assist: rotation springs back to level when you let go (leans about 20° while held), and sideways drift dies away">ASSIST</button>
+          <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
           <button class="icon-btn" data-act="restart" aria-label="Restart">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas>
@@ -77,6 +78,7 @@ export function mount(root, ctx, sub) {
             <button class="ll-btn ll-thrust" data-key="thrust" aria-label="Thrust">THRUST</button>
           </div>
         </div>
+        <div class="ll-paused" hidden><div><b>Paused</b><span>Tap to carry on flying.</span></div></div>
         <div class="tip" hidden></div>
         <div class="dialog" hidden></div>
       </div>`;
@@ -138,6 +140,12 @@ export function mount(root, ctx, sub) {
     // Keyboard: arrows / WASD, space to thrust.
     const keys = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'thrust', w: 'thrust', ' ': 'thrust' };
     const onKey = (on) => (e) => {
+      if (on && (e.key === 'p' || e.key === 'Escape') && play) {
+        e.preventDefault();
+        if (play.paused) resume();
+        else pause();
+        return;
+      }
       const key = keys[e.key];
       if (!key || !play) return;
       e.preventDefault();
@@ -151,16 +159,39 @@ export function mount(root, ctx, sub) {
     window.addEventListener('keyup', up);
     const resize = () => play?.resize();
     window.addEventListener('resize', resize);
-    const hide = () => {
-      if (document.visibilityState === 'hidden' && play) {
-        play.paused = true;
-        ctx.stopLoops?.();
-        ['left', 'right', 'thrust'].forEach((k) => play.setInput(k, false));
-      } else if (play) {
-        play.paused = false;
-        play.last = performance.now();
-      }
+    // Pause: everything holds still (engines off, controls let go) until you
+    // tap to carry on. Leaving the app pauses it too, so an interruption
+    // never crashes the lander.
+    const pausedCard = root.querySelector('.ll-paused');
+    const letGo = () => {
+      ['left', 'right', 'thrust'].forEach((k) => play.setInput(k, false));
+      root.querySelectorAll('.ll-btn.on').forEach((b) => b.classList.remove('on'));
     };
+    const pause = () => {
+      if (!play || play.paused || !root.querySelector('.dialog').hidden) return;
+      play.paused = true;
+      ctx.stopLoops?.();
+      letGo();
+      pausedCard.hidden = false;
+    };
+    const resume = () => {
+      if (!play || !play.paused) return;
+      letGo();
+      pausedCard.hidden = true;
+      play.paused = false;
+      play.last = performance.now();
+    };
+    root.querySelector('[data-act=pause]').onclick = () => {
+      ctx.sfx('tap');
+      if (play.paused) resume();
+      else pause();
+    };
+    pausedCard.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      resume();
+    });
+    const hide = () => document.visibilityState === 'hidden' && pause();
     document.addEventListener('visibilitychange', hide);
     cleanup.push(() => {
       window.removeEventListener('keydown', down);
@@ -172,6 +203,7 @@ export function mount(root, ctx, sub) {
     root.querySelector('[data-act=levels]').onclick = () => ctx.back('#/lander');
     root.querySelector('[data-act=restart]').onclick = () => {
       quiet();
+      resume();
       ctx.sfx('tap');
       root.querySelector('.dialog').hidden = true;
       play.reset();

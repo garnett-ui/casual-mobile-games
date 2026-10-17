@@ -481,6 +481,15 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     });
     assert.ok(hidden >= 0, `lander stays clear of the panel (${hidden.toFixed(1)} px)`);
 
+    // Pause: the lander holds still mid-air until you tap to carry on.
+    await page.locator('[data-act=pause]').click();
+    const y0 = await page.evaluate(() => window.__lander.L.y);
+    await page.waitForTimeout(400);
+    assert.equal(await page.evaluate(() => window.__lander.L.y), y0, 'frozen while paused');
+    assert.ok(await page.locator('.ll-paused:not([hidden])').count());
+    await page.locator('.ll-paused').click();
+    assert.equal(await page.evaluate(() => window.__lander.paused), false);
+
     // Let the autopilot fly the rest, fast-forwarded. Top the tank back up
     // first: on a slow test machine the button may have been held a long
     // time, and this test is about landing, not fuel.

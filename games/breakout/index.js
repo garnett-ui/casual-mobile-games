@@ -8,7 +8,6 @@ import { lockOrientation, unlockOrientation, currentOrientation } from '../../js
 const PHONE = (kind) => kind === 'portrait'
   ? '<svg viewBox="0 0 48 48"><rect x="14" y="4" width="20" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><rect x="19" y="13" width="10" height="3" rx="1" fill="#ff8c1a"/><rect x="19" y="18" width="10" height="3" rx="1" fill="#2ec27e"/><circle cx="24" cy="30" r="2" fill="currentColor"/><rect x="19" y="37" width="10" height="2.5" rx="1" fill="#ff6b81"/></svg>'
   : '<svg viewBox="0 0 48 48"><rect x="4" y="14" width="40" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><rect x="10" y="18" width="8" height="3" rx="1" fill="#ff8c1a"/><rect x="20" y="18" width="8" height="3" rx="1" fill="#2ec27e"/><rect x="30" y="18" width="8" height="3" rx="1" fill="#e5383b"/><circle cx="24" cy="25" r="1.8" fill="currentColor"/><rect x="19" y="29" width="10" height="2.5" rx="1" fill="#ff6b81"/></svg>';
-const PAUSE = '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 
 export function mount(root, ctx) {
   let play = null;
@@ -75,7 +74,7 @@ export function mount(root, ctx) {
           <span class="pill bo-score"><b data-score>0</b></span>
           <span class="pill bo-stage">Wall <b data-stage>1</b></span>
           <span class="bo-balls" data-lives></span>
-          <button class="icon-btn" data-act="pause" aria-label="Pause">${PAUSE}</button>
+          <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas>
           <div class="bo-overlay" hidden></div>

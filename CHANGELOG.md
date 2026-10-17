@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.28.0
+- Lunar Lander: a pause button (or P / Esc). Everything holds still --
+  engines off, controls let go -- until you tap to carry on. Switching away
+  from the app pauses it too, and it stays paused when you come back, so an
+  interruption never crashes your lander.
+
 ## 1.27.2
 - Lunar Lander: a landing now plays the real thing instead of the trumpet
   fanfare -- Apollo 11's "Houston, Tranquility Base here. The Eagle has
