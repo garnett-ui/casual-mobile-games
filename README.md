@@ -149,7 +149,10 @@ is at rest -- nobody waiting or walking, the lifts empty and parked -- the
 game eases up to five times as fast (▶▶ by the clock), and back down before
 the next person sets off. Banners mark the day's moments (the doors open, the morning rush, lunchtime, home time,
 nightfall). Played upright on a phone (either way on a tablet), to lift
-music.
+music. On a big screen the building is as tall as it can be and no wider
+than it needs to be, with the rest of the city round it -- just scenery,
+windows lighting up and going dark through the day, and someone passing
+behind a lit window now and then.
 
 - **Tap a floor in a lift's shaft** to send it there. Tap more floors to
   line up to 4 stops (numbered in its shaft); it goes to them in order. A
@@ -292,7 +295,7 @@ games/breakout/             Breakout: engine.js (physics, rules), play.js, index
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
-games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg)
+games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg), city.js (the city round about), pace.js (fast through the lulls)
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback

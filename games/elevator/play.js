@@ -7,6 +7,7 @@
 import { drawSprite, lookOf, WALK_FRAMES } from './sprites.js';
 import { Cat } from './cat.js';
 import { pace, dueIn, idle } from './pace.js';
+import { cityscape, drawCity } from './city.js';
 
 const BOARD_WALK = 0.9; // seconds to step from the floor into a lift
 
@@ -131,7 +132,7 @@ class Tower {
     this.tall = this.B.storeys >= 15; // the tall ones get the Empire State crown
     this.crownH = this.tall ? clamp(H * 0.13, 50, 130) : clamp(H * 0.08, 30, 70);
     this.groundH = clamp(H * 0.03, 14, 26);
-    this.rowH = Math.min(58, (H - this.hud - this.crownH - this.groundH) / F);
+    this.rowH = Math.min(140, (H - this.hud - this.crownH - this.groundH) / F);
     this.top = H - this.groundH - this.rowH * F; // standing on the ground, sky above
     this.x0 = clamp(W * 0.08, narrow ? 12 : 28, 120); // the street is to the left
     this.x1 = W - (narrow ? 3 : 6);
@@ -164,6 +165,12 @@ class Tower {
       for (const a of this.sim.arrivals) if (a.to < this.B.ground) this.parkCar(a.to, true);
     }
     for (const c of this.autos) if (c.state === 'parked') c.x = c.target = this.slotX(c.slot);
+  }
+
+  // How much wider the floors are than they need to be: room for the door,
+  // the head count and a queue of people.
+  spare() {
+    return this.panelX - this.doorX - (this.spriteW * 6 + this.rowH * 0.8);
   }
 
   rowY(f) {
@@ -980,6 +987,20 @@ export class Play {
     const side = n === 1 || this.W / n >= 2 * (liftWidth(1) + 6) + 110;
     this.towers.forEach((t, k) =>
       side ? t.layout(k * (this.W / n), 0, this.W / n, this.H, n > 1) : t.layout(0, (k * this.H) / n, this.W, this.H / n, false, k ? 6 : this.hud));
+    // On a big screen, the buildings no wider than they need to be, in the
+    // middle; the rest of the street is the city's.
+    this.city = [];
+    if (!side) return;
+    const want = this.towers.map((t) => t.W - Math.max(0, t.spare()));
+    const total = want.reduce((a, b) => a + b, 0);
+    if (this.W - total < 60) return;
+    let x = (this.W - total) / 2;
+    this.towers.forEach((t, k) => {
+      t.layout(x, 0, want[k], this.H, n > 1);
+      x += want[k];
+    });
+    const street = this.towers[0].rowY(this.towers[0].B.ground) + this.towers[0].rowH;
+    this.city = cityscape([[0, this.towers[0].ox], [x, this.W]], street, this.H);
   }
 
   tap(e) {
@@ -1016,6 +1037,7 @@ export class Play {
     ctx.imageSmoothingEnabled = false;
     const mins = this.mins;
     this.drawSky(mins, time);
+    drawCity(ctx, this.city, mins, time);
     for (const t of this.towers) {
       ctx.save();
       ctx.translate(t.ox, t.oy);

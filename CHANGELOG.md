@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.54.0
+- Elevator Operator on a big screen: the building is as tall as the screen
+  allows (taller floors, bigger people) and no wider than it needs to be,
+  in the middle, with the city round about -- other buildings, just
+  scenery, their windows lighting up and going dark through the day, and
+  now and then someone passing behind one. People are a bit bigger on
+  phones too.
+
 ## 1.53.1
 - Elevator Operator: each day the building is busy in different places --
   tenants of different sizes (some floors busy, some quiet, now and then
