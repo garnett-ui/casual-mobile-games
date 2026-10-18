@@ -70,6 +70,19 @@ test('tap ahead: up to four stops lined up for a lift, visited in order; a fifth
   assert.ok(sim.request(0, g + 8), 'room again once they\'re done');
 });
 
+test('nobody gets in with people going the other way: up and down at the same floor, only the first gets on', () => {
+  const g = TALL.building.ground;
+  const sim = only([{ t: 0.1, from: g + 5, to: g + 9 }, { t: 0.2, from: g + 5, to: g }, { t: 0.3, from: g + 5, to: g + 12 }, { t: 400, from: 1, to: 2 }]);
+  sim.send(0, g + 5);
+  run(sim, 15);
+  assert.deepEqual(sim.cars[0].riders.map((p) => p.to), [g + 9, g + 12], 'the two going up');
+  assert.deepEqual(sim.waiting[g + 5].map((p) => p.to), [g], 'the one going down waits');
+  // ...and the lift isn't kept waiting for them: sent on, it goes.
+  sim.send(0, g + 9);
+  run(sim, 3);
+  assert.equal(sim.cars[0].phase === 'loading', false);
+});
+
 test('a full lift leaves people behind', () => {
   const sim = only(Array.from({ length: 11 }, () => ({ t: 0.05, from: 0, to: 9 })));
   sim.send(0, 0);

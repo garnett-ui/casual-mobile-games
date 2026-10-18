@@ -133,13 +133,14 @@ export function levelSpec(n) {
     place = PLACES[4];
     day = k + 1;
   }
-  const plans = dayPlan(towers.map((t) => t.building), { workers, residents, seed, play });
+  const twist = twistFor(n);
+  const plans = dayPlan(towers.map((t) => t.building), { workers, residents, seed, play, twist: TWISTS[twist] });
   towers.forEach((t, k) => {
     t.arrivals = plans[k];
     t.people = plans[k].length;
     t.play = play;
   });
-  return { ...towers[0], n, towers, workers, residents, play, length: Math.round(length), place, day, people: towers.reduce((a, t) => a + t.people, 0) };
+  return { ...towers[0], n, towers, workers, residents, play, length: Math.round(length), place, day, twist, people: towers.reduce((a, t) => a + t.people, 0) };
 }
 
 // Floors where people stay a while (and are counted): the restaurant, the
@@ -166,8 +167,48 @@ export const TRANSIT = { walk: 14, drive: 12, fly: 16 };
 // trip waits until they've finished the last one (and, between the towers,
 // crossed the street). Returns each tower's trips, with `start`: how many
 // are on each floor at dawn.
-export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
+// What kind of day it is. Each level is a day with a twist of its own --
+// the first day at each building an ordinary one -- that changes the
+// traffic: how people come in, when, where they go for lunch, meetings...
+export const TWISTS = {
+  ordinary: {
+    line: 'An ordinary day.',
+    arrive: [8.5 * 60, 30], // when people come in (mean, spread; minutes)
+    leave: [17.5 * 60, 35], // ...and go home
+    modes: [[0.75, 'walk'], [0.22, 'drive'], [0.03, 'fly']],
+    flights: 2,
+    meetAM: 0.45, // a morning meeting on another floor
+    meetPM: 0.35, // ...and an afternoon one
+    lunch: 0.7,
+    lunchAt: [12.5 * 60, 20],
+    lunchWhere: [[0.6, 'ground'], [0.3, 'restaurant'], [0.1, 'gym']],
+    gymAfter: 0.1, // a workout on the way home
+    allHands: 0, // everyone to the top office floor at this time
+  },
+  rain: { line: "It's pouring: most people drive in, and nobody wants to go out for lunch.", modes: [[0.35, 'walk'], [0.62, 'drive'], [0.03, 'fly']], lunchWhere: [[0.15, 'ground'], [0.7, 'restaurant'], [0.15, 'gym']] },
+  jam: { line: 'A jam on the bridge: everyone is late, and they all turn up at once.', arrive: [9.2 * 60, 15] },
+  pizza: { line: 'Free pizza in the restaurant at noon!', lunch: 0.95, lunchAt: [12 * 60, 8], lunchWhere: [[0.1, 'ground'], [0.85, 'restaurant'], [0.05, 'gym']] },
+  reviews: { line: 'Review week: meetings all over the building, morning and afternoon.', meetAM: 0.85, meetPM: 0.8 },
+  fitness: { line: 'A fitness class at the health club at lunchtime -- and plenty going after work.', lunchWhere: [[0.3, 'ground'], [0.2, 'restaurant'], [0.5, 'gym']], gymAfter: 0.4 },
+  allHands: { line: 'All-hands meeting on the top floor at 11!', allHands: 11 * 60, meetAM: 0.15 },
+  friday: { line: "Friday: long lunches out, and everyone's gone by four.", lunch: 0.85, lunchWhere: [[0.85, 'ground'], [0.1, 'restaurant'], [0.05, 'gym']], leave: [15.5 * 60, 25] },
+  fair: { line: 'A trade fair in town: the helipad is busy all day.', modes: [[0.7, 'walk'], [0.18, 'drive'], [0.12, 'fly']], flights: 8 },
+  launch: { line: "Launch day: they're all working late tonight.", leave: [18.6 * 60, 20], lunch: 0.4 },
+  early: { line: 'An early start for a deadline -- and an early finish.', arrive: [7.75 * 60, 15], leave: [16.5 * 60, 25] },
+};
+const TWIST_ORDER = ['rain', 'jam', 'pizza', 'reviews', 'fitness', 'allHands', 'friday', 'fair', 'launch', 'early'];
+
+// Level n's twist: an ordinary first day at each building; after that, round
+// the list (so each level is different from the last).
+export function twistFor(n) {
+  if (n === 1 || (n < TWINS ? (n - 1) % 3 === 0 : n === TWINS)) return 'ordinary';
+  const k = n < TWINS ? n - 1 - Math.ceil((n - 1) / 3) : 8 + (n - TWINS - 1);
+  return TWIST_ORDER[k % TWIST_ORDER.length];
+}
+
+export function dayPlan(buildings, { workers, residents, seed, play = PLAY, twist = TWISTS.ordinary }) {
   const r = rng(seed);
+  const T = { ...TWISTS.ordinary, ...twist };
   const twin = buildings.length > 1;
   const O = buildings.at(-1);
   const H = twin ? buildings[0] : null;
@@ -187,9 +228,9 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
     do g = office(); while (g === f);
     return g;
   };
-  let flights = 2; // helicopters: once or twice a day
+  let flights = T.flights; // helicopters: once or twice a day (usually)
   const how = () => {
-    const via = pick([[0.75, 'walk'], [0.22, 'drive'], [0.03, 'fly']]);
+    const via = pick(T.modes);
     if (via !== 'fly') return via;
     return flights-- > 0 ? 'fly' : 'walk';
   };
@@ -211,7 +252,16 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
       go(inDoor, O.restaurant, arrive); // breakfast first
       go(O.restaurant, desk, at + between(15, 25));
     } else go(inDoor, desk, arrive);
-    if (r() < 0.45) {
+    if (T.allHands && r() < 0.9) {
+      // Everyone up to the top office floor (if there's room in the day).
+      const m = around(T.allHands, 5, T.allHands - 10, T.allHands + 10);
+      const room = O.offices[1] === desk ? O.offices[0] : O.offices[1];
+      if (m > at + 10) {
+        go(desk, room, m);
+        go(room, desk, at + between(40, 50));
+      }
+    }
+    if (r() < T.meetAM) {
       const m = between(9.75 * 60, 11.25 * 60);
       if (m > at + 10) {
         const room = otherOffice(desk);
@@ -219,15 +269,15 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
         go(room, desk, at + between(25, 55));
       }
     }
-    if (r() < 0.7) {
-      const l = around(12.5 * 60, 20, 11.75 * 60, 13.5 * 60);
+    if (r() < T.lunch) {
+      const l = around(T.lunchAt[0], T.lunchAt[1], 11.5 * 60, 13.75 * 60);
       if (l > at + 10) {
-        const where = pick([[0.6, O.ground], [0.3, O.restaurant], [0.1, O.gym]]);
+        const where = pick(T.lunchWhere.map(([w, k]) => [w, O[k]]));
         go(desk, where, l);
         go(where, desk, at + between(30, 55));
       }
     }
-    if (r() < 0.35) {
+    if (r() < T.meetPM) {
       const m = between(14.25 * 60, 16.25 * 60);
       if (m > at + 10) {
         const room = otherOffice(desk);
@@ -236,7 +286,7 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
       }
     }
     const end = Math.max(leave, at + 15);
-    if (r() < 0.1 && end < 18.25 * 60) {
+    if (r() < T.gymAfter && end < 18.25 * 60) {
       go(desk, O.gym, end); // a workout on the way home
       go(O.gym, outDoor, at + between(35, 55));
     } else go(desk, outDoor, end);
@@ -247,8 +297,8 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
   for (let k = 0; k < workers; k++) {
     const via = how();
     const d = door(O, via);
-    const leave = around(17.5 * 60, 35, 16.25 * 60, 19 * 60);
-    days.push({ via, legs: workday(around(8.5 * 60, 30, 7.25 * 60, 10 * 60), d, d, leave) });
+    const leave = around(T.leave[0], T.leave[1], 14.5 * 60, 19 * 60);
+    days.push({ via, legs: workday(around(T.arrive[0], T.arrive[1], 7.25 * 60, 10 * 60), d, d, leave) });
   }
   // Residents: at home asleep at dawn.
   const hStart = twin ? Array(H.floors).fill(0) : null;
@@ -260,7 +310,7 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
     const legs = [{ tower: 0, min: leave, from: home, to: door(H, via) }];
     if (r() < 0.7) {
       // Across the street to work, and back again in the evening.
-      const back = around(17.5 * 60, 35, 16.25 * 60, 19 * 60);
+      const back = around(T.leave[0], T.leave[1], 14.5 * 60, 19 * 60);
       legs.push(...workday(leave + 5, door(O, via), door(O, via), back));
       legs.push({ tower: 0, min: legs.at(-1).min + 5, from: door(H, via), to: home });
     } else {
@@ -439,6 +489,13 @@ export class Sim {
   stepCar(car, dt, ev) {
     const here = this.floorOf(car);
     const ready = (p) => this.t >= p.t + PRESS - 1e-9; // (they've pressed the button)
+    // Nobody gets in with people going the other way: the lift goes the way
+    // its riders are going (or, empty, the way the first one in wants).
+    const way = (p) => Math.sign(p.to - here);
+    const goes = (p) => {
+      const first = car.riders[0] ?? this.waiting[here].find(ready);
+      return !first || way(p) === way(first);
+    };
     switch (car.phase) {
       case 'idle':
         this.nextStop(car, here);
@@ -486,7 +543,8 @@ export class Sim {
         car.dwell += dt;
         car.timer -= dt;
         // One at a time: first everyone getting off, then -- once they're
-        // all out -- everyone waiting gets on (while there's room).
+        // all out -- everyone waiting who's going its way gets on (while
+        // there's room).
         while (car.timer <= 0) {
           const out = car.riders.findIndex((p) => p.to === here);
           if (out >= 0) {
@@ -497,8 +555,8 @@ export class Sim {
             this.trips.push({ wait: p.boarded - p.t, ride: this.t - p.boarded });
             ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look, onward: p.onward, slot: out });
             car.timer += EXIT_TIME;
-          } else if (this.waiting[here].some(ready) && car.riders.length < CAPACITY) {
-            const [p] = this.waiting[here].splice(this.waiting[here].findIndex(ready), 1);
+          } else if (this.waiting[here].some((p) => ready(p) && goes(p)) && car.riders.length < CAPACITY) {
+            const [p] = this.waiting[here].splice(this.waiting[here].findIndex((p) => ready(p) && goes(p)), 1);
             p.boarded = this.t;
             car.riders.push(p);
             ev.push({ type: 'board', car: car.i, floor: here, id: p.id, slot: car.riders.length - 1 });
@@ -512,7 +570,7 @@ export class Sim {
         // here (who fits) is in -- including anyone just pressing the button
         // -- does it go where it's been sent (nobody's ever carried past
         // their floor). Till then, or till it's sent, it waits, doors open.
-        const exchanging = car.timer > 0 || (car.riders.length < CAPACITY && this.waiting[here].length > 0);
+        const exchanging = car.timer > 0 || (car.riders.length < CAPACITY && this.waiting[here].some(goes));
         if (!exchanging) this.nextStop(car, here);
         if (!exchanging && this.leaving(car, here)) break;
         car.settled = !exchanging && car.dwell >= DWELL;

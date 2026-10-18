@@ -158,7 +158,9 @@ music.
   out and everyone waiting there is in -- nobody is ever carried past their
   floor.
 - When a lift stops, anyone for that floor walks out (one at a time), then
-  everyone waiting walks in, up to 6 -- shown side by side, the same size as
+  everyone waiting who's going its way walks in (nobody gets in with people
+  going the other way; an empty lift goes the way the first one in wants),
+  up to 6 -- shown side by side, the same size as
   everyone on the floors (the lifts are drawn wide enough). People walk up
   to the lifts, press the button (it lights), and only then walk into a lift
   standing there, into their place in the car (and out the same way). On a
@@ -166,6 +168,14 @@ music.
   marked in that lift's shaft by a small arrow in the colour of their shirt,
   in the column where they stand. The call buttons light green for up, red
   for down.
+- Every level is a different day: the first at each building an ordinary
+  one, then each with a twist of its own -- rain (everyone drives, and
+  lunches in), a traffic jam (all late at once), free pizza at noon, review
+  week (meetings everywhere), a lunchtime fitness class, an all-hands
+  meeting on the top floor, Friday (long lunches out, home by four), a trade
+  fair (helicopters), launch day (working late), an early start. A level is
+  always the same day, with the same people. A bar at the top fills as they
+  get where they're going.
 - The day is made of people, each with their own day: an office worker
   arrives in the morning rush (around 8:30) -- walking in off the street,
   driving down into the garage, or now and then by helicopter -- may go to a

@@ -1185,25 +1185,39 @@ export class Play {
     const { ctx, W, day } = this;
     this.drawClock();
     const sum = (f) => day.sims.reduce((a, s) => a + f(s), 0);
-    const items = [
-      [`✓ ${sum((s) => s.delivered)}/${sum((s) => s.arrivals.length)}`, '#1d8a55'],
-      [`${sum((s) => s.waitingCount())} waiting`, '#5b4a2e'],
-    ];
+    // How far through the day's trips: a bar, filling green.
+    const done = sum((s) => s.delivered) / Math.max(1, sum((s) => s.arrivals.length));
+    const waiting = `${sum((s) => s.waitingCount())} waiting`;
     ctx.font = '800 15px system-ui, sans-serif';
     ctx.textBaseline = 'middle';
-    const widths = items.map(([t]) => ctx.measureText(t).width + 20);
-    const total = widths.reduce((a, b) => a + b, 0) + 8 * (items.length - 1);
-    let x = Math.max(6, (W - total) / 2);
-    items.forEach(([t, c], k) => {
-      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    const ww = ctx.measureText(waiting).width + 20;
+    const bw = clamp(W * 0.42, 110, 260);
+    let x = Math.max(6, (W - bw - 8 - ww) / 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.beginPath();
+    ctx.roundRect(x, 4, bw, 26, 13);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(34,40,58,0.18)';
+    ctx.beginPath();
+    ctx.roundRect(x + 7, 11, bw - 14, 12, 6);
+    ctx.fill();
+    if (done > 0) {
+      const g = ctx.createLinearGradient(0, 11, 0, 23);
+      g.addColorStop(0, '#48d18b');
+      g.addColorStop(1, '#1d8a55');
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.roundRect(x, 4, widths[k], 26, 13);
+      ctx.roundRect(x + 7, 11, Math.max(12, (bw - 14) * done), 12, 6);
       ctx.fill();
-      ctx.fillStyle = c;
-      ctx.textAlign = 'center';
-      ctx.fillText(t, x + widths[k] / 2, 17);
-      x += widths[k] + 8;
-    });
+    }
+    x += bw + 8;
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.beginPath();
+    ctx.roundRect(x, 4, ww, 26, 13);
+    ctx.fill();
+    ctx.fillStyle = '#5b4a2e';
+    ctx.textAlign = 'center';
+    ctx.fillText(waiting, x + ww / 2, 17);
     if (this.autopilot) {
       ctx.fillStyle = 'rgba(30,24,0,0.78)';
       ctx.font = '800 12px ui-monospace, Menlo, monospace';

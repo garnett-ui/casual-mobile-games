@@ -6,6 +6,16 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.53.0
+- Elevator Operator: nobody gets into a lift with people going the other
+  way -- with someone going up and someone going down at the same floor,
+  only the first gets in. Every level is now a different kind of day: the
+  first at each building an ordinary one, then rain, a traffic jam, free
+  pizza, review week, a fitness class, an all-hands meeting, Friday, a
+  trade fair, launch day or an early start (each level always the same
+  day). The count at the top is now a bar that fills as people get where
+  they're going.
+
 ## 1.52.1
 - Elevator Operator: fatter arrows for the floors riders want; garage cars
   park in one row, others waiting behind them (seen when a car drives off).
