@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.49.0
+- Elevator Operator: keep an eye out -- somebody else has been using the
+  lifts. (They don't count towards your score.)
+
 ## 1.48.0
 - Elevator Operator: new, more detailed people (16 by 32 pixels) in a
   classic 8-bit style -- outlined, with shaded shirts, swinging arms and

@@ -5,6 +5,7 @@
 // the call buttons and queueing; a shaft for each lift on the right, where
 // you tap a floor to send that lift there.
 import { drawSprite, lookOf, WALK_FRAMES } from './sprites.js';
+import { Cat } from './cat.js';
 import { Day, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -60,6 +61,7 @@ class Tower {
     this.ctx = play.ctx;
     this.hooks = play.hooks;
     this.people = new Map(); // id -> what we see of them (walking, queueing...)
+    this.cat = k === 0 ? new Cat(this) : null; // (shh)
     this.autos = []; // cars in the garage (driving in, parked, driving out)
     this.helis = []; // helicopters coming and going
     this.ripples = [];
@@ -158,6 +160,7 @@ class Tower {
 
   tick(dt) {
     this.movePeople(dt);
+    this.cat?.tick(dt);
     for (const r of this.ripples) r.t += dt;
     this.ripples = this.ripples.filter((r) => r.t < 0.6);
     for (const p of this.pops) p.t += dt;
@@ -351,6 +354,7 @@ class Tower {
     ctx.fillRect(this.x0, this.rowY(B.roof) + rowH, this.x1 - this.x0, rowH * (B.floors - 1));
     this.drawRoof(time);
     for (let f = 0; f < B.floors; f++) this.drawFloor(f, time);
+    this.cat?.draw(time);
     this.drawStreet(street);
     this.drawAutos();
     for (let i = 0; i < this.sim.cars.length; i++) this.drawShaft(i, time);
@@ -765,6 +769,7 @@ class Tower {
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
     const mini = this.px;
     riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 - mini + k * mini * 6, cy + ch - 1, mini, 'stand'));
+    this.cat?.drawInCar(i, cx, cy, cw, ch);
     const half = (cw - 4) / 2;
     const open = half * car.open;
     ctx.fillStyle = 'rgba(150,165,185,0.35)';
