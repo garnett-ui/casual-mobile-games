@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.52.1
+- Elevator Operator: fatter arrows for the floors riders want; garage cars
+  park in one row, others waiting behind them (seen when a car drives off).
+
 ## 1.52.0
 - Elevator Operator: the quiet spells now play fast instead of jumping.
   Whenever the screen is at rest -- nobody waiting or walking, the lifts

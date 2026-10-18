@@ -107,17 +107,15 @@ class Tower {
     return CAR[0].length * this.carU();
   }
 
-  // How many cars fit along a garage level, in each row.
+  // How many cars fit along a garage level.
   carsPerRow() {
     return Math.max(1, Math.floor((this.panelX - this.doorX - this.spriteW * 2) / (this.carW() + 4)));
   }
 
-  // Parking space `slot`: along the front row, then a second row behind
-  // (half a car over), then round again.
+  // Parking space `slot`: along the row, then round again -- parked behind
+  // the cars already there (seen when they drive off).
   slotX(slot) {
-    const n = this.carsPerRow();
-    const back = Math.floor(slot / n) % 2;
-    return this.doorX + (slot % n) * (this.carW() + 4) + back * this.carW() * 0.5;
+    return this.doorX + (slot % this.carsPerRow()) * (this.carW() + 4);
   }
 
   // This tower's strip of the screen: from ox, W wide, H tall. Two towers
@@ -445,11 +443,9 @@ class Tower {
   }
 
   drawAutos() {
-    // The back row first (a little higher up), then the front.
-    const back = (c) => c.state === 'parked' && Math.floor(c.slot / this.carsPerRow()) % 2 === 1;
-    for (const c of [...this.autos].sort((a, b) => back(b) - back(a))) {
-      this.drawCar(c.x, this.rowY(c.floor) + this.rowH - 2 - (back(c) ? this.carU() * 3 : 0), c.colour);
-    }
+    // Those parked behind first (the later spaces), so the ones in front
+    // hide them.
+    for (const c of [...this.autos].sort((a, b) => b.slot - a.slot)) this.drawCar(c.x, this.rowY(c.floor) + this.rowH - 2, c.colour);
   }
 
   // The roof: open to the sky, the helipad on the left, the lift machine
@@ -883,21 +879,23 @@ class Tower {
   // A small arrow pointing left (out of the lift), w wide, centred on y.
   drawArrow(x, y, w, colour) {
     const { ctx } = this;
-    const h = Math.max(5, w * 0.7);
-    const head = w * 0.5;
+    const h = Math.max(7, w * 0.95);
+    const head = w * 0.55;
+    const t = h * 0.3; // half the tail's thickness
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(x + head, y - h / 2);
-    ctx.lineTo(x + head, y - h / 5);
-    ctx.lineTo(x + w, y - h / 5);
-    ctx.lineTo(x + w, y + h / 5);
-    ctx.lineTo(x + head, y + h / 5);
+    ctx.lineTo(x + head, y - t);
+    ctx.lineTo(x + w, y - t);
+    ctx.lineTo(x + w, y + t);
+    ctx.lineTo(x + head, y + t);
     ctx.lineTo(x + head, y + h / 2);
     ctx.closePath();
     ctx.fillStyle = colour;
     ctx.fill();
     ctx.strokeStyle = '#1b1b1b';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
     ctx.stroke();
   }
 
