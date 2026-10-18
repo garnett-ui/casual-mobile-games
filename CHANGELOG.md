@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.47.0
+- Elevator Operator: people walk side-on, facing the way they're going, and
+  face you when they stand still. Half are women (narrower shoulders,
+  longer hair), and half of them wear dresses; half have darker skin tones.
+
 ## 1.46.0
 - Elevator Operator: taller people -- 8 by 16 pixels, twice as tall as wide
   -- with a five-step walk (legs striding, arms swinging) and more variety:
