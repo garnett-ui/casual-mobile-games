@@ -242,6 +242,43 @@ test('the dispatcher does well; par is its best; sending lifts at random does wo
   assert.ok(!random.over || random.stats().rms > par(spec).rms * 1.3, 'random is much slower');
 });
 
+test('the dispatcher: a lift on its way to a floor the other has emptied turns to something else', () => {
+  const sim = new Sim(TALL);
+  const g = sim.building.ground;
+  const look = [1, 2, 3, 4];
+  // Someone on 8 going down; lift A on 6, with a rider for 8 (so it gets
+  // there first); lift B in the lobby. Both are sent to 8 at once.
+  sim.arrivals = [{ id: 0, look, t: 0.1, from: g + 7, to: g }, { id: 1, look, t: 0, boarded: 0, from: g, to: g + 7 }];
+  sim.byId = new Map(sim.arrivals.map((a) => [a.id, a]));
+  sim.pending = [sim.arrivals[0]];
+  sim.occupancy = Array(sim.floors).fill(0);
+  sim.occupancy[g + 7] = 1;
+  Object.assign(sim.cars[0], { pos: g + 5, riders: [sim.arrivals[1]] });
+  const ev = run(sim, 30, (s) => dispatch(s));
+  assert.ok(ev.some((e) => e.type === 'board' && e.car === 0 && e.id === 0), 'A picks them up');
+  assert.ok(!ev.some((e) => e.type === 'stop' && e.car === 1 && e.floor === g + 7), 'B turns back');
+  assert.ok(sim.over);
+});
+
+test('the dispatcher stages idle lifts: the lobby in the morning, among the people in the evening', () => {
+  const at = (hour, type) => {
+    const sim = new Sim({ ...TALL, building: type === 'residential' ? building(20, 2, 'residential') : TALL.building });
+    sim.pending = [];
+    sim.t = toPlay(hour * 60, TALL.play);
+    sim.occupancy = Array(sim.floors).fill(0);
+    const top = sim.floors - 3;
+    for (let f = top - 3; f <= top; f++) sim.occupancy[f] = 5; // all up near the top
+    sim.cars.forEach((c) => Object.assign(c, { pos: Math.round(sim.floors / 2), phase: 'loading', settled: true }));
+    dispatch(sim);
+    return sim.cars.map((c) => c.target);
+  };
+  const g = TALL.building.ground;
+  const top = TALL.building.floors - 3;
+  assert.deepEqual(at(8.5), [g, g], 'offices, morning: both to the lobby');
+  for (const f of at(17.5)) assert.ok(f >= top - 3, `offices, evening: up among the people (${f})`);
+  for (const f of at(8, 'residential')) assert.ok(f >= top - 3, `homes, morning: up among the people (${f})`);
+  assert.deepEqual(at(18.5, 'residential'), [g, g], 'homes, evening: both to the lobby');
+});
 test('the score: every trip, the average, the median, the RMS', () => {
   const sim = only([{ t: 0.1, from: 5, to: 12 }, { t: 0.1, from: 5, to: 9 }, { t: 400, from: 1, to: 2 }]);
   sim.send(0, 5);

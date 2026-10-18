@@ -173,7 +173,7 @@ music.
   garage and roof; nobody ever sets off from a floor with nobody on it, and
   each floor shows how many people are on it.
 - People are little 8-bit figures who walk out of their offices, press the
-  call button by the lifts (it lights up, ▲ or ▼) and queue; a "…" bubble
+  call button by the lifts (it lights up: ▲ green, ▼ red) and queue; a "…" bubble
   means they've waited 20 s, a red "!" 40 s.
 - At the end: a histogram of everyone's trip times (from pressing the button
   to getting out), yours against the computer's, the average and median, and
@@ -181,8 +181,16 @@ music.
   take the square root, so a long wait counts for much more than a short
   one -- the computer dispatcher's over yours, with exactly the same people.
   The best possible schedule can't be computed in any reasonable time, so the
-  yardstick is the classic "collective control" used by real lift groups,
-  tried a few ways with the best taken. You can watch it run your day.
+  yardstick is the "collective control" used by real lift groups: each lift
+  keeps going its way, stopping where its riders want to get off and where
+  people are waiting that the other lift isn't already heading for, and
+  turns to its next job if the other lift gets there first. Idle lifts wait
+  where the next calls will likely come from at that time of day -- the
+  lobby while people are arriving, up among them when they're about to
+  leave (offices at lunch and in the evening, homes in the morning). It's
+  tried a few ways (with and without the staging, or assigning each call to
+  whichever lift would get there soonest) and the best taken. You can watch
+  it run your day.
 - The music is synthesised, like all the sound: a bossa nova in C on electric
   piano, bass, vibraphone and shaker (the ♪ button turns it off).
 

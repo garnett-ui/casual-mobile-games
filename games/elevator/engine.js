@@ -526,26 +526,42 @@ export class Sim {
 
 // A good dispatcher, to measure you against. (The best possible schedule
 // isn't something anyone can compute in time -- the number of ways to
-// order the stops explodes -- so this is the classic "collective control"
-// used by real lift groups, tuned a few ways, best of them taken.)
+// order the stops explodes -- so this is how real lift groups do it, tuned a
+// few ways, best of them taken.)
 //
-// Each car keeps going the way it's going, stopping at the nearest floor
-// ahead where someone inside wants to get off or someone is waiting (and the
-// other car isn't already on its way there); when there's nothing more
-// ahead it turns round. Moving cars pick people up on the way if they can
-// still stop in time.
+// Each lift keeps going the way it's going, stopping at the nearest floor
+// ahead where someone inside wants to get off or someone is waiting (that
+// the other lift isn't already on its way to -- or, assign: 'eta', that it
+// would get to soonest); when there's nothing more ahead it turns round.
+// Moving lifts pick people up on the way if they can still stop in time,
+// and one going somewhere there's no longer any reason to (the other lift
+// got them) turns to its next job. A lift with nothing to do waits where
+// the next calls are likely to come from at that time of day (stage), or in
+// the lobby.
 export function dispatch(sim, opts = {}) {
-  const { claim = true, ahead = true, park = true } = opts;
-  for (const car of sim.cars) {
-    const want = new Set(car.riders.map((p) => p.to));
-    if (car.riders.length < CAPACITY) {
-      sim.waiting.forEach((w, f) => {
-        if (!w.length) return;
-        // Leave it to the other car if that one's already heading there.
-        if (claim && sim.cars.some((o) => o !== car && o.target === f)) return;
-        want.add(f);
-      });
+  const { assign = 'claim', ahead = true, park = true, stage = true } = opts;
+  const B = sim.building;
+  const mine = sim.cars.map(() => new Set());
+  sim.waiting.forEach((w, f) => {
+    if (!w.length) return;
+    const free = sim.cars.filter((c) => c.riders.length < CAPACITY);
+    if (assign === 'eta') {
+      // Soonest first; the next too if they won't all fit.
+      const by = free.map((c) => [eta(c, f), c]).sort((a, b) => a[0] - b[0]);
+      let room = 0;
+      for (const [, c] of by) {
+        if (room >= w.length) break;
+        mine[c.i].add(f);
+        room += CAPACITY - c.riders.length;
+      }
+    } else {
+      // Any lift the other one isn't already on its way to.
+      for (const c of free) if (!sim.cars.some((o) => o !== c && o.target === f)) mine[c.i].add(f);
     }
+  });
+  const spots = park ? (stage ? staging(sim) : sim.cars.map((c) => (c.i === 0 ? B.ground : null))) : [];
+  for (const car of sim.cars) {
+    const want = new Set([...car.riders.map((p) => p.to), ...mine[car.i]]);
     // Busy until it's done letting people off and on (then it stands open,
     // ready to be sent on).
     const busy = car.phase === 'opening' || car.phase === 'closing' || (car.phase === 'loading' && !car.settled);
@@ -558,10 +574,17 @@ export function dispatch(sim, opts = {}) {
       }
       return best;
     };
-    if (car.phase === 'moving' && ahead) {
+    if (car.phase === 'moving') {
       // Something to pick up (or drop off) on the way?
       const f = nearest(car.dir, car.pos, stopping);
-      if (f !== null && (car.target - car.pos) * car.dir > (f - car.pos) * car.dir) sim.send(car.i, f);
+      const past = (g) => (car.target - car.pos) * car.dir > (g - car.pos) * car.dir;
+      if (ahead && f !== null && past(f)) sim.send(car.i, f);
+      else if (!want.has(car.target) && car.target !== car.parkAt) {
+        // Nobody there for it any more: on to the next job, or to wait.
+        const g = f ?? nearest(-car.dir, car.pos, -Infinity);
+        if (g !== null) sim.send(car.i, g);
+        else if (spots[car.i] != null) sim.send(car.i, (car.parkAt = spots[car.i]));
+      }
       continue;
     }
     if (busy || car.target !== null) continue;
@@ -569,10 +592,60 @@ export function dispatch(sim, opts = {}) {
     let f = nearest(car.dir, here, 1);
     if (f === null) f = nearest(-car.dir, here, 1);
     if (f === null && want.has(here) && sim.waiting[here].length) f = here;
-    const lobby = sim.building.ground;
-    if (f === null && park && here !== lobby && car.i === 0) f = lobby; // wait in the lobby
-    if (f !== null) sim.send(car.i, f);
+    if (f !== null) {
+      car.parkAt = null;
+      sim.send(car.i, f);
+    } else if (spots[car.i] != null && spots[car.i] !== here) sim.send(car.i, (car.parkAt = spots[car.i]));
   }
+}
+
+// Roughly how soon car could be at floor f (seconds): along the way it's
+// going, stopping for its riders, turning round if f is behind it.
+function eta(car, f) {
+  const stop = 2 * DOOR + DWELL + 1.5;
+  const drops = [...new Set(car.riders.map((p) => p.to))];
+  const dir = drops.length ? Math.sign(drops[0] - car.pos) || car.dir || 1 : Math.sign(f - car.pos) || 1;
+  const ahead = (g) => (g - car.pos) * dir >= 0;
+  let dist = Math.abs(f - car.pos);
+  let stops = drops.filter((g) => ahead(g) && (g - f) * dir < 0).length;
+  if (!ahead(f) && drops.length) {
+    // On to the farthest of its riders' floors first, then back.
+    const far = drops.reduce((a, g) => ((g - a) * dir > 0 ? g : a), car.pos);
+    dist = Math.abs(far - car.pos) + Math.abs(far - f);
+    stops = drops.length;
+  }
+  const busy = car.phase === 'opening' || car.phase === 'closing' || (car.phase === 'loading' && !car.settled) ? 2 * DOOR : 0;
+  // Already on its way there: stick with it (unless the other's much nearer).
+  const keen = car.target === f && car.parkAt !== f ? 3 : 0;
+  return dist / VMAX + stops * stop + busy - keen;
+}
+
+// Where the lifts wait, by the time of day: in the lobby while people are
+// arriving; among the people (the busiest floors) when they're about to
+// leave; one of each in between. Offices fill in the morning and after
+// lunch and empty at lunch and in the evening; homes the other way round.
+function staging(sim) {
+  const B = sim.building;
+  const h = clockAt(sim.t, sim.spec.play ?? PLAY) / 60;
+  const mode = B.type === 'residential'
+    ? h < 10.5 ? 'out' : h < 16 ? 'mixed' : 'in'
+    : h < 11.75 ? 'in' : h < 12.75 ? 'out' : h < 14 ? 'in' : h < 15.75 ? 'mixed' : 'out';
+  const total = sim.occupancy.reduce((a, b) => a + b, 0);
+  // The floor below which a fraction q of the people are.
+  const among = (q) => {
+    let seen = 0;
+    for (let f = 0; f < B.floors; f++) {
+      seen += sim.occupancy[f];
+      if (seen > q * total) return f;
+    }
+    return B.ground;
+  };
+  const n = sim.cars.length;
+  return sim.cars.map((c, k) => {
+    if (!total || mode === 'in') return B.ground;
+    if (mode === 'out') return among((k + 0.5) / n);
+    return k === 0 ? B.ground : among(0.5);
+  });
 }
 
 // Runs one tower's day with the dispatcher until everyone's delivered.
@@ -644,7 +717,7 @@ export class Day {
 
 // The score to beat: for each tower, the version of the dispatcher with the
 // smallest sum of squared trips (on the same people), all together.
-export const VARIANTS = [{}, { claim: false }, { park: false }, { ahead: false }];
+export const VARIANTS = [{}, { stage: false }, { stage: false, ahead: false }, { assign: 'eta', stage: false }];
 export function par(spec) {
   if (spec.towers && spec.towers.length > 1) {
     // Two towers (linked by the people going between them): each version of

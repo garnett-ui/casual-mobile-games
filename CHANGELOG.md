@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.41.0
+- Elevator Operator: a smarter computer to beat. A lift no longer carries on
+  to a floor the other lift has already emptied -- it turns to its next job.
+  Idle lifts wait where the next calls are likely to come from at that time
+  of day: the lobby while people are arriving, up among the people when
+  they're about to leave (offices at lunch and in the evening, homes in the
+  morning).
+
 ## 1.40.0
 - Elevator Operator: call buttons light green for up and red for down. A
   lift holds 6, shown side by side from its left wall. The floors its riders
