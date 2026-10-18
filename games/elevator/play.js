@@ -8,6 +8,43 @@ import { Day, CARS, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } f
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+// Two colours mixed (u = 0..1), as #rrggbb.
+function mix(a, b, u) {
+  const p = (c, i) => parseInt(c.slice(1 + 2 * i, 3 + 2 * i), 16);
+  return `#${[0, 1, 2].map((i) => Math.round(p(a, i) + (p(b, i) - p(a, i)) * u).toString(16).padStart(2, '0')).join('')}`;
+}
+
+// The sky's colours through the day: [minutes after midnight, top, bottom].
+const SKY = [
+  [390, '#1b2445', '#f19a6b'],
+  [450, '#6a9fd8', '#f6d7b5'],
+  [540, '#5f9fe0', '#d6eafb'],
+  [1050, '#5f9fe0', '#d6eafb'],
+  [1125, '#4f6fb0', '#f5b27a'],
+  [1165, '#2c2c5e', '#e5795a'],
+  [1200, '#0b1030', '#2a2550'],
+];
+
+// The day's milestones.
+const NOTES = [
+  [421, 'Good morning! The doors are open'],
+  [490, 'The morning rush'],
+  [600, 'Meetings, upstairs and down'],
+  [735, 'Lunchtime!'],
+  [840, 'Back to work'],
+  [1035, 'Home time'],
+  [1170, 'Night falls…'],
+];
+const NOTES_TWIN = [
+  [421, 'Rise and shine! Parkview is waking up'],
+  [480, 'Off to work: across the street, or into town'],
+  [600, 'Meetings, upstairs and down'],
+  [735, 'Lunchtime!'],
+  [840, 'Back to work'],
+  [1035, 'Home time: back across the street'],
+  [1170, 'Night falls: everyone home, lights out'],
+];
+
 // ------------------------------------------------------------ 8-bit people
 
 const SKIN = ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524'];
@@ -951,6 +988,8 @@ export class Play {
   }
 
   update(dt) {
+    const before = clockAt(this.day.t, this.spec.play);
+    if (this.banner) this.banner.t += dt / this.timeScale;
     const n = Math.max(1, Math.ceil(dt / (1 / 30)));
     for (let k = 0; k < n; k++) {
       if (this.autopilot) this.day.sims.forEach((s, i) => dispatch(s, this.autopilot[i] || {}));
@@ -960,30 +999,119 @@ export class Play {
       }
     }
     for (const t of this.towers) t.tick(dt);
+    this.note(before === clockAt(0, this.spec.play) ? before - 1 : before, clockAt(this.day.t, this.spec.play));
   }
 
   draw(time) {
-    const { ctx, W, H } = this;
+    const { ctx } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#6ea8de');
-    sky.addColorStop(1, '#d6eafb');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
+    const mins = clockAt(this.day.t, this.spec.play);
+    this.drawSky(mins, time);
     for (const t of this.towers) {
       ctx.save();
       ctx.translate(t.ox, 0);
       t.draw(time);
       ctx.restore();
     }
+    this.drawNight(mins);
     this.drawHud();
+    this.drawBanner();
+  }
+
+  // The sky through the day: dawn pink, day blue, golden hour, an orange
+  // sunset, then night (if you're still at it); the sun rising in the east
+  // (left), high at noon, setting in the west; stars after dark.
+  drawSky(mins, time) {
+    const { ctx, W, H } = this;
+    const at = (keys) => {
+      let k = 0;
+      while (k < keys.length - 2 && mins > keys[k + 1][0]) k++;
+      const [m0, ...a] = keys[k];
+      const [m1, ...b] = keys[k + 1];
+      const u = clamp((mins - m0) / (m1 - m0), 0, 1);
+      return a.map((c, i) => mix(c, b[i], u));
+    };
+    const [top, bottom] = at(SKY);
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, top);
+    sky.addColorStop(1, bottom);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+    // Stars, coming out as it gets dark.
+    const dark = clamp((mins - 1150) / 40, 0, 1);
+    if (dark > 0) {
+      this.stars ??= Array.from({ length: 60 }, (_, k) => [((k * 97) % 101) / 101, ((k * 53) % 89) / 89, (k % 3) + 1]);
+      for (const [x, y, s] of this.stars) {
+        ctx.globalAlpha = dark * (0.5 + 0.5 * Math.sin(time * 2 + x * 40));
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x * W, this.hud + y * H * 0.4, s * 0.8, s * 0.8);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // The sun, from about 6:45 to 7:20 PM.
+    const u = (mins - 405) / (1160 - 405);
+    if (u > -0.02 && u < 1.02) {
+      const t0 = this.towers[0];
+      const horizon = t0.rowY(t0.B.ground) + t0.rowH;
+      const high = this.hud + 70;
+      const x = W * (0.06 + 0.88 * u);
+      const y = horizon - Math.sin(Math.PI * clamp(u, 0, 1)) * (horizon - high);
+      const low = 1 - Math.sin(Math.PI * clamp(u, 0, 1));
+      const core = mix('#fff6c8', '#ff8c42', low);
+      const glow = ctx.createRadialGradient(x, y, 4, x, y, 60);
+      glow.addColorStop(0, `${core}cc`);
+      glow.addColorStop(1, `${core}00`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x, y, 60, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(x, y, 13, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // After sunset, everything outside dims (the lit floors still show).
+  drawNight(mins) {
+    const dark = clamp((mins - 1140) / 50, 0, 1);
+    if (!dark) return;
+    const { ctx, W, H } = this;
+    ctx.fillStyle = `rgba(10,14,40,${0.3 * dark})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // The day's milestones, announced as they come.
+  note(before, now) {
+    const notes = this.towers.length > 1 ? NOTES_TWIN : NOTES;
+    for (const [m, text] of notes) if (before < m && now >= m) this.banner = { text, t: 0 };
+  }
+
+  drawBanner() {
+    const b = this.banner;
+    if (!b || b.t > 3.2) return;
+    const { ctx, W } = this;
+    const a = Math.min(1, b.t / 0.3, (3.2 - b.t) / 0.5);
+    ctx.globalAlpha = a;
+    ctx.font = '800 16px system-ui, sans-serif';
+    const w = ctx.measureText(b.text).width + 28;
+    const y = this.hud + 12 + (1 - Math.min(1, b.t / 0.3)) * -10;
+    ctx.fillStyle = 'rgba(34,40,58,0.88)';
+    ctx.beginPath();
+    ctx.roundRect((W - w) / 2, y, w, 30, 15);
+    ctx.fill();
+    ctx.fillStyle = '#ffd23f';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(b.text, W / 2, y + 15);
+    ctx.globalAlpha = 1;
   }
 
   // An analog clock: the time of day in the building.
   drawClock() {
     const { ctx } = this;
-    const mins = clockAt(this.day.t);
+    const mins = clockAt(this.day.t, this.spec.play);
     const r = 21;
     const cx = 8 + r;
     const cy = this.hud + 6 + r;

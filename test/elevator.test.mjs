@@ -161,17 +161,23 @@ test('the building: parking, the lobby, a restaurant on 2, offices, a health clu
   assert.ok(levelSpec(2).workers > levelSpec(1).workers && levelSpec(5).workers > levelSpec(4).workers);
 });
 
-test('every level is a whole working day, 7 AM to 7:30 PM, played in about five minutes', () => {
+test('every level is a whole working day, 7 AM to 7:30 PM: five minutes to start, longer in bigger buildings', () => {
   assert.equal(clockAt(0), 7 * 60);
   assert.equal(clockAt(PLAY), 19.5 * 60);
-  for (const n of [1, 4, 7, TWINS]) {
+  assert.equal(levelSpec(1).play, PLAY);
+  const plays = [1, 4, 7, 10, TWINS].map((n) => levelSpec(n).play);
+  assert.deepEqual([...plays].sort((a, b) => a - b), plays, 'longer as the buildings grow');
+  for (const n of [1, 4, 7, 10, TWINS]) {
     const spec = levelSpec(n);
     const times = spec.towers.flatMap((t) => t.arrivals.map((a) => a.t)).filter(Number.isFinite);
-    assert.ok(Math.min(...times) < toPlay(8.5 * 60), `level ${n}: starts with the morning rush`);
-    assert.ok(Math.max(...times) > toPlay(17.5 * 60), `level ${n}: ends with the evening`);
-    const { over } = runDay(spec);
-    assert.ok(over.time > PLAY * 0.85 && over.time < PLAY * 1.4, `level ${n}: ${Math.round(over.time)} s`);
+    assert.ok(Math.min(...times) < toPlay(8.5 * 60, spec.play), `level ${n}: starts with the morning rush`);
+    assert.ok(Math.max(...times) > toPlay(17.5 * 60, spec.play), `level ${n}: ends with the evening`);
+    const { over, best } = runDay(spec);
+    assert.ok(over.time > spec.play * 0.85 && over.time < spec.play * 1.2, `level ${n}: ${Math.round(over.time)} s of ${spec.play}`);
+    assert.ok(best.rms < 45, `level ${n}: playable (the computer's RMS trip ${Math.round(best.rms)} s)`);
   }
+  // Each building has a name, and each level is the next day there.
+  assert.deepEqual([1, 2, 3, 4].map((n) => [levelSpec(n).place, levelSpec(n).day]), [['Maple Street Offices', 1], ['Maple Street Offices', 2], ['Maple Street Offices', 3], ['Riverside House', 1]]);
 });
 
 test('the offices are empty at dawn and empty at night; the mix at the peaks matches the surveys', () => {

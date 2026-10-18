@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.38.0
+- Elevator Operator: the sun rises, crosses the sky and sets over the day,
+  the sky turns from dawn to daylight to dusk, and night falls with the
+  stars out. Each level tells you where you are and what day it is: three
+  days at each building, from Maple Street Offices to The Empire, then
+  Parkview and Commerce Tower. Bigger buildings get longer days (five
+  minutes at first, up to about nine), and banners mark the morning rush,
+  lunchtime, home time and nightfall.
+
 ## 1.37.0
 - Elevator Operator: every level is a whole working day, 7 AM to 7:30 PM, in
   about five minutes. The day is made of people, each with their own day:

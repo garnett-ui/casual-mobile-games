@@ -236,14 +236,25 @@ export function mount(root, ctx, sub) {
       });
     }
 
+    // The story so far: a new building every few days.
+    const people = spec.residents ? `${spec.residents} residents and ${spec.workers} more who come to work` : `${spec.workers} people`;
+    const story = spec.residents
+      ? (spec.day === 1
+        ? `The big one: you run Parkview Apartments and, across the street, Commerce Tower -- two lifts in each. ${spec.residents} residents are asleep in Parkview. Around 8 they'll all head out, most of them over the street to work in Commerce Tower (on foot, by car, a couple by helicopter), the rest into town, while ${spec.workers} more arrive at the offices from elsewhere. Tonight, everyone comes home.`
+        : `Day ${spec.day} at Parkview and Commerce Tower: ${people}.`)
+      : spec.day === 1
+        ? [`Your first day as the lift operator at Maple Street Offices: six storeys, two lifts, ${people} at work.`,
+          `Promoted! Riverside House has ten storeys, a garage, a restaurant and a health club -- and ${people}.`,
+          `Harbor Plaza: fifteen storeys, two levels of parking, ${people}. The days are longer here.`,
+          `The Empire: twenty storeys under its famous crown, ${people} -- and still only two lifts.`][Math.min(3, Math.floor((n - 1) / 3))]
+        : `Day ${spec.day} at ${spec.place}. Word has got around: ${people} work here now.`;
     showDialog(dialog, ctx, {
-      title: `Level ${n}`,
-      text: `${spec.towers.length > 1
-        ? `A whole day, 7 AM to 7:30 PM, in about five minutes. Two towers, two lifts each: apartments on the left, where ${spec.residents} people sleep, and offices on the right. In the morning the residents all leave -- most cross the street to work in the offices (walking, driving or flying), the rest go into town -- while ${spec.workers} more come to the offices from elsewhere. Lunch, meetings, and in the evening everyone goes home.`
-        : `A whole working day, 7 AM to 7:30 PM, in about five minutes. ${spec.workers} people work in this ${spec.building.storeys}-storey building: they arrive in the morning rush, go to meetings on other floors, out to lunch (or down to the restaurant, or up to the gym), and home in the evening.`}<br><br>
+      title: spec.day === 1 ? spec.place : `${spec.place}, day ${spec.day}`,
+      text: `${story}<br><br>
+        A whole day, 7 AM to 7:30 PM, in about ${Math.round(spec.play / 60)} minutes: the morning rush, meetings, lunch (out, the restaurant or the gym), home time.<br><br>
         <b>Tap a floor in a lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most). The floors they want light up, with a figure for each of them.<br><br>
-        You’re done when everyone has got where they’re going. The shorter their trips, the better, and a long wait counts extra.`,
+        The shorter everyone’s trips, the better, and a long wait counts extra.`,
       buttons: [{ label: 'Open the doors', act: 'start', primary: true, run: () => start() }],
     });
   }

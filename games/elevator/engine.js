@@ -60,11 +60,11 @@ export const BASE_SEED = 20261018;
 // The day: every level is a whole working day, 7 AM to 7:30 PM, played in
 // about five minutes.
 export const DAY = { start: 7 * 60, end: 19.5 * 60 }; // minutes after midnight
-export const PLAY = 300; // seconds of play for the day
-export const toPlay = (min) => ((min - DAY.start) / (DAY.end - DAY.start)) * PLAY;
+export const PLAY = 300; // seconds of play for the day (longer in bigger buildings)
+export const toPlay = (min, play = PLAY) => ((min - DAY.start) / (DAY.end - DAY.start)) * play;
 // The time of day (minutes after midnight) at time t of the level.
-export function clockAt(t) {
-  return DAY.start + (t / PLAY) * (DAY.end - DAY.start);
+export function clockAt(t, play = PLAY) {
+  return DAY.start + (t / play) * (DAY.end - DAY.start);
 }
 
 // For reference: how the traffic divides at the peaks, from surveys of
@@ -83,28 +83,43 @@ export const MIX = {
 // can only do so much: a real 20-storey tower would have six or eight). From level 13
 // there are two towers to run, two lifts each: apartments, where people sleep
 // at night, and offices, where they (and others from elsewhere) work by day.
+//
+// Bigger buildings take longer: the day is played over 5 minutes in the
+// first, 5.7, 6.7 and 8 in the taller ones, 8 to 9 for the two towers. Each
+// building has a name, and each level is the next day there.
 export const TWINS = 13;
+export const PLACES = ['Maple Street Offices', 'Riverside House', 'Harbor Plaza', 'The Empire', 'Parkview & Commerce Tower'];
 export function levelSpec(n) {
   const seed = seedFor(n, BASE_SEED);
   let towers;
   let workers;
   let residents = 0;
+  let play;
+  let place;
+  let day;
   if (n < TWINS) {
     const stage = Math.floor((n - 1) / 3);
     workers = [10, 16, 20, 24][stage] + 2 * ((n - 1) % 3);
+    play = [300, 340, 400, 480][stage];
     towers = [{ building: building([6, 10, 15, 20][stage]) }];
+    place = PLACES[stage];
+    day = ((n - 1) % 3) + 1;
   } else {
     const k = n - TWINS;
     residents = Math.min(48, 24 + 3 * k);
     workers = Math.min(24, 8 + k); // from elsewhere
+    play = Math.min(540, 480 + 15 * k);
     towers = [{ building: building(10, 1, 'residential') }, { building: building(10, 1) }];
+    place = PLACES[4];
+    day = k + 1;
   }
-  const plans = dayPlan(towers.map((t) => t.building), { workers, residents, seed });
+  const plans = dayPlan(towers.map((t) => t.building), { workers, residents, seed, play });
   towers.forEach((t, k) => {
     t.arrivals = plans[k];
     t.people = plans[k].length;
+    t.play = play;
   });
-  return { ...towers[0], n, towers, workers, residents, people: towers.reduce((a, t) => a + t.people, 0) };
+  return { ...towers[0], n, towers, workers, residents, play, place, day, people: towers.reduce((a, t) => a + t.people, 0) };
 }
 
 // Floors where people stay a while (and are counted): the restaurant, the
@@ -131,7 +146,7 @@ export const TRANSIT = { walk: 14, drive: 12, fly: 16 };
 // trip waits until they've finished the last one (and, between the towers,
 // crossed the street). Returns each tower's trips, with `start`: how many
 // are on each floor at dawn.
-export function dayPlan(buildings, { workers, residents, seed }) {
+export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
   const r = rng(seed);
   const twin = buildings.length > 1;
   const O = buildings.at(-1);
@@ -245,7 +260,7 @@ export function dayPlan(buildings, { workers, residents, seed }) {
     const face = look();
     let last = null;
     for (const leg of legs) {
-      const trip = { id: ids[leg.tower]++, t: toPlay(leg.min), from: leg.from, to: leg.to, look: face };
+      const trip = { id: ids[leg.tower]++, t: toPlay(leg.min, play), from: leg.from, to: leg.to, look: face };
       if (last) {
         if (last.tower === leg.tower) trip.prev = last.trip.id;
         else {

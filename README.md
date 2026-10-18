@@ -131,15 +131,21 @@ tells you what he needs and reacts as you go.
 
 ### Elevator Operator
 
-You run the lifts for a whole working day -- 7 AM to 7:30 PM, played in about
-five minutes, with an analog clock -- in an office building: parking below
-the street, the lobby at street level, a restaurant on the 2nd floor,
-offices, a health club on the top storey and a helipad on the roof. It
-starts at 6 storeys with 10 people working there and grows every three
-levels (10 storeys, then 15 with two parking levels, then 20, crowned like
-the Empire State Building), with more people each level. From level 13
-there are two towers to run, two lifts each: apartments and offices.
-Played upright on a phone (either way on a tablet), to lift music.
+You run the lifts for a whole working day -- 7 AM to 7:30 PM, with an
+analog clock, the sun rising and crossing the sky and the city going dark at
+night -- in an office building: parking below the street, the lobby at
+street level, a restaurant on the 2nd floor, offices, a health club on the
+top storey and a helipad on the roof. It's a career told a day at a time:
+three days at each building, with more people every day. Maple Street
+Offices (6 storeys, 10 people, a five-minute day), then Riverside House (10
+storeys), Harbor Plaza (15, two parking levels) and The Empire (20, crowned
+like the Empire State Building), each day a little longer -- up to eight
+minutes -- as the buildings grow. From level 13 you run Parkview (the
+apartments) and Commerce Tower (the offices) across the street from each
+other, two lifts each, in days of eight or nine minutes. Banners mark the
+day's moments (the doors open, the morning rush, lunchtime, home time,
+nightfall). Played upright on a phone (either way on a tablet), to lift
+music.
 
 - **Tap a floor in a lift's shaft** to send it there. Each lift has exactly
   one next stop; tap another floor and it changes course at once. A lift you
