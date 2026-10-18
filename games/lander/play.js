@@ -193,8 +193,10 @@ export class Play {
       } else if (was && !L.landed) {
         this.outcome = null;
       }
-      this.hooks.onSound?.('engine', L.thrusting && !L.crashed);
-      this.hooks.onSound?.('rcs', !!L.rcs && !L.crashed);
+      // (Silent once down on the base: nothing runs after that.)
+      const down = L.crashed || this.outcome?.kind === 'landed';
+      this.hooks.onSound?.('engine', L.thrusting && !down);
+      this.hooks.onSound?.('rcs', !!L.rcs && !down);
       // Low fuel alarm.
       if (!L.landed && L.fuel > 0 && L.fuel / L.fuelMax < 0.15 && L.t > this.alarmAt) {
         this.alarmAt = L.t + 2;

@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.29.1
+- Lunar Lander: the engine falls silent when you touch down on the base.
+  If you landed with the engine still firing, its roar used to carry on
+  under "The Eagle has landed".
+
 ## 1.29.0
 - Lunar Lander: **Show me**. After a crash you can watch the autopilot fly
   the mission as well as it knows how -- it tries a few ways and flies the

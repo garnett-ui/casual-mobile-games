@@ -73,6 +73,15 @@ test('a gentle landing on the base scores; hard, tilted or fast ones crash', () 
   const firm = land(1.9, 0.8);
   assert.equal(firm.kind, 'landed');
   assert.ok(firm.score.total < soft.score.total);
+  // Touching down with the engine still firing: it's shut off on landing.
+  const L = newLander(level, 100);
+  L.landed = null;
+  L.x = (level.base.x0 + level.base.x1) / 2;
+  L.y = level.base.y + 0.01;
+  L.vy = -1;
+  const res = step(level, L, { thrust: true }, 1 / 60);
+  assert.equal(res.kind, 'landed');
+  assert.equal(L.thrusting, false, 'engine off once landed');
   assert.equal(land(SAFE.vy + 1).kind, 'crash');
   assert.equal(land(0.5, SAFE.vx + 0.5).kind, 'crash');
   assert.equal(land(0.5, 0, SAFE.angle + 0.1).kind, 'crash');

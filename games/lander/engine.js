@@ -449,10 +449,12 @@ function contact(level, L) {
   if (tilt > SAFE.angle) return crash(L, `Tipped over at ${((tilt * 180) / Math.PI).toFixed(0)}°`, details);
   const slope = Math.abs(Math.atan(slopeAt(level, L.x)));
   if (slope > SAFE.angle) return crash(L, 'Ground too steep', details);
-  // Settle on the surface.
+  // Settle on the surface, engines off.
   L.y = Math.max(heightAt(level, L.x - FEET), heightAt(level, L.x + FEET));
   L.angle = 0;
   L.omega = L.vx = L.vy = 0;
+  L.thrusting = false;
+  L.rcs = 0;
   if (onPad(level.base, L)) {
     L.landed = 'base';
     return { kind: 'landed', ...details, score: scoreLanding(level, L, details) };
