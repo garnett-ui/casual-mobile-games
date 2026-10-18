@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.45.0
+- Elevator Operator: a lift never leaves a floor with someone still aboard
+  who wanted to get off there. Tap it on to another floor while it's
+  stopped and it goes only once everyone for that floor is out and everyone
+  waiting there is in.
+
 ## 1.44.0
 - Elevator Operator: the first day at Maple Street Offices has a single
   lift (and a small firm of 6); the second lift opens on day 2. Every lift is

@@ -151,7 +151,9 @@ music.
 
 - **Tap a floor in a lift's shaft** to send it there. Each lift has exactly
   one next stop; tap another floor and it changes course at once. A lift you
-  haven't sent anywhere waits with its doors open.
+  haven't sent anywhere waits with its doors open. Sent on while it's
+  stopped, it goes only once everyone for that floor is out and everyone
+  waiting there is in -- nobody is ever carried past their floor.
 - When a lift stops, anyone for that floor walks out (one at a time), then
   everyone waiting walks in, up to 6 -- shown side by side, the same size as
   everyone on the floors (the lifts are drawn wide enough). People walk up

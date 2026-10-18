@@ -125,29 +125,31 @@ test('the first day: six storeys, one lift', () => {
   assert.equal(best.delivered, spec.people);
 });
 
-test('everyone getting off goes before anyone gets on; sent off early, the rest stay aboard', () => {
+test('everyone getting off goes before anyone gets on; sent off early, it waits till they have', () => {
   const sim = only([
     ...Array.from({ length: 4 }, () => ({ t: 0.05, from: 0, to: 6 })),
     { t: 0.06, from: 6, to: 0 },
     { t: 400, from: 1, to: 2 },
   ]);
   sim.send(0, 0);
-  run(sim, approach(sim.building, 0) + 3);
+  run(sim, approach(sim.building, 0) + PRESS + 4 * 0.4 + 2);
   assert.equal(sim.cars[0].riders.length, 4);
   sim.send(0, 6);
   const ev = [];
   while (sim.cars[0].phase !== 'loading') ev.push(...sim.step(1 / 30));
-  // Two get off, then the lift is sent away before the others can.
+  // Two get off, then the lift is sent on: it goes only once the other two
+  // are off too, and the one waiting here is on.
   while (sim.delivered < 2) ev.push(...sim.step(1 / 30));
   sim.send(0, 10);
-  ev.push(...run(sim, DOOR + 0.5));
-  assert.equal(sim.delivered, 2);
-  assert.equal(sim.cars[0].riders.length, 2, 'two still aboard, still wanting 6');
-  assert.ok(sim.lit(0).has(6));
+  while (sim.cars[0].phase === 'loading') ev.push(...sim.step(1 / 30));
+  assert.equal(sim.delivered, 4, 'all four got off');
+  assert.deepEqual(sim.cars[0].riders.map((p) => p.to), [0], 'and the one waiting got on');
+  assert.equal(sim.cars[0].target, 10, 'then it goes where it was sent');
   // Nobody boarded while people were still getting off.
   const order = ev.filter((e) => e.type === 'deliver' || e.type === 'board').map((e) => e.type);
-  assert.ok(!order.includes('board'), order.join(','));
-  assert.equal(sim.waiting[6].length, 1, 'the one waiting at 6 is still waiting');
+  assert.deepEqual(order, ['deliver', 'deliver', 'deliver', 'deliver', 'board']);
+  run(sim, 10);
+  assert.equal(sim.floorOf(sim.cars[0]), 10);
 });
 
 test('true occupancy: someone due to leave an empty floor waits until someone is there', () => {

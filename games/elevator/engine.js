@@ -111,7 +111,7 @@ export function levelSpec(n) {
   let day;
   if (n < TWINS) {
     const stage = Math.floor((n - 1) / 3);
-    workers = n === 1 ? 7 : [10, 16, 20, 26][stage] + 2 * ((n - 1) % 3); // (day one: one lift, a small firm)
+    workers = n === 1 ? 6 : [10, 16, 20, 26][stage] + 2 * ((n - 1) % 3); // (day one: one lift, a small firm)
     play = [300, 360, 450, 600][stage]; // 5 to 10 minutes
     towers = [{ building: building([6, 10, 15, 20][stage]), cars: n === 1 ? 1 : CARS }];
     place = PLACES[stage];
@@ -437,7 +437,7 @@ export class Sim {
         break;
       }
       case 'opening':
-        if (this.leaving(car, here)) break;
+        // (Even if it's been sent on, the doors open: people get off first.)
         car.timer -= dt;
         car.open = clamp(1 - car.timer / DOOR, 0, 1);
         if (car.timer <= 0) {
@@ -449,10 +449,7 @@ export class Sim {
         }
         break;
       case 'loading': {
-        // Sent somewhere else with the doors open: they close at once, and
-        // anyone who hadn't got off yet stays on. (Sent to where it is:
-        // it's there already.)
-        if (this.leaving(car, here)) break;
+        // (Sent to where it is: it's there already.)
         if (car.target === here) car.target = null;
         car.dwell += dt;
         car.timer -= dt;
@@ -479,9 +476,13 @@ export class Sim {
             break;
           }
         }
-        // Then it waits here, doors open, until it's sent somewhere (not
-        // with someone just pressing the button for it).
-        car.settled = car.timer <= 0 && car.dwell >= DWELL && !(car.riders.length < CAPACITY && this.waiting[here].length);
+        // Only once everyone for this floor is out, and everyone waiting
+        // here (who fits) is in -- including anyone just pressing the button
+        // -- does it go where it's been sent (nobody's ever carried past
+        // their floor). Till then, or till it's sent, it waits, doors open.
+        const exchanging = car.timer > 0 || (car.riders.length < CAPACITY && this.waiting[here].length > 0);
+        if (!exchanging && this.leaving(car, here)) break;
+        car.settled = !exchanging && car.dwell >= DWELL;
         break;
       }
       case 'closing':
