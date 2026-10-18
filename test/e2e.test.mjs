@@ -907,15 +907,15 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     await page.locator('[data-act=start]').click();
     await page.waitForFunction(() => window.__elevator && !window.__elevator.paused);
 
-    // Tap lift B's shaft at the 12th floor: that's where it goes.
+    // Tap lift B's shaft at the 5th floor: that's where it goes.
     const box = await page.locator('canvas').boundingBox();
     const at = await page.evaluate(() => {
       const p = window.__elevator;
-      return { x: p.shaftX[1] + p.shaftW / 2, y: p.rowY(11) + p.rowH / 2 };
+      return { x: p.shaftX[1] + p.shaftW / 2, y: p.rowY(5) + p.rowH / 2 };
     });
     await page.touchscreen.tap(box.x + at.x, box.y + at.y);
-    assert.equal(await page.evaluate(() => window.__elevator.sim.cars[1].target), 11);
-    await page.waitForFunction(() => window.__elevator.sim.cars[1].pos > 1);
+    assert.equal(await page.evaluate(() => window.__elevator.sim.cars[1].target), 5);
+    await page.waitForFunction(() => window.__elevator.sim.cars[1].pos > 1.5);
 
     // Pause holds the clock.
     await page.locator('[data-act=pause]').click();

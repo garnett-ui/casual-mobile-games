@@ -131,11 +131,17 @@ tells you what he needs and reacts as you go.
 
 ### Elevator Operator
 
-You run the two lifts in a 20-storey tower, crowned like the Empire State
-Building: two levels of parking below the street (P2, P1), the lobby at
-street level, a restaurant on the 2nd floor, offices on 3 to 19 and a health
-club on 20. Played upright on a phone (either way on a tablet), to lift
-music.
+You run the two lifts in an office building: parking below the street, the
+lobby at street level, a restaurant on the 2nd floor, offices, a health club
+on the top storey and a helipad on the roof. It starts at 6 storeys and grows
+every four levels (10, then 15 with two parking levels, then 20, crowned like
+the Empire State Building). Played upright on a phone (either way on a
+tablet), to lift music.
+
+- People walk in off the street through the lobby's glass doors (and out
+  again), drive down the ramp into the garage, park and walk to the lifts (or
+  walk to their car and drive away), and now and then fly in or out by
+  helicopter from the roof.
 
 - **Tap a floor in a lift's shaft** to send it there. Each lift has exactly
   one next stop; tap another floor and it changes course at once (braking and

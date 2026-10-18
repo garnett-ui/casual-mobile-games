@@ -6,6 +6,17 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.33.0
+- Elevator Operator starts with a 6-storey building (parking, lobby,
+  restaurant, offices, health club, roof) and grows every four levels: 10
+  storeys, then 15 with two parking levels, then 20 under the Empire State
+  crown.
+- Life around the building: people walk along the street and in through the
+  lobby doors (and back out), drive down the ramp into the garage, park and
+  walk to the lifts (or walk to their car and drive off), and once or twice a
+  level a helicopter lands on the roof's helipad to drop someone off or pick
+  them up -- the lifts go up to the roof.
+
 ## 1.32.0
 - Elevator Operator: the tower has two levels of parking below the street
   (P2, P1; some people drive in and walk from their cars), the lobby at street

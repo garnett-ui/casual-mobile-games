@@ -8,18 +8,40 @@
 // buttons for their floors; those light up in the car's shaft.
 import { rng, seedFor } from '../../js/lib/random.js';
 
-// The building, from the bottom: two levels of parking (P2, P1), the lobby
-// at street level, a restaurant on the 2nd floor, offices on 3 to 19 and a
-// health club on the top floor (20).
-export const FLOORS = 22;
-export const GROUND = 2; // the lobby
-export const GARAGE = [0, 1];
-export const RESTAURANT = 3;
-export const GYM = FLOORS - 1;
-export const OFFICES = [4, FLOORS - 2]; // first and last office floor
-export function floorName(f) {
-  return f < GROUND ? `P${GROUND - f}` : f === GROUND ? 'L' : String(f - 1);
+// The building, from the bottom: parking below the street (P1, or P2 and
+// P1), the lobby at street level, a restaurant on the 2nd floor, offices,
+// a health club on the top storey, and the roof (R) with a helipad. It grows
+// with the levels: 6 storeys to start, then 10, 15 and 20.
+export function building(storeys, garages = storeys >= 15 ? 2 : 1) {
+  const kinds = [
+    ...Array(garages).fill('garage'),
+    'lobby',
+    'restaurant',
+    ...Array(storeys - 3).fill('office'),
+    'gym',
+    'roof',
+  ];
+  const ground = garages;
+  return {
+    storeys,
+    kinds,
+    floors: kinds.length,
+    ground,
+    garage: [...Array(garages).keys()],
+    restaurant: ground + 1,
+    offices: [ground + 2, kinds.length - 3],
+    gym: kinds.length - 2,
+    roof: kinds.length - 1,
+  };
 }
+
+export function floorName(b, f) {
+  if (f < b.ground) return `P${b.ground - f}`;
+  if (f === b.ground) return 'L';
+  if (f === b.roof) return 'R';
+  return String(f - b.ground + 1);
+}
+
 export const CARS = 2;
 export const CAPACITY = 8;
 export const VMAX = 2.5; // floors per second
@@ -51,23 +73,27 @@ export const MIX = {
 };
 export const PERIODS = ['morning', 'midday', 'lunch', 'evening'];
 
-// Level n: how many people come, how often (on average), and the time of
-// day. The first is the morning rush: 20 people about 10 seconds apart; each
-// level after brings more of them, closer together, through the day. (Real
+// Level n: the building, how many people come, how often (on average), and
+// the time of day. The first is the morning rush in a 6-storey building: 20
+// people about 10 seconds apart; each level after brings more of them,
+// closer together, through the day -- and every four, a taller building. (Real
 // buildings see 12 to 15% of their population in five minutes at the peaks,
 // 4 to 6% between them, but they have six or eight lifts, not two.)
 export function levelSpec(n) {
+  const stage = Math.min(3, Math.floor((n - 1) / PERIODS.length));
   return {
     n,
     people: Math.min(80, 20 + 5 * (n - 1)),
     gap: Math.max(2.5, 10 * 0.87 ** (n - 1)),
     pattern: PERIODS[(n - 1) % PERIODS.length],
+    building: building([6, 10, 15, 20][stage]),
     seed: seedFor(n, BASE_SEED),
   };
 }
 
 // One person's trip for the time of day.
-function trip(pattern, r) {
+function trip(pattern, r, B) {
+  const { ground: GROUND, garage: GARAGE, restaurant: RESTAURANT, gym: GYM, offices: OFFICES } = B;
   const pick = (weights) => {
     let x = r() * weights.reduce((a, [w]) => a + w, 0);
     for (const [w, v] of weights) if ((x -= w) < 0) return typeof v === 'function' ? v() : v;
@@ -75,7 +101,7 @@ function trip(pattern, r) {
   };
   const office = () => OFFICES[0] + Math.floor(r() * (OFFICES[1] - OFFICES[0] + 1));
   // In and out by the lobby mostly; about a fifth drive and park downstairs.
-  const entrance = () => pick([[0.8, GROUND], [0.1, GARAGE[1]], [0.1, GARAGE[0]]]);
+  const entrance = () => (r() < 0.8 ? GROUND : GARAGE[Math.floor(r() * GARAGE.length)]);
   const m = MIX[pattern];
   const kind = pick([[m.in, 'in'], [m.out, 'out'], [m.inter, 'inter']]);
   if (pattern === 'lunch') {
@@ -104,11 +130,20 @@ function trip(pattern, r) {
 // seeded so you and the dispatcher meet exactly the same people.
 export function schedule(spec) {
   const r = rng(spec.seed);
+  const B = spec.building;
   const people = [];
+  // Now and then someone flies in to the helipad, or out from it: once or
+  // twice a level.
+  const heli = new Set([Math.floor(r() * spec.people), Math.floor(r() * spec.people * 2)]);
   let t = WALK;
   for (let id = 0; id < spec.people; id++) {
     if (id) t += -Math.log(1 - r()) * spec.gap;
-    const [from, to] = trip(spec.pattern, r);
+    let [from, to] = trip(spec.pattern, r, spec.building);
+    if (heli.has(id)) {
+      const office = B.offices[0] + Math.floor(r() * (B.offices[1] - B.offices[0] + 1));
+      const arriving = spec.pattern === 'morning' || (spec.pattern !== 'evening' && r() < 0.5);
+      [from, to] = arriving ? [B.roof, office] : [office, B.roof];
+    }
     // Looks: skin, hair, shirt, trousers (indexes into the view's palettes).
     const look = [r(), r(), r(), r()].map((x) => Math.floor(x * 1e6));
     people.push({ id, t, from, to, look });
@@ -119,13 +154,15 @@ export function schedule(spec) {
 export class Sim {
   constructor(spec) {
     this.spec = spec;
+    this.building = spec.building;
+    this.floors = spec.building.floors;
     this.t = 0;
     this.arrivals = schedule(spec);
     this.next = 0;
-    this.waiting = Array.from({ length: FLOORS }, () => []);
+    this.waiting = Array.from({ length: this.floors }, () => []);
     this.cars = Array.from({ length: CARS }, (_, i) => ({
       i,
-      pos: GROUND, // floor, fractional while moving
+      pos: spec.building.ground, // floor, fractional while moving
       v: 0, // floors per second, + up
       target: null, // the one next stop
       // idle (doors shut) | moving | opening | loading (doors open: people
@@ -151,7 +188,7 @@ export class Sim {
   // Send car i to floor f: its next stop, replacing any other.
   send(i, f) {
     const car = this.cars[i];
-    if (this.over || f < 0 || f >= FLOORS) return;
+    if (this.over || f < 0 || f >= this.floors) return;
     car.target = f;
   }
 
@@ -358,7 +395,8 @@ export function dispatch(sim, opts = {}) {
     let f = nearest(car.dir, here, 1);
     if (f === null) f = nearest(-car.dir, here, 1);
     if (f === null && want.has(here) && sim.waiting[here].length) f = here;
-    if (f === null && park && here !== GROUND && car.i === 0) f = GROUND; // wait in the lobby
+    const lobby = sim.building.ground;
+    if (f === null && park && here !== lobby && car.i === 0) f = lobby; // wait in the lobby
     if (f !== null) sim.send(car.i, f);
   }
 }

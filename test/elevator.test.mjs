@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, schedule, levelSpec, dispatch, playDispatcher, par, floorName, FLOORS, CAPACITY, WALK, DOOR, GROUND, GARAGE, RESTAURANT, GYM, MIX } from '../games/elevator/engine.js';
+import { Sim, schedule, levelSpec, building, dispatch, playDispatcher, par, floorName, CAPACITY, WALK, DOOR, MIX } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -11,8 +11,10 @@ const run = (sim, seconds, each = () => {}) => {
   return events;
 };
 // A level with just the people given.
+// A 20-storey level with just the people given.
+const TALL = levelSpec(13);
 const only = (people) => {
-  const sim = new Sim(levelSpec(1));
+  const sim = new Sim(TALL);
   sim.arrivals = people.map((p, id) => ({ id, look: [1, 2, 3, 4], ...p }));
   // Lift B out of the way, doors shut, so only A is in play.
   Object.assign(sim.cars[1], { pos: 15, phase: 'idle', open: 0, settled: false });
@@ -28,12 +30,16 @@ test('levels: 20 people about 10 s apart to start, then more of them, closer tog
   assert.deepEqual([1, 2, 3, 4].map((n) => levelSpec(n).pattern), ['morning', 'midday', 'lunch', 'evening']);
 });
 
-test('the building: parking below the street, the lobby, a restaurant on 2, offices, a health club on top', () => {
-  assert.deepEqual([0, 1, 2, 3, 4, FLOORS - 2, FLOORS - 1].map(floorName), ['P2', 'P1', 'L', '2', '3', '19', '20']);
-  assert.deepEqual(GARAGE, [0, 1]);
-  assert.equal(floorName(GROUND), 'L');
-  assert.equal(floorName(RESTAURANT), '2');
-  assert.equal(floorName(GYM), '20');
+test('the building: parking, the lobby, a restaurant on 2, offices, a health club, a helipad; it grows', () => {
+  const small = building(6);
+  assert.deepEqual(small.kinds.map((_, f) => floorName(small, f)), ['P1', 'L', '2', '3', '4', '5', '6', 'R']);
+  const big = building(20);
+  assert.deepEqual([0, 1, 2, 3, 4, big.floors - 3, big.floors - 2, big.floors - 1].map((f) => floorName(big, f)), ['P2', 'P1', 'L', '2', '3', '19', '20', 'R']);
+  assert.deepEqual(big.garage, [0, 1]);
+  assert.equal(floorName(big, big.restaurant), '2');
+  assert.equal(floorName(big, big.gym), '20');
+  assert.equal(big.kinds[big.roof], 'roof');
+  assert.deepEqual([1, 4, 5, 9, 13, 20].map((n) => levelSpec(n).building.storeys), [6, 6, 10, 15, 20, 20]);
   for (const mix of Object.values(MIX)) assert.ok(Math.abs(mix.in + mix.out + mix.inter - 1) < 1e-9);
   // The surveyed peaks: mornings ~85% in, lunch ~45/45/10.
   assert.equal(MIX.morning.in, 0.85);
@@ -41,7 +47,9 @@ test('the building: parking below the street, the lobby, a restaurant on 2, offi
 });
 
 test('who goes where: mornings in from the street and garage, lunch to the restaurant, evenings home', () => {
-  const big = (pattern) => schedule({ ...levelSpec(1), pattern, people: 3000 });
+  const B = TALL.building;
+  const { ground: GROUND, garage: GARAGE, restaurant: RESTAURANT, gym: GYM } = B;
+  const big = (pattern) => schedule({ ...TALL, pattern, people: 3000 }).filter((p) => p.from !== B.roof && p.to !== B.roof);
   const share = (list, f) => list.filter(f).length / list.length;
   const entrance = (f) => f <= GROUND;
   const morning = big('morning');
@@ -54,7 +62,13 @@ test('who goes where: mornings in from the street and garage, lunch to the resta
   assert.ok(share(midday, (p) => !entrance(p.from) && !entrance(p.to)) > 0.45, 'midday: half floor to floor');
   const evening = big('evening');
   assert.ok(share(evening, (p) => entrance(p.to)) > 0.6, 'evenings: going home');
-  for (const p of [...morning, ...lunch, ...midday, ...evening]) assert.ok(p.from !== p.to && p.from >= 0 && p.to < FLOORS);
+  for (const p of [...morning, ...lunch, ...midday, ...evening]) assert.ok(p.from !== p.to && p.from >= 0 && p.to < B.floors);
+  // Once or twice a level, someone flies in or out.
+  for (let n = 1; n <= 8; n++) {
+    const sp = levelSpec(n);
+    const heli = schedule(sp).filter((p) => p.from === sp.building.roof || p.to === sp.building.roof).length;
+    assert.ok(heli >= 1 && heli <= 2, `level ${n}: ${heli} helicopter trips`);
+  }
 });
 
 test('arrivals: a seeded Poisson process, the same each time', () => {
@@ -62,7 +76,7 @@ test('arrivals: a seeded Poisson process, the same each time', () => {
   const a = schedule(spec);
   assert.deepEqual(a, schedule(spec));
   assert.equal(a.length, spec.people);
-  for (const p of a) assert.ok(p.from !== p.to && p.from >= 0 && p.to < FLOORS && p.t >= WALK);
+  for (const p of a) assert.ok(p.from !== p.to && p.from >= 0 && p.to < spec.building.floors && p.t >= WALK);
   // Poisson: the gaps average about the level's gap, and vary a lot
   // (exponential: the spread is about the mean).
   const big = { ...levelSpec(1), people: 2000 };
@@ -137,7 +151,7 @@ test('the dispatcher does well; par is its best; idling or sending lifts at rand
   const random = new Sim(spec);
   let k = 0;
   run(random, 3600, (s) => {
-    if (++k % 120 === 0) s.cars.forEach((c, i) => c.target === null && s.send(i, (k * 7 + i * 5) % FLOORS));
+    if (++k % 120 === 0) s.cars.forEach((c, i) => c.target === null && s.send(i, (k * 7 + i * 5) % s.floors));
   });
   assert.ok(!random.over || random.stats().trip > par(spec).trip * 1.4, 'random is much slower');
 });
@@ -161,7 +175,7 @@ test('a lift not sent anywhere waits with its doors open; they shut only when it
 });
 
 test('a lift standing shut at a floor opens for someone who presses the button there', () => {
-  const sim = only([{ t: 5, from: GROUND, to: 9 }, { t: 400, from: 1, to: 2 }]);
+  const sim = only([{ t: 5, from: TALL.building.ground, to: 9 }, { t: 400, from: 1, to: 2 }]);
   Object.assign(sim.cars[0], { phase: 'idle', open: 0, settled: false });
   run(sim, 9);
   assert.equal(sim.cars[0].riders.length, 1, 'the doors opened and they got on');

@@ -38,8 +38,8 @@ export function mount(root, ctx, sub) {
     renderLevelSelect(root, ctx, {
       id: 'elevator',
       title: 'Elevator Operator',
-      intro: 'Run the two lifts in a 20-storey tower, from the garage to the health club. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
-      outro: 'Each level is a time of day, with more people, closer together.',
+      intro: 'Run the two lifts in an office building, from the garage to the helipad. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
+      outro: 'Each level is a time of day, with more people, closer together; every four, a taller building: 6 storeys, then 10, 15 and 20.',
       progress,
     });
   }
@@ -193,7 +193,7 @@ export function mount(root, ctx, sub) {
 
     showDialog(dialog, ctx, {
       title: `Level ${n}`,
-      text: `${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds. ${PATTERN[spec.pattern]}<br><br>
+      text: `A ${spec.building.storeys}-storey building. ${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds. ${PATTERN[spec.pattern]}<br><br>
         <b>Tap a floor in a lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most). The floors they want light up, with a figure for each of them.<br><br>
         You’re done when everyone has got where they’re going. The shorter their trips, the better.`,
