@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.46.0
+- Elevator Operator: taller people -- 8 by 16 pixels, twice as tall as wide
+  -- with a five-step walk (legs striding, arms swinging) and more variety:
+  each person's hair, shirt and trousers (or dress) colours are picked at
+  random.
+
 ## 1.45.0
 - Elevator Operator: a lift never leaves a floor with someone still aboard
   who wanted to get off there. Tap it on to another floor while it's

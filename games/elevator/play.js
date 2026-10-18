@@ -48,28 +48,39 @@ const NOTES_TWIN = [
 // ------------------------------------------------------------ 8-bit people
 
 const SKIN = ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524'];
-const HAIR = ['#2b1b0e', '#6a4e23', '#d6b370', '#1c1c1c', '#a33b20', '#c9c9c9'];
-const SHIRT = ['#e63946', '#457b9d', '#2a9d8f', '#f4a261', '#9b5de5', '#ffbe0b', '#06d6a0', '#ef476f', '#3a86ff'];
-const LEGS = ['#264653', '#3d405b', '#22223b', '#6b705c', '#14213d'];
+const HAIR = ['#2b1b0e', '#6a4e23', '#d6b370', '#1c1c1c', '#a33b20', '#c9c9c9', '#e8c07d', '#7b3f00'];
+const SHIRT = ['#e63946', '#457b9d', '#2a9d8f', '#f4a261', '#9b5de5', '#ffbe0b', '#06d6a0', '#ef476f', '#3a86ff', '#ffffff', '#8ecae6'];
+const PANTS = ['#264653', '#3d405b', '#22223b', '#6b705c', '#14213d', '#4a6fa5', '#8a6d3b', '#5c4033', '#7d7d7d'];
 
-// 8 x 12 pixels: h hair, s skin, e eye, c shirt (or dress), a arm, p
-// trousers, k shoes.
-const BODY = [
+// 8 x 16 pixels (twice as tall as wide): h hair, s skin, e eye, c shirt (or
+// dress), a arm, p trousers, k shoes. The body, then the legs.
+const HEAD = [
   '..hhhh..',
   '.hhhhhh.',
   '.hssssh.',
   '.ssesse.',
+  '.ssssss.',
   '..ssss..',
-  '.cccccc.',
-  'acccccca',
-  'acccccca',
-  '.cccccc.',
+  '...ss...',
 ];
-const FEET = {
-  stand: ['.pp..pp.', '.pp..pp.', '.kk..kk.'],
-  walk1: ['.pp..pp.', 'pp....pp', 'kk....kk'],
-  walk2: ['..pppp..', '..pppp..', '..kkkk..'],
+// Shirt and arms: hanging, or swinging (one forward, a row lower; the
+// other back, a row higher).
+const TORSO = {
+  still: ['.cccccc.', 'acccccca', 'acccccca', 'acccccca', '.cccccc.'],
+  left: ['.cccccc.', 'acccccc.', 'acccccca', 'acccccca', '.cccccca'],
+  right: ['.cccccc.', '.cccccca', 'acccccca', 'acccccca', 'acccccc.'],
 };
+const LEGS = {
+  stand: ['.pppppp.', '.pp..pp.', '.pp..pp.', '.kk..kk.'],
+  // A five-step walk: stride, pushing off, passing, reaching, landing.
+  walk0: ['.pppppp.', '.pp..pp.', 'pp....pp', 'kk....kk'],
+  walk1: ['.pppppp.', '.pp..pp.', '.pp...pp', 'kk....kk'],
+  walk2: ['.pppppp.', '..pppp..', '..pppp..', '..kkkk..'],
+  walk3: ['.pppppp.', '.pp.pp..', '.pp..pp.', '.kk..kk.'],
+  walk4: ['.pppppp.', '.pp..pp.', 'pp...pp.', 'kk...kk.'],
+};
+export const WALK_FRAMES = ['walk0', 'walk1', 'walk2', 'walk3', 'walk4'];
+const SWING = { walk0: 'left', walk1: 'left', walk2: 'still', walk3: 'right', walk4: 'right' };
 
 export function lookOf(look) {
   const [a, b, c, d] = look;
@@ -77,13 +88,13 @@ export function lookOf(look) {
     s: SKIN[a % SKIN.length],
     h: HAIR[b % HAIR.length],
     c: SHIRT[c % SHIRT.length],
-    p: LEGS[d % LEGS.length],
+    p: PANTS[d % PANTS.length],
     dress: d % 4 === 0,
   };
 }
 
 // Draws a person with their feet at (x, base), px screen pixels per sprite
-// pixel. pose: stand | walk1 | walk2 | press (arm up); dir -1 faces left.
+// pixel. pose: stand | walk0..walk4 | press (arm up); dir -1 faces left.
 // To the nearest screen pixel (so sprites stay crisp at any size).
 const snap = (v) => {
   const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
@@ -92,14 +103,15 @@ const snap = (v) => {
 
 export function drawSprite(ctx, look, x, base, px, pose = 'stand', dir = 1) {
   const L = lookOf(look);
-  const rows = [...BODY, ...FEET[pose === 'press' ? 'stand' : pose]];
+  const legs = LEGS[pose] ? pose : 'stand';
+  const rows = [...HEAD, ...TORSO[SWING[legs] || 'still'], ...LEGS[legs]];
   const y0 = base - rows.length * px;
   const colour = { h: L.h, s: L.s, e: '#1b1b1b', c: L.c, a: L.s, p: L.dress ? L.s : L.p, k: '#222' };
   rows.forEach((row, r) => {
     for (let i = 0; i < 8; i++) {
       let ch = row[i];
       if (ch === '.') continue;
-      if (L.dress && r >= 9 && r <= 9 && ch === 'p') ch = 'c'; // a dress to the knee
+      if (L.dress && r >= 12 && r <= 13 && ch === 'p') ch = 'c'; // a dress to the knee
       ctx.fillStyle = colour[ch];
       const col = dir < 0 ? 7 - i : i;
       const [x0, x1, y1, y2] = [x + col * px, x + (col + 1) * px, y0 + r * px, y0 + (r + 1) * px].map(snap);
@@ -111,7 +123,7 @@ export function drawSprite(ctx, look, x, base, px, pose = 'stand', dir = 1) {
     ctx.fillStyle = L.s;
     const col = dir < 0 ? 0 : 7;
     const [x0, x1] = [x + (col + dir) * px, x + (col + dir + 1) * px].map(snap);
-    ctx.fillRect(x0, snap(y0 + 2 * px), x1 - x0, snap(y0 + 6 * px) - snap(y0 + 2 * px));
+    ctx.fillRect(x0, snap(y0 + 4 * px), x1 - x0, snap(y0 + 9 * px) - snap(y0 + 4 * px));
   }
 }
 
@@ -183,7 +195,7 @@ class Tower {
     // side by side and room on the floors to queue.
     // (In steps of a screen pixel, to stay crisp.)
     const dpr = this.play.dpr || 1;
-    let px = Math.max(1, Math.floor((this.rowH * 0.8 * dpr) / 12) / dpr);
+    let px = Math.max(1, Math.floor((this.rowH * 0.8 * dpr) / 16) / dpr);
     while (px > 1 && this.x1 - 4 - CARS * (liftWidth(px) + this.gap) - this.panelW - this.doorX < Math.max(W * 0.2, 4 * 8 * px + 30)) px = Math.max(1, px - 1 / dpr);
     this.px = px; // sprite pixel size
     this.spriteW = px * 8;
@@ -709,12 +721,12 @@ class Tower {
     for (const v of this.people.values()) {
       if (v.floor !== f || v.hidden) continue;
       const pressing = v.pressT !== undefined && sim.t - v.pressT < 0.5 && (v.mode === 'wait' || v.mode === 'board');
-      const pose = pressing ? 'press' : v.moving ? (Math.floor(time * 8 + v.id) % 2 ? 'walk1' : 'walk2') : 'stand';
+      const pose = pressing ? 'press' : v.moving ? WALK_FRAMES[Math.floor(time * 10 + v.id) % 5] : 'stand';
       drawSprite(this.ctx, v.look, v.x, base, this.px, pose, v.mode === 'wait' && !v.moving ? 1 : v.dir);
       // Getting impatient.
       if (v.mode === 'wait' && v.since !== undefined) {
         const waited = sim.t - v.since;
-        if (waited > 20) this.bubble(v.x + this.spriteW / 2, base - this.px * 12 - 2, waited > 40 ? '!' : '…', waited > 40);
+        if (waited > 20) this.bubble(v.x + this.spriteW / 2, base - this.px * 16 - 2, waited > 40 ? '!' : '…', waited > 40);
       }
     }
   }
