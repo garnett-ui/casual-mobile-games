@@ -57,6 +57,18 @@ test('one next stop at a time: a new one turns the lift round at once', () => {
   assert.equal(car.pos, 0);
 });
 
+test('tap ahead: up to four stops lined up for a lift, visited in order; a fifth is refused', () => {
+  const sim = only([{ t: 400, from: 1, to: 2 }]);
+  const g = sim.building.ground;
+  const stops = [g + 4, g + 2, g + 6, g + 1];
+  for (const f of stops) assert.ok(sim.request(0, f));
+  assert.equal(sim.request(0, g + 8), false, 'no room for a fifth');
+  assert.ok(sim.request(0, g + 1), 'the last one again: fine, going there already');
+  const ev = run(sim, 40);
+  assert.deepEqual(ev.filter((e) => e.type === 'stop' && e.car === 0).map((e) => e.floor), stops);
+  assert.ok(sim.request(0, g + 8), 'room again once they\'re done');
+});
+
 test('a full lift leaves people behind', () => {
   const sim = only(Array.from({ length: 11 }, () => ({ t: 0.05, from: 0, to: 9 })));
   sim.send(0, 0);

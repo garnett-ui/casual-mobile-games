@@ -2,7 +2,7 @@
 // against the dispatcher. Played upright on a phone (either way round on a
 // tablet), with lift music.
 import { Play } from './play.js';
-import { CAPACITY, levelSpec } from './engine.js';
+import { CAPACITY, QUEUE, levelSpec } from './engine.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 import { lockOrientation, unlockOrientation, currentOrientation } from '../../js/lib/orientation.js';
 
@@ -254,7 +254,7 @@ export function mount(root, ctx, sub) {
       title: spec.day === 1 ? spec.place : `${spec.place}, day ${spec.day}`,
       text: `${story}<br><br>
         A whole day, 7 AM to 7:30 PM, in about ${Math.round(spec.length / 60)} minutes: the morning rush, meetings, lunch (out, the restaurant or the gym), home time. When things go quiet, the clock skips ahead.<br><br>
-        <b>Tap a floor in ${spec.cars === 1 ? 'the' : 'a'} lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
+        <b>Tap a floor in ${spec.cars === 1 ? 'the' : 'a'} lift’s shaft</b> to send it there; tap more floors to line up to ${QUEUE} stops, and it goes to them in order.
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most) before it moves on. The floors they want light up, with a dot for each of them.<br><br>
         The shorter everyone’s trips, the better, and a long wait counts extra.`,
       buttons: [{ label: 'Open the doors', act: 'start', primary: true, run: () => start() }],

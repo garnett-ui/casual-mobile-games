@@ -198,6 +198,11 @@ const SFX = {
     tone('sine', 1047, 1047, 0.8, 0.09, 0.18);
   },
   drop: () => tone('triangle', 660, 990, 0.09, 0.05),
+  // ...and a tap it can't take: a short, low buzz.
+  buzz: () => {
+    tone('sawtooth', 110, 104, 0.2, 0.09, 0, 900);
+    tone('square', 116, 110, 0.2, 0.05, 0, 900);
+  },
   checkpoint: () => [784, 988, 1175].forEach((f, k) => tone('square', f, f, 0.12, 0.06, k * 0.09, 4000)),
 };
 

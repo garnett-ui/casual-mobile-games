@@ -150,9 +150,11 @@ class Tower {
     if (f < 0 || f >= this.B.floors) return false;
     const i = this.shaftX.findIndex((sx) => x >= sx - this.gap / 2 && x <= sx + this.shaftW + this.gap / 2);
     if (i < 0) return false;
-    this.sim.send(i, f);
-    this.ripples.push({ i, f, t: 0 });
-    this.hooks.sfx?.('tap');
+    // Lined up after its other stops -- or, with four already, refused.
+    if (this.sim.request(i, f)) {
+      this.ripples.push({ i, f, t: 0 });
+      this.hooks.sfx?.('tap');
+    } else this.hooks.sfx?.('buzz');
     return true;
   }
 
@@ -741,12 +743,31 @@ class Tower {
       ctx.strokeRect(x + 3.5, y + 2.5, w - 7, rowH - 5);
       if (wanted.has(f)) this.drawLit(x, y, w, wanted.get(f));
     }
-    // Where it's been sent: a pulsing outline.
+    // Where it's been sent: a pulsing outline; the stops lined up after it,
+    // dashed, numbered in order.
     if (car.target !== null) {
       const y = this.rowY(car.target);
       ctx.strokeStyle = `rgba(80,220,255,${0.65 + 0.35 * Math.sin(time * 8)})`;
       ctx.lineWidth = 2.5;
       ctx.strokeRect(x + 2, y + 1.5, w - 4, rowH - 3);
+      const stops = [car.target, ...car.queue];
+      if (stops.length > 1) {
+        ctx.font = `800 ${clamp(rowH * 0.28, 8, 12)}px system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        stops.forEach((f, k) => {
+          const yy = this.rowY(f);
+          if (k) {
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = 'rgba(80,220,255,0.8)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x + 3, yy + 2.5, w - 6, rowH - 5);
+            ctx.setLineDash([]);
+          }
+          ctx.fillStyle = '#50dcff';
+          ctx.fillText(String(k + 1), x + 6, yy + 5 + (stops.indexOf(f) < k ? 10 : 0));
+        });
+      }
     }
     for (const r of this.ripples.filter((q) => q.i === i)) {
       const y = this.rowY(r.f) + rowH / 2;

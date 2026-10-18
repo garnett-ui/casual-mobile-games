@@ -44,6 +44,7 @@ export function floorName(b, f) {
 
 export const CARS = 2; // lifts in a building (but just one on the first day)
 export const CAPACITY = 6;
+export const QUEUE = 4; // stops you can line up for a lift (the next one and three after it)
 export const VMAX = 2.5; // floors per second
 export const ACCEL = 2.5; // floors per second^2
 export const DOOR = 0.8; // seconds for the doors to open, or to close
@@ -331,7 +332,8 @@ export class Sim {
       i,
       pos: spec.building.ground, // floor, fractional while moving
       v: 0, // floors per second, + up
-      target: null, // the one next stop
+      target: null, // the next stop
+      queue: [], // and the ones lined up after it (in order)
       // idle (doors shut) | moving | opening | loading (doors open: people
       // get off and on, then it waits there, open, until sent somewhere) |
       // closing. They start the day open in the lobby.
@@ -366,6 +368,29 @@ export class Sim {
     if (a.prev === undefined) return a.t;
     const done = this.doneAt.get(a.prev);
     return done === undefined ? Infinity : Math.max(a.t, done + SETTLE);
+  }
+
+  // A tap on a floor in lift i's shaft: the floor joins the stops lined up
+  // for it, visited in order -- up to QUEUE in all. False if there's no
+  // room (it's refused).
+  request(i, f) {
+    const car = this.cars[i];
+    if (this.over || f < 0 || f >= this.floors) return true;
+    const stops = car.target === null ? [] : [car.target, ...car.queue];
+    const last = stops.length ? stops.at(-1) : car.phase === 'moving' ? null : this.floorOf(car);
+    if (f === last) return true; // (going there already)
+    if (stops.length >= QUEUE) return false;
+    if (car.target === null) car.target = f;
+    else car.queue.push(f);
+    return true;
+  }
+
+  // The next of the stops lined up for car (at floor here), if it's free to go.
+  nextStop(car, here) {
+    while (car.target === null && car.queue.length) {
+      const f = car.queue.shift();
+      if (f !== here) car.target = f;
+    }
   }
 
   // The floors the people in car i want (lit in its shaft).
@@ -416,6 +441,7 @@ export class Sim {
     const ready = (p) => this.t >= p.t + PRESS - 1e-9; // (they've pressed the button)
     switch (car.phase) {
       case 'idle':
+        this.nextStop(car, here);
         if (car.target === null) {
           // Standing at a floor where someone presses the button: the doors
           // open for them (unless it's full, or the other lift already has
@@ -487,6 +513,7 @@ export class Sim {
         // -- does it go where it's been sent (nobody's ever carried past
         // their floor). Till then, or till it's sent, it waits, doors open.
         const exchanging = car.timer > 0 || (car.riders.length < CAPACITY && this.waiting[here].length > 0);
+        if (!exchanging) this.nextStop(car, here);
         if (!exchanging && this.leaving(car, here)) break;
         car.settled = !exchanging && car.dwell >= DWELL;
         break;

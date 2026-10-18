@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.51.0
+- Elevator Operator: tap ahead. Each tap in a lift's shaft lines that floor
+  up after its other stops -- up to 4, numbered in the shaft -- and the
+  lift goes to them in order. A fifth tap gets a buzz.
+
 ## 1.50.0
 - Elevator Operator: no more quiet spells. When no one has set off for 3
   seconds and nobody's waiting for a lift, the clock (and the sun) races
