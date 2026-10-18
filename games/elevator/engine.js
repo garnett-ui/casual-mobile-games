@@ -49,11 +49,13 @@ export function schedule(spec) {
   for (let id = 0; id < spec.people; id++) {
     if (id) t += -Math.log(1 - r()) * spec.gap;
     const k = id / spec.people;
+    // [up from the lobby, down to it]; the rest go floor to floor, as
+    // people do during the working day.
     const [up, down] = {
-      mixed: [0.4, 0.35],
-      morning: [0.75, 0.1],
-      evening: [0.1, 0.75],
-      lunch: k < 0.5 ? [0.15, 0.7] : [0.7, 0.15],
+      mixed: [0.35, 0.3],
+      morning: [0.6, 0.1],
+      evening: [0.1, 0.6],
+      lunch: k < 0.5 ? [0.1, 0.55] : [0.55, 0.1],
     }[spec.pattern];
     const pick = r();
     let from;

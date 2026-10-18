@@ -455,8 +455,8 @@ export class Play {
       ctx.arc(x + w / 2, y, 6 + r.t * 50, 0, Math.PI * 2);
       ctx.stroke();
     }
-    // The car, with its riders always in view (the doors are glass), packed
-    // closer together the fuller it gets.
+    // The car, with its riders always in view (the doors are glass), from
+    // the left, spaced so that a full load fills it wall to wall.
     const cy = this.top + (FLOORS - 1 - car.pos) * rowH;
     const cw = w - 8;
     const cx = x + 4;
@@ -468,11 +468,8 @@ export class Play {
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
     const mini = Math.max(1, Math.floor((ch - 5) / 12));
     const fw = mini * 8;
-    const n = car.riders.length;
-    const room = cw - 6 - fw;
-    const stepX = n > 1 ? Math.min(fw + 1, room / (n - 1)) : 0;
-    const startX = cx + 3 + (room - stepX * (n - 1)) / 2;
-    car.riders.forEach((p, k) => drawSprite(ctx, p.look, startX + k * stepX, cy + ch - 1, mini, 'stand'));
+    const stepX = Math.min(fw + 1, (cw - 6 - fw) / (CAPACITY - 1));
+    car.riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 + k * stepX, cy + ch - 1, mini, 'stand'));
     const half = (cw - 4) / 2;
     const open = half * car.open;
     ctx.fillStyle = 'rgba(150,165,185,0.35)';
@@ -494,11 +491,6 @@ export class Play {
       ctx.fillStyle = '#22283a';
       ctx.textAlign = 'right';
       ctx.fillText(car.v > 0 ? '▲' : '▼', cx + cw - 2, cy + 3);
-    }
-    if (full) {
-      ctx.fillStyle = '#e5383b';
-      ctx.textAlign = 'left';
-      ctx.fillText('FULL', cx + 3, cy + 3);
     }
     for (const p of this.pops.filter((q) => q.i === i)) {
       ctx.globalAlpha = 1 - p.t;
