@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.38.1
+- Elevator Operator: a lit floor in a lift's shaft shows a dot for each rider
+  going there, instead of little figures.
+
 ## 1.38.0
 - Elevator Operator: the sun rises, crosses the sky and sets over the day,
   the sky turns from dawn to daylight to dusk, and night falls with the

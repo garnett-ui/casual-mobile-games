@@ -152,7 +152,7 @@ music.
   haven't sent anywhere waits with its doors open.
 - When a lift stops, anyone for that floor walks out (one at a time), then
   everyone waiting walks in, up to 8. The floors the riders want light up in
-  that lift's shaft, with a little figure for each of them.
+  that lift's shaft, with a dot for each of them.
 - The day is made of people, each with their own day: an office worker
   arrives in the morning rush (around 8:30) -- walking in off the street,
   driving down into the garage, or now and then by helicopter -- may go to a

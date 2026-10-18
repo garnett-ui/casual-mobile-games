@@ -129,10 +129,6 @@ class Tower {
     this.parked = false;
   }
 
-  get litStyle() {
-    return this.play.litStyle;
-  }
-
   // A car into the next free space on garage level f (already there, or
   // driving in from the street).
   parkCar(f, there = false, person = null) {
@@ -859,8 +855,8 @@ class Tower {
     ctx.fillText(`LIFT ${String.fromCharCode(65 + i)}`, x + w / 2, this.top - 10);
   }
 
-  // A floor someone in the lift has pressed: lit, with a count of how many
-  // want it. Three looks, for trying out: little people, a number, or dots.
+  // A floor someone in the lift has pressed: lit, with a dot for each rider
+  // who wants it (at most 8, in rows of 4).
   drawLit(x, y, w, riders) {
     const { ctx, rowH } = this;
     const n = riders.length;
@@ -869,42 +865,16 @@ class Tower {
     ctx.strokeStyle = '#ffd23f';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(x + 3.5, y + 2.5, w - 7, rowH - 5);
-    if (this.litStyle === 'number') {
-      ctx.fillStyle = '#ffd23f';
-      ctx.font = `900 ${clamp(rowH * 0.55, 11, 20)}px system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`👤${n}`, x + w / 2, y + rowH / 2 + 1);
-    } else if (this.litStyle === 'pips') {
-      const r = clamp(rowH * 0.1, 2, 4);
-      const per = Math.min(n, 4);
-      for (let k = 0; k < n; k++) {
-        const row = Math.floor(k / 4);
-        const col = k % 4;
-        ctx.fillStyle = '#ffd23f';
-        ctx.beginPath();
-        ctx.arc(x + w / 2 + (col - (per - 1) / 2) * r * 2.8, y + rowH / 2 + (row - (Math.ceil(n / 4) - 1) / 2) * r * 2.8, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    } else {
-      // Little people, side by side; "+k" if they don't all fit.
-      const mini = Math.max(1, Math.floor((rowH - 8) / 12));
-      const step = mini * 8 + 1;
-      const fit = Math.max(1, Math.floor((w - 10) / step));
-      const shown = n > fit ? fit - 1 : n;
-      const total = shown * step + (n > shown ? 16 : 0);
-      let sx = x + (w - total) / 2;
-      for (let k = 0; k < shown; k++) {
-        drawSprite(ctx, riders[k].look, sx, y + rowH - 3, mini, 'stand');
-        sx += step;
-      }
-      if (n > shown) {
-        ctx.fillStyle = '#ffd23f';
-        ctx.font = `900 ${clamp(rowH * 0.36, 9, 13)}px system-ui, sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`+${n - shown}`, sx + 1, y + rowH / 2);
-      }
+    const r = clamp(rowH * 0.1, 2, 4);
+    const per = Math.min(n, 4);
+    const rows = Math.ceil(n / 4);
+    ctx.fillStyle = '#ffd23f';
+    for (let k = 0; k < n; k++) {
+      const row = Math.floor(k / 4);
+      const col = k % 4;
+      ctx.beginPath();
+      ctx.arc(x + w / 2 + (col - (per - 1) / 2) * r * 2.8, y + rowH / 2 + (row - (rows - 1) / 2) * r * 2.8, r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
@@ -919,7 +889,6 @@ export class Play {
     this.hooks = hooks;
     this.timeScale = 1;
     this.paused = true;
-    this.litStyle = 'figures'; // how a lit floor shows its riders: figures | number | pips
     this.hud = 34;
     this.reset(spec);
     this.resize();
