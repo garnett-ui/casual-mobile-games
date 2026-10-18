@@ -4,7 +4,7 @@
 // -- with 8-bit people walking from their offices, cars and helicopters to
 // the call buttons and queueing; a shaft for each lift on the right, where
 // you tap a floor to send that lift there.
-import { Sim, CARS, CAPACITY, WALK, floorName, stays, dispatch, par } from './engine.js';
+import { Sim, CARS, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -592,7 +592,16 @@ export class Play {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = f < GROUND ? 'rgba(255,255,255,0.55)' : 'rgba(90,70,40,0.35)';
-      ctx.fillText(name, (this.doorX + this.spriteW + 44 + this.panelX) / 2, y + rowH * 0.3);
+      const room = this.panelX - (this.doorX + this.spriteW + 44) - 4;
+      ctx.save();
+      const tw = ctx.measureText(name).width;
+      const cxName = (this.doorX + this.spriteW + 44 + this.panelX) / 2;
+      if (tw > room) {
+        ctx.translate(cxName, y + rowH * 0.3);
+        ctx.scale(room / tw, 1);
+        ctx.fillText(name, 0, 0);
+      } else ctx.fillText(name, cxName, y + rowH * 0.3);
+      ctx.restore();
     }
     if (f === RESTAURANT) this.drawTables(y);
     if (f === GYM) this.drawWeights(y);
@@ -885,12 +894,65 @@ export class Play {
     }
   }
 
+  // An analog clock: the time of day in the building.
+  drawClock() {
+    const { ctx } = this;
+    const mins = clockAt(this.spec, this.sim.arrivals, this.sim.t);
+    const r = 21;
+    const cx = 8 + r;
+    const cy = this.hud + 6 + r;
+    ctx.fillStyle = '#fffdf6';
+    ctx.strokeStyle = '#3b3f4a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#3b3f4a';
+    for (let k = 0; k < 12; k++) {
+      const a = (k * Math.PI) / 6;
+      const len = k % 3 ? 2 : 4;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(a);
+      ctx.fillRect(-1, -r + 3, 2, len);
+      ctx.restore();
+    }
+    const hand = (angle, len, w, colour) => {
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.sin(angle) * len, cy - Math.cos(angle) * len);
+      ctx.stroke();
+    };
+    hand(((mins / 60) % 12) * (Math.PI / 6), r * 0.5, 3, '#22283a');
+    hand((mins % 60) * (Math.PI / 30), r * 0.78, 2, '#22283a');
+    ctx.fillStyle = '#e5383b';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    // And in words, underneath.
+    const h = Math.floor(mins / 60);
+    const m = Math.floor(mins % 60);
+    ctx.font = '800 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    const label = `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+    const tw = ctx.measureText(label).width + 8;
+    ctx.beginPath();
+    ctx.roundRect(cx - tw / 2, cy + r + 3, tw, 15, 7);
+    ctx.fill();
+    ctx.fillStyle = '#22283a';
+    ctx.fillText(label, cx, cy + r + 5);
+  }
+
   drawHud() {
     const { ctx, W, sim } = this;
-    const m = Math.floor(sim.t / 60);
-    const s = Math.floor(sim.t % 60);
+    this.drawClock();
     const items = [
-      [`${m}:${String(s).padStart(2, '0')}`, '#22283a'],
       [`✓ ${sim.delivered}/${sim.arrivals.length}`, '#1d8a55'],
       [`${sim.waitingCount()} waiting`, '#5b4a2e'],
     ];

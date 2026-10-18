@@ -15,6 +15,47 @@ const PATTERN = {
 };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+// How long everyone's trips took (from pressing the button to getting out):
+// your passengers as bars, the computer's on the same people as an outline.
+function histogram(yours, theirs) {
+  const most = Math.max(10, ...yours, ...theirs);
+  const step = [5, 10, 15, 20, 30, 45, 60, 90, 120].find((s) => most / s <= 10) || 180;
+  const bins = Math.ceil((most + 0.001) / step);
+  const count = (list) => {
+    const c = Array(bins).fill(0);
+    for (const t of list) c[Math.min(bins - 1, Math.floor(t / step))]++;
+    return c;
+  };
+  const a = count(yours);
+  const b = count(theirs);
+  const top = Math.max(1, ...a, ...b);
+  const W = 300;
+  const H = 120;
+  const left = 22;
+  const bottom = 18;
+  const bw = (W - left - 4) / bins;
+  const y = (n) => H - bottom - ((H - bottom - 8) * n) / top;
+  let svg = `<svg class="el-hist" viewBox="0 0 ${W} ${H}" role="img" aria-label="Trip times">`;
+  svg += `<line x1="${left}" y1="${H - bottom}" x2="${W - 2}" y2="${H - bottom}" stroke="#c9cbe0"/>`;
+  a.forEach((n, k) => {
+    if (n) svg += `<rect x="${(left + k * bw + 1).toFixed(1)}" y="${y(n).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${(H - bottom - y(n)).toFixed(1)}" rx="2" fill="#ff9f1c"/>`;
+  });
+  // The computer's, as a stepped outline.
+  let path = `M${left},${H - bottom}`;
+  b.forEach((n, k) => {
+    path += ` L${(left + k * bw).toFixed(1)},${y(n).toFixed(1)} L${(left + (k + 1) * bw).toFixed(1)},${y(n).toFixed(1)}`;
+  });
+  path += ` L${(left + bins * bw).toFixed(1)},${H - bottom}`;
+  svg += `<path d="${path}" fill="none" stroke="#22283a" stroke-width="1.6" stroke-dasharray="4 3"/>`;
+  for (let k = 0; k <= bins; k += Math.ceil(bins / 6)) {
+    svg += `<text x="${(left + k * bw).toFixed(1)}" y="${H - 4}" font-size="10" text-anchor="middle" fill="#565a7e">${k * step}s</text>`;
+  }
+  svg += `<text x="${left - 4}" y="${y(top) + 4}" font-size="10" text-anchor="end" fill="#565a7e">${top}</text>`;
+  svg += `<g font-size="10" font-weight="700"><rect x="${W - 132}" y="2" width="10" height="10" rx="2" fill="#ff9f1c"/><text x="${W - 118}" y="11" fill="#22283a">you</text>`;
+  svg += `<line x1="${W - 92}" y1="7" x2="${W - 78}" y2="7" stroke="#22283a" stroke-width="1.6" stroke-dasharray="4 3"/><text x="${W - 74}" y="11" fill="#22283a">computer</text></g>`;
+  return `${svg}</svg>`;
+}
+
 // A phone (short side under 600 px) is played upright; a tablet either way.
 const isPhone = () => Math.min(screen.width, screen.height) < 600;
 
@@ -159,12 +200,13 @@ export function mount(root, ctx, sub) {
     function over(level, res) {
       if (!play) return;
       music();
-      const { delivered, trip, wait, ride, time } = res;
       const p = res.par;
+      const sec = (x) => `${Math.round(x)} s`;
       if (res.watched) {
         showDialog(dialog, ctx, {
-          title: 'The dispatcher’s run',
-          text: `All ${delivered} delivered in ${fmt(time)}, with an average trip of <b>${Math.round(p.trip)} s</b> (waiting ${Math.round(p.wait)} s, riding ${Math.round(p.ride)} s). Your turn!`,
+          title: 'The computer’s run',
+          text: `${histogram(p.totals, p.totals)}
+            All ${p.delivered} delivered in ${fmt(p.time)}. Trips: average <b>${sec(p.trip)}</b>, median <b>${sec(p.median)}</b>. Your turn!`,
           buttons: [
             { label: 'Levels', act: 'levels', run: () => ctx.back('#/elevator') },
             { label: 'Try it yourself', act: 'retry', primary: true, run: () => start() },
@@ -172,17 +214,26 @@ export function mount(root, ctx, sub) {
         });
         return;
       }
-      const pct = Math.round((100 * p.trip) / Math.max(1, trip));
+      // Scored on the sum of the squares of the trips, against the
+      // computer's (as a root-mean-square, so 50% means trips "twice as
+      // long", with long waits counting extra).
+      const pct = Math.round(100 * Math.sqrt(p.squares / Math.max(1, res.squares)));
       const stars = pct >= 100 ? 3 : pct >= 80 ? 2 : 1;
       progress.complete(level, stars);
-      ctx.track('level_complete', { level, stars, trip: Math.round(trip), par: Math.round(p.trip) });
+      ctx.track('level_complete', { level, stars, pct, trip: Math.round(res.trip), par: Math.round(p.trip) });
       ctx.sfx(stars >= 2 ? 'win' : 'lose');
+      const k = (x) => Math.round(x).toLocaleString();
       showDialog(dialog, ctx, {
         title: pct >= 100 ? 'Better than the computer!' : pct >= 80 ? 'Smooth running' : 'Everyone got there',
         stars,
-        text: `All ${delivered} passengers delivered in ${fmt(time)}.<br>
-          Average trip <b>${Math.round(trip)} s</b> (waiting ${Math.round(wait)} s, riding ${Math.round(ride)} s).<br>
-          The dispatcher averaged <b>${Math.round(p.trip)} s</b> with the same people: you got <b>${pct}%</b>.`,
+        text: `${histogram(res.totals, p.totals)}
+          <table class="el-stats">
+            <tr><th></th><th>you</th><th>computer</th></tr>
+            <tr><td>Average trip</td><td>${sec(res.trip)}</td><td>${sec(p.trip)}</td></tr>
+            <tr><td>Median trip</td><td>${sec(res.median)}</td><td>${sec(p.median)}</td></tr>
+            <tr><td>Sum of squares</td><td>${k(res.squares)}</td><td>${k(p.squares)}</td></tr>
+          </table>
+          Long waits count extra (trips are squared): you scored <b>${pct}%</b> of the computer.`,
         buttons: [
           { label: 'Watch it', act: 'watch', run: () => start(true) },
           { label: 'Retry', act: 'retry', run: () => start() },
@@ -196,7 +247,7 @@ export function mount(root, ctx, sub) {
       text: `A ${spec.building.storeys}-storey building. ${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds. ${PATTERN[spec.pattern]}<br><br>
         <b>Tap a floor in a lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most). The floors they want light up, with a figure for each of them.<br><br>
-        You’re done when everyone has got where they’re going. The shorter their trips, the better.`,
+        You’re done when everyone has got where they’re going. The shorter their trips, the better, and a long wait counts extra.`,
       buttons: [{ label: 'Open the doors', act: 'start', primary: true, run: () => start() }],
     });
   }

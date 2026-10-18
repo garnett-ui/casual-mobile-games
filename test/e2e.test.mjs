@@ -939,8 +939,10 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 40000 });
     await page.evaluate(() => clearInterval(window.__drive));
     const text = await page.locator('.dialog').innerText();
-    assert.match(text, /All 20 passengers delivered/);
-    assert.match(text, /The dispatcher averaged \d+ s with the same people: you got \d+%/);
+    assert.match(text, /Average trip\s+\d+ s\s+\d+ s/);
+    assert.match(text, /Median trip/);
+    assert.match(text, /you scored \d+% of the computer/);
+    assert.ok(await page.locator('.dialog .el-hist rect').count(), 'a histogram of trip times');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:elevator:progress')));
     assert.equal(saved.unlocked, 2);
 
@@ -949,7 +951,7 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     assert.ok(await page.evaluate(() => !!window.__elevator.autopilot));
     await page.evaluate(() => (window.__elevator.timeScale = 40));
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 40000 });
-    assert.match(await page.locator('.dialog h3').textContent(), /dispatcher/i);
+    assert.match(await page.locator('.dialog h3').textContent(), /computer/i);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

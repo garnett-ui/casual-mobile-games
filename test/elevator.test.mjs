@@ -145,7 +145,7 @@ test('the dispatcher does well; par is its best; idling or sending lifts at rand
     const best = par(spec);
     assert.equal(best.delivered, spec.people, `level ${n}: everyone delivered`);
     assert.ok(best.trip < 40, `level ${n}: average trip ${best.trip}`);
-    assert.ok(best.trip <= playDispatcher(spec).stats().trip + 1e-9);
+    assert.ok(best.squares <= playDispatcher(spec).stats().squares + 1e-9);
   }
   const spec = levelSpec(2);
   const random = new Sim(spec);
@@ -227,4 +227,24 @@ test('who is in the building: empty first thing, never fewer than none, empty ag
     const sim = playDispatcher(spec);
     assert.deepEqual(sim.occupancy, occ, `level ${n}`);
   }
+});
+
+test('the score: trip times, their average and median, and the sum of their squares', async () => {
+  const { clockAt } = await import('../games/elevator/engine.js');
+  const sim = only([{ t: 0.1, from: 5, to: 12 }, { t: 0.1, from: 5, to: 9 }, { t: 400, from: 1, to: 2 }]);
+  sim.send(0, 5);
+  run(sim, 12);
+  sim.send(0, 9);
+  run(sim, 10);
+  sim.send(0, 12);
+  run(sim, 10);
+  const s = sim.stats();
+  assert.equal(s.totals.length, 2);
+  assert.ok(Math.abs(s.squares - s.totals.reduce((a, x) => a + x * x, 0)) < 1e-9);
+  assert.ok(Math.abs(s.median - (s.totals[0] + s.totals[1]) / 2) < 1e-9);
+  // The clock: a morning level runs from 7:30 toward 9:30.
+  const spec = levelSpec(1);
+  const people = schedule(spec);
+  assert.equal(clockAt(spec, people, 0), 450);
+  assert.ok(clockAt(spec, people, people.at(-1).t + 25) === 570);
 });

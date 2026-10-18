@@ -450,6 +450,11 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .pause-card { z-index: 4; cursor: pointer; }
 .el-screen .icon-btn svg { fill: currentColor; }
 .el-screen .el-music.off { opacity: .4; }
+.el-hist { display: block; width: 100%; height: auto; margin: 4px 0 6px; }
+.el-stats { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 6px; }
+.el-stats th { font-size: 11px; color: #565a7e; font-weight: 700; text-align: right; }
+.el-stats td { padding: 2px 0; text-align: right; font-weight: 800; color: var(--card-ink); }
+.el-stats td:first-child { text-align: left; font-weight: 600; color: #565a7e; }
 .el-screen .bar h2 { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ll-paused { z-index: 4; cursor: pointer; }
 .ll-screen .icon-btn svg { fill: currentColor; }

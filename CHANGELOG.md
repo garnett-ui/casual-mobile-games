@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.34.0
+- Elevator Operator has an analog clock showing the time of day as the level
+  goes by: the morning rush from 7:30, midday from 10, lunch from 12 (some
+  eat in the building's restaurant, others go out), the evening from 5.
+- At the end of a level: a histogram of everyone's trip times, yours against
+  the computer's, with the average and median, and a score based on the sum
+  of the squares of the trips -- so one person kept waiting a long time costs
+  much more than a few short waits.
+
 ## 1.33.1
 - Elevator Operator keeps count of who's in the building. It's empty first
   thing in the morning and everyone arrives; in the middle of the day the

@@ -168,8 +168,13 @@ tablet), to lift music.
   restaurant or the gym, and back). Between the peaks (half floor to floor)
   is an estimate; in the evening everyone goes home. About a fifth of people use the
   garage. The level ends when everyone has got where they're going.
-- Scored on the average trip (waiting plus riding) against a computer
-  dispatcher with exactly the same people (arrivals are seeded). The truly
+- An analog clock shows the time of day: the morning level runs 7:30 to
+  9:30, the middle of the day 10 to 12, lunch 12 to 2, the evening 5 to 7.
+- At the end: a histogram of everyone's trip times (from pressing the button
+  to getting out), yours against the computer's, the average and median, and
+  the score: the sum of the squares of the trips (so a long wait counts for
+  much more than a short one), compared with the computer dispatcher's with
+  exactly the same people (arrivals are seeded). The truly
   optimal schedule can't be computed in any reasonable time, so the yardstick
   is the classic "collective control" used by real lift groups (keep going one
   way, stopping wherever someone wants to get on or off, then turn round;

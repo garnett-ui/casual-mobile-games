@@ -72,6 +72,16 @@ export const MIX = {
   evening: { in: 0, out: 1, inter: 0 },
 };
 export const PERIODS = ['morning', 'midday', 'lunch', 'evening'];
+// The time of day each runs over, in minutes after midnight.
+export const HOURS = { morning: [450, 570], midday: [600, 720], lunch: [720, 840], evening: [1020, 1140] };
+
+// The time of day (minutes after midnight) at time t of the level: the
+// level's span of the day, stretched over the time the people take to come.
+export function clockAt(spec, arrivals, t) {
+  const [a, b] = HOURS[spec.pattern];
+  const length = (arrivals.at(-1)?.t ?? 60) + 25;
+  return a + ((b - a) * Math.min(t, length)) / length;
+}
 
 // Level n: the building, how many people come, how often (on average), and
 // the time of day. The first is the morning rush in a 6-storey building: 20
@@ -394,13 +404,19 @@ export class Sim {
     ev.push({ type: 'stop', car: car.i, floor: this.floorOf(car) });
   }
 
-  // Average wait (from pressing the button to getting in), ride and the
-  // whole trip, and when the last person arrived.
+  // How the trips went: each one's total (from pressing the button to
+  // getting out), the average wait, ride and trip, the median trip, and the
+  // sum of the squares of the trips -- the score: a long wait counts for
+  // much more than a short one (one 60 s trip costs as much as four of 30).
   stats() {
     const n = this.trips.length || 1;
+    const totals = this.trips.map((x) => x.wait + x.ride);
     const wait = this.trips.reduce((a, x) => a + x.wait, 0) / n;
     const ride = this.trips.reduce((a, x) => a + x.ride, 0) / n;
-    return { delivered: this.delivered, wait, ride, trip: wait + ride, time: this.t };
+    const sorted = [...totals].sort((a, b) => a - b);
+    const median = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : 0;
+    const squares = totals.reduce((a, x) => a + x * x, 0);
+    return { delivered: this.delivered, wait, ride, trip: wait + ride, median, squares, totals, time: this.t };
   }
 
   waitingCount() {
@@ -471,14 +487,14 @@ export function playDispatcher(spec, opts = {}, dt = 1 / 20) {
   return sim;
 }
 
-// The time to beat: the shortest average trip of a few versions of the
-// dispatcher, on the same people.
+// The score to beat: the smallest sum of squared trips of a few versions of
+// the dispatcher, on the same people.
 export const VARIANTS = [{}, { claim: false }, { park: false }, { ahead: false }];
 export function par(spec) {
   let best = null;
   for (const opts of VARIANTS) {
     const s = playDispatcher(spec, opts).stats();
-    if (!best || s.trip < best.trip) best = { ...s, opts };
+    if (!best || s.squares < best.squares) best = { ...s, opts };
   }
   return best;
 }
