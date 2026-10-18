@@ -62,14 +62,14 @@ export const BASE_SEED = 20261018;
 // figures are from surveys of modern office buildings (Peters Research: a
 // morning up peak of about 85% in, 10% out, 5% floor to floor; the busiest
 // part of lunch about 45% in, 45% out, 10% floor to floor). Between the peaks
-// and going home are estimates: much more floor to floor in the middle of
-// the day, and in the evening mostly out (modern surveys find no sharp
-// "down peak" -- people drift away -- but most trips are leaving).
+// is an estimate: much more floor to floor. In the evening everyone still
+// in the building goes home (modern surveys find no sharp "down peak" --
+// people drift away -- but by the end of the day the building is empty).
 export const MIX = {
   morning: { in: 0.85, out: 0.1, inter: 0.05 },
   midday: { in: 0.25, out: 0.25, inter: 0.5 },
   lunch: { in: 0.45, out: 0.45, inter: 0.1 },
-  evening: { in: 0.1, out: 0.8, inter: 0.1 },
+  evening: { in: 0, out: 1, inter: 0 },
 };
 export const PERIODS = ['morning', 'midday', 'lunch', 'evening'];
 
@@ -91,63 +91,117 @@ export function levelSpec(n) {
   };
 }
 
-// One person's trip for the time of day.
-function trip(pattern, r, B) {
-  const { ground: GROUND, garage: GARAGE, restaurant: RESTAURANT, gym: GYM, offices: OFFICES } = B;
-  const pick = (weights) => {
-    let x = r() * weights.reduce((a, [w]) => a + w, 0);
-    for (const [w, v] of weights) if ((x -= w) < 0) return typeof v === 'function' ? v() : v;
-    return weights.at(-1)[1];
-  };
-  const office = () => OFFICES[0] + Math.floor(r() * (OFFICES[1] - OFFICES[0] + 1));
-  // In and out by the lobby mostly; about a fifth drive and park downstairs.
-  const entrance = () => (r() < 0.8 ? GROUND : GARAGE[Math.floor(r() * GARAGE.length)]);
-  const m = MIX[pattern];
-  const kind = pick([[m.in, 'in'], [m.out, 'out'], [m.inter, 'inter']]);
-  if (pattern === 'lunch') {
-    // Out to lunch -- the street, the restaurant, or a workout -- and back.
-    const place = () => pick([[0.45, GROUND], [0.4, RESTAURANT], [0.15, GYM]]);
-    if (kind === 'in') return [place(), office()];
-    if (kind === 'out') return [office(), place()];
-  } else if (kind === 'in') {
-    // Coming in: to work, and in the morning some to the gym or breakfast
-    // first; in the evening, those coming in are mostly off to the gym.
-    const to = pattern === 'morning' ? pick([[0.88, office], [0.07, GYM], [0.05, RESTAURANT]])
-      : pattern === 'evening' ? pick([[0.4, office], [0.6, GYM]]) : office();
-    return [entrance(), to];
-  } else if (kind === 'out') {
-    // Going home -- or, in the evening, to the gym first.
-    if (pattern === 'evening' && r() < 0.15) return [office(), GYM];
-    return [office(), entrance()];
-  }
-  // Floor to floor: meetings, coffee in the restaurant, the gym.
-  const a = office();
-  const b = pick([[0.7, office], [0.18, RESTAURANT], [0.12, GYM]]);
-  return a === b ? [a, b === OFFICES[0] ? b + 1 : b - 1] : r() < 0.5 ? [a, b] : [b, a];
+// Floors where people stay a while (and are counted): the restaurant, the
+// offices and the health club. The lobby, garage and roof are on the way in
+// or out.
+export function stays(B, f) {
+  return f >= B.restaurant && f <= B.gym;
 }
 
 // The arrivals: a Poisson process (independent, at a steady average rate),
-// seeded so you and the dispatcher meet exactly the same people.
+// seeded so you and the dispatcher meet exactly the same people -- and
+// consistent with who's in the building. It's empty first thing and empty
+// again at the end of the day: nobody leaves a floor nobody is on. In the
+// middle of the day the working population is at its desks. Returns the
+// people, with `start`: how many are on each floor to begin with.
 export function schedule(spec) {
   const r = rng(spec.seed);
   const B = spec.building;
-  const people = [];
+  const N = spec.people;
+  const { ground: GROUND, garage: GARAGE, restaurant: RESTAURANT, gym: GYM, offices: OFFICES } = B;
+  const pick = (weights) => {
+    const ws = weights.filter(([w]) => w > 0);
+    let x = r() * ws.reduce((a, [w]) => a + w, 0);
+    for (const [w, v] of ws) if ((x -= w) < 0) return typeof v === 'function' ? v() : v;
+    const v = ws.at(-1)[1];
+    return typeof v === 'function' ? v() : v;
+  };
+  const office = () => OFFICES[0] + Math.floor(r() * (OFFICES[1] - OFFICES[0] + 1));
+  const isOffice = (f) => f >= OFFICES[0] && f <= OFFICES[1];
+  // In and out by the lobby mostly; about a fifth drive and park downstairs.
+  const entrance = () => (r() < 0.8 ? GROUND : GARAGE[Math.floor(r() * GARAGE.length)]);
+  const occ = Array(B.floors).fill(0);
+  const inside = [];
+  for (let f = RESTAURANT; f <= GYM; f++) inside.push(f);
+  // Someone on a floor (matching `ok`), chosen in proportion to how many
+  // are there.
+  const someone = (ok = () => true) => {
+    const fs = inside.filter((f) => occ[f] > 0 && ok(f));
+    if (!fs.length) return null;
+    return pick(fs.map((f) => [occ[f], f]));
+  };
+  const m = MIX[spec.pattern];
+  const kinds = Array.from({ length: N }, () => pick([[m.in, 'in'], [m.out, 'out'], [m.inter, 'inter']]));
   // Now and then someone flies in to the helipad, or out from it: once or
   // twice a level.
-  const heli = new Set([Math.floor(r() * spec.people), Math.floor(r() * spec.people * 2)]);
+  for (const id of new Set([Math.floor(r() * N), Math.floor(r() * N * 2)])) {
+    if (id < N) kinds[id] = spec.pattern === 'morning' || (spec.pattern !== 'evening' && r() < 0.5) ? 'flyIn' : 'flyOut';
+  }
+  if (spec.pattern === 'evening') {
+    // Going home: everyone in the building leaves (one or two by
+    // helicopter), and then it's empty.
+    for (let k = 0; k < N; k++) occ[kinds[k] === 'flyOut' ? office() : pick([[0.85, office], [0.1, GYM], [0.05, RESTAURANT]])]++;
+  } else if (spec.pattern !== 'morning') {
+    // At work: a few people on every office floor.
+    const workers = Math.max(N, 4 * (OFFICES[1] - OFFICES[0] + 1));
+    for (let k = 0; k < workers; k++) occ[office()]++;
+  }
+  const start = occ.slice();
+  // Someone getting out at a floor can't leave it again until they've
+  // actually got there: allow a generous time for the trip.
+  const settle = 40 + 2 * B.floors;
+  const coming = [];
+  const people = [];
   let t = WALK;
-  for (let id = 0; id < spec.people; id++) {
+  for (let id = 0; id < N; id++) {
     if (id) t += -Math.log(1 - r()) * spec.gap;
-    let [from, to] = trip(spec.pattern, r, spec.building);
-    if (heli.has(id)) {
-      const office = B.offices[0] + Math.floor(r() * (B.offices[1] - B.offices[0] + 1));
-      const arriving = spec.pattern === 'morning' || (spec.pattern !== 'evening' && r() < 0.5);
-      [from, to] = arriving ? [B.roof, office] : [office, B.roof];
+    for (let k = coming.length - 1; k >= 0; k--) {
+      if (coming[k][0] <= t) {
+        occ[coming[k][1]]++;
+        coming.splice(k, 1);
+      }
     }
+    let kind = kinds[id];
+    if (spec.pattern === 'evening' && kind === 'flyOut' && someone(isOffice) === null) kind = 'out';
+    if ((kind === 'out' || kind === 'inter' || kind === 'flyOut') && someone() === null) kind = kind === 'flyOut' ? 'flyIn' : 'in';
+    let from;
+    let to;
+    if (kind === 'flyIn') [from, to] = [B.roof, office()];
+    else if (kind === 'flyOut') {
+      from = someone(isOffice) ?? someone();
+      to = B.roof;
+    } else if (kind === 'in') {
+      if (spec.pattern === 'lunch') {
+        // Back from lunch: the street, the restaurant, or a workout.
+        from = pick([[0.45, GROUND], [occ[RESTAURANT] ? 0.4 : 0, RESTAURANT], [occ[GYM] ? 0.15 : 0, GYM]]);
+        to = office();
+      } else {
+        from = entrance();
+        // Coming in to work; in the morning a few go to the gym or for
+        // breakfast first.
+        to = spec.pattern === 'morning' ? pick([[0.88, office], [0.07, GYM], [0.05, RESTAURANT]]) : office();
+      }
+    } else if (kind === 'out') {
+      if (spec.pattern === 'lunch') {
+        // Out to lunch: the street, the restaurant, or a workout.
+        from = someone(isOffice) ?? someone();
+        to = pick([[0.45, GROUND], [from === RESTAURANT ? 0 : 0.4, RESTAURANT], [from === GYM ? 0 : 0.15, GYM]]);
+      } else {
+        from = someone();
+        to = entrance();
+      }
+    } else {
+      // Floor to floor: meetings, coffee in the restaurant, the gym.
+      from = someone();
+      do to = pick([[0.7, office], [0.18, RESTAURANT], [0.12, GYM]]); while (to === from);
+    }
+    if (stays(B, from)) occ[from]--;
+    if (stays(B, to)) coming.push([t + settle, to]);
     // Looks: skin, hair, shirt, trousers (indexes into the view's palettes).
     const look = [r(), r(), r(), r()].map((x) => Math.floor(x * 1e6));
     people.push({ id, t, from, to, look });
   }
+  people.start = start;
   return people;
 }
 
@@ -160,6 +214,10 @@ export class Sim {
     this.arrivals = schedule(spec);
     this.next = 0;
     this.waiting = Array.from({ length: this.floors }, () => []);
+    // How many people are on each floor (at their desks, eating, working
+    // out): they leave it when they go for a lift, and add to it when they
+    // get out at it.
+    this.occupancy = this.arrivals.start ? this.arrivals.start.slice() : Array(this.floors).fill(0);
     this.cars = Array.from({ length: CARS }, (_, i) => ({
       i,
       pos: spec.building.ground, // floor, fractional while moving
@@ -205,6 +263,7 @@ export class Sim {
     while (this.next < this.arrivals.length && this.arrivals[this.next].t <= this.t) {
       const a = this.arrivals[this.next++];
       this.waiting[a.from].push({ ...a });
+      if (stays(this.building, a.from)) this.occupancy[a.from] = Math.max(0, this.occupancy[a.from] - 1);
       ev.push({ type: 'arrive', floor: a.from, id: a.id });
     }
     for (const car of this.cars) this.stepCar(car, dt, ev);
@@ -273,6 +332,7 @@ export class Sim {
           if (out >= 0) {
             const [p] = car.riders.splice(out, 1);
             this.delivered++;
+            if (stays(this.building, here)) this.occupancy[here]++;
             this.trips.push({ wait: p.boarded - p.t, ride: this.t - p.boarded });
             ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look });
             car.timer += EXIT_TIME;

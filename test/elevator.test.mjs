@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, schedule, levelSpec, building, dispatch, playDispatcher, par, floorName, CAPACITY, WALK, DOOR, MIX } from '../games/elevator/engine.js';
+import { Sim, schedule, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, CAPACITY, WALK, DOOR, MIX } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -204,4 +204,27 @@ test('everyone getting off goes before anyone gets on; sent off early, the rest 
   const order = ev.filter((e) => e.type === 'deliver' || e.type === 'board').map((e) => e.type);
   assert.ok(!order.includes('board'), order.join(','));
   assert.equal(sim.waiting[6].length, 1, 'the one waiting at 6 is still waiting');
+});
+
+test('who is in the building: empty first thing, never fewer than none, empty again at the end of the day', () => {
+  for (let n = 1; n <= 16; n++) {
+    const spec = levelSpec(n);
+    const B = spec.building;
+    const people = schedule(spec);
+    const occ = people.start.slice();
+    const total = (o) => o.reduce((a, b) => a + b, 0);
+    if (spec.pattern === 'morning') assert.equal(total(occ), 0, `level ${n}: empty in the morning`);
+    else assert.ok(total(occ) > 0, `level ${n}: people at work`);
+    for (const p of people) {
+      if (stays(B, p.from)) {
+        occ[p.from]--;
+        assert.ok(occ[p.from] >= 0, `level ${n}: nobody leaves an empty floor`);
+      }
+      if (stays(B, p.to)) occ[p.to]++;
+    }
+    if (spec.pattern === 'evening') assert.equal(total(occ), 0, `level ${n}: everyone has gone home`);
+    // The game keeps the same count as people come and go.
+    const sim = playDispatcher(spec);
+    assert.deepEqual(sim.occupancy, occ, `level ${n}`);
+  }
 });

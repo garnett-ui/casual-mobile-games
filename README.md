@@ -138,6 +138,11 @@ every four levels (10, then 15 with two parking levels, then 20, crowned like
 the Empire State Building). Played upright on a phone (either way on a
 tablet), to lift music.
 
+- The building is empty first thing and empty again at the end of the day:
+  in the morning everyone arrives, through the middle of the day the working
+  population is at its desks, and in the evening everyone in the building
+  goes home. Nobody leaves a floor nobody is on. Each floor shows how many
+  people are on it just now.
 - People walk in off the street through the lobby's glass doors (and out
   again), drive down the ramp into the garage, park and walk to the lifts (or
   walk to their car and drive away), and now and then fly in or out by
@@ -161,7 +166,7 @@ tablet), to lift music.
   Research): mornings about 85% in, 10% out, 5% floor to floor; the busiest
   part of lunch 45% in, 45% out, 10% floor to floor (out to the street, the
   restaurant or the gym, and back). Between the peaks (half floor to floor)
-  and going home (80% out) are estimates. About a fifth of people use the
+  is an estimate; in the evening everyone goes home. About a fifth of people use the
   garage. The level ends when everyone has got where they're going.
 - Scored on the average trip (waiting plus riding) against a computer
   dispatcher with exactly the same people (arrivals are seeded). The truly

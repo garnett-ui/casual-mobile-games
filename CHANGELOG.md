@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.33.1
+- Elevator Operator keeps count of who's in the building. It's empty first
+  thing in the morning and everyone arrives; in the middle of the day the
+  staff are at their desks; in the evening everyone goes home and the
+  building ends up empty. Nobody leaves a floor nobody is on, and each floor
+  shows how many people are on it just now.
+
 ## 1.33.0
 - Elevator Operator starts with a 6-storey building (parking, lobby,
   restaurant, offices, health club, roof) and grows every four levels: 10

@@ -4,7 +4,7 @@
 // -- with 8-bit people walking from their offices, cars and helicopters to
 // the call buttons and queueing; a shaft for each lift on the right, where
 // you tap a floor to send that lift there.
-import { Sim, CARS, CAPACITY, WALK, floorName, dispatch, par } from './engine.js';
+import { Sim, CARS, CAPACITY, WALK, floorName, stays, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -592,7 +592,7 @@ export class Play {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = f < GROUND ? 'rgba(255,255,255,0.55)' : 'rgba(90,70,40,0.35)';
-      ctx.fillText(name, (this.doorX + this.spriteW + this.panelX) / 2, y + rowH * 0.3);
+      ctx.fillText(name, (this.doorX + this.spriteW + 44 + this.panelX) / 2, y + rowH * 0.3);
     }
     if (f === RESTAURANT) this.drawTables(y);
     if (f === GYM) this.drawWeights(y);
@@ -619,6 +619,23 @@ export class Play {
       ctx.fillRect(this.doorX - 2, y + rowH * 0.12, dw, rowH * 0.86 - 2);
       ctx.fillStyle = f === GROUND ? '#6a8aa0' : '#6b5133';
       ctx.fillRect(this.doorX - 2 + dw - 4, y + rowH * 0.5, 2, 2);
+    }
+    // How many people are on this floor just now (at their desks, eating,
+    // working out): a little figure and the number.
+    if (stays(B, f)) {
+      const n = sim.occupancy[f];
+      const bx = this.doorX + dw + 3;
+      const by = y + rowH / 2;
+      const s2 = clamp(rowH * 0.12, 2, 5);
+      ctx.fillStyle = n ? '#5b4a2e' : 'rgba(91,74,46,0.3)';
+      ctx.beginPath();
+      ctx.arc(bx + s2, by - s2 * 1.2, s2 * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(bx + s2 * 0.2, by - s2 * 0.2, s2 * 1.6, s2 * 1.8);
+      ctx.font = `800 ${clamp(rowH * 0.36, 9, 14)}px system-ui, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(n), bx + s2 * 2.6, by);
     }
     // The call buttons: lit for anyone waiting to go up, or down.
     const w = sim.waiting[f];
