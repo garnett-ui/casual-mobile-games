@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.29.2
+- Lunar Lander: the tilt under the artificial horizon is signed: +3° when
+  you're leaning right, −3° leaning left. It's green while you're level
+  enough to land and turns red past 10°, where you'd tip over on touchdown.
+
 ## 1.29.1
 - Lunar Lander: the engine falls silent when you touch down on the base.
   If you landed with the engine still firing, its roar used to carry on

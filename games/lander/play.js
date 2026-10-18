@@ -1215,7 +1215,10 @@ export class Play {
     ctx.stroke();
     ctx.textAlign = 'center';
     ctx.font = '700 15px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillText(`${Math.abs(Math.round(L.angle * DEG))}°`, bx, by + R + 20);
+    // The tilt, signed: + leaning right, − leaning left. (Green while level
+    // enough to land, red past 10°, like the horizon.)
+    const tilt = Math.round(L.angle * DEG);
+    ctx.fillText(`${tilt > 0 ? '+' : tilt < 0 ? '−' : ''}${Math.abs(tilt)}°`, bx, by + R + 20);
     // Turn indicator: a curved arrow round the bottom of the horizon, green
     // up the right side when turning right (clockwise) and red up the left
     // when turning left, like a ship's starboard and port lights; longer the
