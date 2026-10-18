@@ -187,6 +187,7 @@ test('every level is a whole working day, 7 AM to 7:30 PM: five minutes to start
     const spec = levelSpec(n);
     const times = spec.towers.flatMap((t) => t.arrivals.map((a) => a.t)).filter(Number.isFinite);
     assert.ok(Math.min(...times) < toPlay(8.5 * 60, spec.play), `level ${n}: starts with the morning rush`);
+    assert.ok(Math.min(...times) <= 1, `level ${n}: someone's on their way at once`);
     assert.ok(Math.max(...times) > toPlay(17.5 * 60, spec.play), `level ${n}: ends with the evening`);
     const { over, best } = runDay(spec);
     assert.ok(over.time > spec.play * 0.85 && over.time < spec.play * 1.2, `level ${n}: ${Math.round(over.time)} s of ${spec.play}`);

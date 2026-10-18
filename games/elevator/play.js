@@ -162,17 +162,30 @@ class Tower {
     this.groundH = clamp(H * 0.03, 14, 26);
     this.rowH = Math.min(58, (H - this.hud - this.crownH - this.groundH) / F);
     this.top = H - this.groundH - this.rowH * F; // standing on the ground, sky above
-    this.x0 = clamp(W * 0.12, narrow ? 14 : 34, 120); // the street is to the left
+    this.x0 = clamp(W * 0.08, narrow ? 12 : 28, 120); // the street is to the left
     this.x1 = W - (narrow ? 3 : 6);
     this.labelW = clamp(W * 0.07, narrow ? 16 : 22, 34);
-    this.shaftW = clamp(W * 0.17, narrow ? 30 : 50, 96);
     this.gap = 6;
-    this.shaftX = Array.from({ length: CARS }, (_, i) => this.x1 - 4 - (CARS - i) * this.shaftW - (CARS - 1 - i) * this.gap);
     this.panelW = clamp(this.rowH * 0.42, 9, 16);
-    this.panelX = this.shaftX[0] - this.gap - this.panelW;
     this.doorX = this.x0 + this.labelW + 4; // the office door people come out of
-    this.px = Math.max(1, Math.min(narrow ? 2 : 9, Math.floor((this.rowH * 0.8) / 12))); // sprite pixel size
-    this.spriteW = this.px * 8;
+    // People are the same size everywhere -- on the floors and in the lifts
+    // -- as big as they can be with the lifts wide enough for a full load
+    // side by side (or, if that's too wide, in two rows, front and back)
+    // and room on the floors to queue.
+    const fit = (px, rows) => Math.ceil(CAPACITY / rows) * 8 * px + 14;
+    let px = Math.max(1, Math.floor((this.rowH * 0.8) / 12));
+    let rows = 1;
+    for (; px > 1; px--) {
+      rows = [1, 2].find((n) => (n === 1 || this.rowH - 8 >= 12 * px * 1.4) && this.x1 - 4 - CARS * fit(px, n) - CARS * this.gap - this.panelW - this.doorX >= Math.max(W * 0.2, 4 * 8 * px + 30));
+      if (rows) break;
+    }
+    rows ||= this.x1 - 4 - CARS * fit(1, 1) - CARS * this.gap - this.panelW - this.doorX >= W * 0.2 ? 1 : 2;
+    this.px = px; // sprite pixel size
+    this.carRows = rows;
+    this.spriteW = px * 8;
+    this.shaftW = Math.max(fit(px, rows), narrow ? 30 : 50);
+    this.shaftX = Array.from({ length: CARS }, (_, i) => this.x1 - 4 - (CARS - i) * this.shaftW - (CARS - 1 - i) * this.gap);
+    this.panelX = this.shaftX[0] - this.gap - this.panelW;
     this.padX = this.doorX + 6; // the helipad
     this.padR = Math.min(this.rowH * 0.3, (this.panelX - this.padX) * 0.3);
     this.padCX = this.padX + this.padR * 1.4;
@@ -803,7 +816,7 @@ class Tower {
       ctx.stroke();
     }
     // The car, with its riders always in view (the doors are glass), side
-    // by side from the left wall: small enough that a full load fits.
+    // by side from the left wall (the back row a step up and over).
     const cy = this.top + (this.B.floors - 1 - car.pos) * rowH;
     const cw = w - 8;
     const cx = x + 4;
@@ -813,10 +826,16 @@ class Tower {
     ctx.fillRect(cx, cy + 1, cw, ch);
     ctx.fillStyle = '#fff3cf';
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
-    const mini = Math.max(0.5, Math.floor(2 * Math.min((ch - 5) / 12, (cw - 6) / (CAPACITY * 8))) / 2);
+    const mini = this.px;
     const fw = mini * 8;
-    const stepX = Math.min(fw, (cw - 6 - fw) / (CAPACITY - 1));
-    riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 + k * stepX, cy + ch - 1, mini, 'stand'));
+    const per = Math.ceil(CAPACITY / this.carRows);
+    const stepX = Math.min(fw, (cw - 6 - fw) / (per - 1));
+    const spot = (k) => {
+      const back = k >= per;
+      const col = back ? k - per : k;
+      return [cx + 3 + col * stepX + (back ? fw / 2 : 0), cy + ch - 1 - (back ? mini * 5 : 0)];
+    };
+    for (let k = riders.length - 1; k >= 0; k--) drawSprite(ctx, riders[k].look, ...spot(k), mini, 'stand');
     const half = (cw - 4) / 2;
     const open = half * car.open;
     ctx.fillStyle = 'rgba(150,165,185,0.35)';

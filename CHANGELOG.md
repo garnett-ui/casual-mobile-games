@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.43.0
+- Elevator Operator: a new picture on its card -- the lift operator at the
+  controls of an art-deco lift. People are the same size in the lifts as on
+  the floors (the lifts are wider, to hold all 6 side by side; on the twin
+  towers, in two rows). And the day starts at once: the first person is on
+  their way as the doors open, with a trickle of early birds before the
+  morning rush.
+
 ## 1.42.0
 - Elevator Operator: people get on a lift only once they've walked up to
   it. Even with a lift standing open on their floor, they walk to the

@@ -53,7 +53,7 @@ export const GAMES = [
   {
     id: 'elevator',
     title: 'Elevator Operator',
-    blurb: 'Run the lifts in a 20-storey tower: tap a floor to send a lift there and get everyone where they’re going. Can you beat the computer?',
+    blurb: 'Run the lifts through a whole working day, from a six-storey office block to twin towers: tap a floor to send a lift there and get everyone where they’re going. Can you beat the computer?',
     color: '#2a9d8f',
     load: () => import('../games/elevator/index.js'),
     art: () => import('../games/elevator/art.js'),

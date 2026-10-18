@@ -284,6 +284,10 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
       last = { tower: leg.tower, trip };
     }
   }
+  // The early birds: someone's on their way as soon as the doors open, and
+  // a trickle more before the morning rush.
+  const firsts = lists.flat().filter((a) => a.prev === undefined && Number.isFinite(a.t)).sort((a, b) => a.t - b.t);
+  firsts.slice(0, 8).forEach((a, k) => (a.t = Math.min(a.t, 0.5 + 5 * k)));
   lists.forEach((list, k) => {
     list.sort((a, b) => a.t - b.t);
     list.start = k === 0 && twin ? hStart : Array(buildings[k].floors).fill(0);
