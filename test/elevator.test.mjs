@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, Day, approach, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, PRESS, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
+import { Sim, Day, approach, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, PRESS, LULL, DAY, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -198,25 +198,55 @@ test('the building: parking, the lobby, a restaurant on 2, offices, a health clu
   assert.ok(levelSpec(2).workers > levelSpec(1).workers && levelSpec(5).workers > levelSpec(4).workers);
 });
 
-test('every level is a whole working day, 7 AM to 7:30 PM: five minutes to start, up to fifteen in the hardest', () => {
+test('every level is a whole working day, 7 AM to 7:30 PM: about five minutes to start, up to fifteen in the hardest', () => {
   assert.equal(clockAt(0), 7 * 60);
   assert.equal(clockAt(PLAY), 19.5 * 60);
-  assert.equal(levelSpec(1).play, PLAY);
-  const plays = [1, 4, 7, 10, TWINS].map((n) => levelSpec(n).play);
-  assert.deepEqual([...plays].sort((a, b) => a - b), plays, 'longer as the buildings grow');
-  assert.equal(Math.max(...[TWINS + 10, TWINS + 20, 100].map((n) => levelSpec(n).play)), MAX_PLAY, 'the longest days, fifteen minutes');
+  const lengths = [1, 4, 7, 10].map((n) => levelSpec(n).length);
+  assert.deepEqual([...lengths].sort((a, b) => a - b), lengths, 'longer as the buildings grow');
+  assert.equal(Math.max(...[TWINS + 10, TWINS + 20, 100].map((n) => levelSpec(n).play)), MAX_PLAY, 'the longest days');
   for (const n of [1, 4, 7, 10, TWINS, TWINS + 13]) {
     const spec = levelSpec(n);
     const times = spec.towers.flatMap((t) => t.arrivals.map((a) => a.t)).filter(Number.isFinite);
     assert.ok(Math.min(...times) < toPlay(8.5 * 60, spec.play), `level ${n}: starts with the morning rush`);
-    assert.ok(Math.min(...times) <= 1, `level ${n}: someone's on their way at once`);
     assert.ok(Math.max(...times) > toPlay(17.5 * 60, spec.play), `level ${n}: ends with the evening`);
-    const { over, best } = runDay(spec);
-    assert.ok(over.time > spec.play * 0.85 && over.time < spec.play * 1.2, `level ${n}: ${Math.round(over.time)} s of ${spec.play}`);
+    const { over, best, day } = runDay(spec);
+    assert.ok(over.time > spec.length * 0.7 && over.time < spec.length * 1.3, `level ${n}: ${Math.round(over.time)} s, about ${spec.length}`);
+    assert.ok(over.time < 16 * 60, `level ${n}: at most about fifteen minutes`);
     assert.ok(best.rms < 45, `level ${n}: playable (the computer's RMS trip ${Math.round(best.rms)} s)`);
+    assert.ok(day.clock <= DAY.end && day.clock > 18 * 60, `level ${n}: over by the evening (${day.clock})`);
   }
   // Each building has a name, and each level is the next day there.
   assert.deepEqual([1, 2, 3, 4].map((n) => [levelSpec(n).place, levelSpec(n).day]), [['Maple Street Offices', 1], ['Maple Street Offices', 2], ['Maple Street Offices', 3], ['Riverside House', 1]]);
+});
+
+test('lulls: the clock skips ahead so someone new sets off within 3 s -- unless anyone is waiting for a lift', () => {
+  for (const n of [1, 4, TWINS]) {
+    const spec = levelSpec(n);
+    const best = par(spec);
+    const day = new Day(spec);
+    let last = 0;
+    let first = null;
+    let quietGaps = 0;
+    while (!day.over && day.t < 3600) {
+      day.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
+      const busy = day.sims.some((s) => s.waiting.some((w) => w.length) || s.walking.length);
+      // (Someone on the schedule -- not waiting on their last trip, or for
+      // someone to be on the floor they'd leave.)
+      const due = day.sims.some((s) => s.pending.some((a) => Number.isFinite(a.t) && s.setsOff(a) === a.t && !(stays(s.building, a.from) && s.occupancy[a.from] <= 0)));
+      for (const e of day.step(1 / 20)) {
+        if (e.type !== 'leave') continue;
+        first ??= day.t;
+        last = day.t;
+      }
+      // Quiet -- nobody setting off, nobody waiting -- with someone on the
+      // schedule, for more than LULL: shouldn't happen.
+      if (busy) last = Math.max(last, day.t);
+      if (!busy && due && day.t - last > LULL + 0.11) quietGaps++;
+    }
+    assert.ok(first <= LULL + 0.1, `level ${n}: the first person sets off at ${first} s`);
+    assert.equal(quietGaps, 0, `level ${n}: no quiet stretches`);
+    assert.ok(day.skipped > 0, `level ${n}: the clock skipped ahead`);
+  }
 });
 
 test('the offices are empty at dawn and empty at night; the mix at the peaks matches the surveys', () => {
@@ -230,10 +260,10 @@ test('the offices are empty at dawn and empty at night; the mix at the peaks mat
   // Mixes, over a few levels' worth of people: in the morning rush nearly
   // everyone is arriving; at lunch it's in and out (and some to the
   // restaurant or the gym).
-  const all = [1, 2, 3, 4, 5, 6].flatMap((n) => levelSpec(n).arrivals.map((a) => ({ ...a, B: levelSpec(n).building })));
+  const all = [1, 2, 3, 4, 5, 6].flatMap((n) => levelSpec(n).arrivals.map((a) => ({ ...a, B: levelSpec(n).building, play: levelSpec(n).play })));
   const inside = (a, f) => stays(a.B, f);
   const share = (lo, hi) => {
-    const w = all.filter((a) => a.t >= toPlay(lo * 60) && a.t < toPlay(hi * 60));
+    const w = all.filter((a) => a.t >= toPlay(lo * 60, a.play) && a.t < toPlay(hi * 60, a.play));
     const i = w.filter((a) => !inside(a, a.from) && inside(a, a.to)).length / w.length;
     const o = w.filter((a) => inside(a, a.from) && !inside(a, a.to)).length / w.length;
     return { in: i, out: o, inter: 1 - i - o };
@@ -345,7 +375,7 @@ test(`from level ${TWINS}: an apartment tower and an office tower, one day betwe
   // At about 10 AM the apartments are empty and the offices busy.
   const morning = new Day(spec);
   const best = par(spec);
-  while (morning.t < toPlay(10.5 * 60, spec.play)) {
+  while (morning.clock < 10.5 * 60) {
     morning.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
     morning.step(1 / 20);
   }
@@ -362,6 +392,6 @@ test(`from level ${TWINS}: an apartment tower and an office tower, one day betwe
     assert.ok(Object.values(TRANSIT).includes(b.transit));
     assert.equal(b.look.join(), a.look.join());
     const done = (other === o ? h : o).doneAt.get(a.id);
-    assert.ok(b.t >= done + b.transit - 1e-9, 'set off after crossing');
+    assert.ok(b.t + day.skipped >= done + b.transit - 1e-9, 'set off after crossing (or the clock skipped ahead)');
   }
 });

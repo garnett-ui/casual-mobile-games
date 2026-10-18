@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.50.0
+- Elevator Operator: no more quiet spells. When no one has set off for 3
+  seconds and nobody's waiting for a lift, the clock (and the sun) races
+  ahead to the next person. To keep the days about as long as before,
+  there are more people in each building: 10 on the first day, 18 and up
+  at Maple Street, up to 38 at The Empire and up to 92 in the twin
+  towers.
+
 ## 1.49.0
 - Elevator Operator: keep an eye out -- somebody else has been using the
   lifts. (They don't count towards your score.)

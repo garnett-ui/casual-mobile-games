@@ -6,7 +6,7 @@
 // you tap a floor to send that lift there.
 import { drawSprite, lookOf, WALK_FRAMES } from './sprites.js';
 import { Cat } from './cat.js';
-import { Day, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
+import { Day, DAY, CAPACITY, WALK, floorName, stays, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -884,6 +884,7 @@ export class Play {
     this.autopilot = autopilot;
     this.par = null;
     this.towers = this.day.sims.map((sim, k) => new Tower(this, k, sim));
+    this.mins = this.day.clock; // the time of day on show
     if (this.W) this.layout();
   }
 
@@ -928,7 +929,7 @@ export class Play {
   }
 
   update(dt) {
-    const before = clockAt(this.day.t, this.spec.play);
+    const before = this.mins;
     if (this.banner) this.banner.t += dt / this.timeScale;
     const n = Math.max(1, Math.ceil(dt / (1 / 30)));
     for (let k = 0; k < n; k++) {
@@ -939,14 +940,18 @@ export class Play {
       }
     }
     for (const t of this.towers) t.tick(dt);
-    this.note(before === clockAt(0, this.spec.play) ? before - 1 : before, clockAt(this.day.t, this.spec.play));
+    // The clock (and the sun) catch up quickly when the day skips ahead
+    // through a lull.
+    const gap = this.day.clock - this.mins;
+    this.mins += Math.min(gap, Math.max(gap * 4, 2) * dt);
+    this.note(before === DAY.start ? before - 1 : before, this.mins);
   }
 
   draw(time) {
     const { ctx } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    const mins = clockAt(this.day.t, this.spec.play);
+    const mins = this.mins;
     this.drawSky(mins, time);
     for (const t of this.towers) {
       ctx.save();
@@ -1051,7 +1056,7 @@ export class Play {
   // An analog clock: the time of day in the building.
   drawClock() {
     const { ctx } = this;
-    const mins = clockAt(this.day.t, this.spec.play);
+    const mins = this.mins;
     const r = 21;
     const cx = 8 + r;
     const cy = this.hud + 6 + r;

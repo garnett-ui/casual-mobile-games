@@ -137,14 +137,17 @@ night -- in an office building: parking below the street, the lobby at
 street level, a restaurant on the 2nd floor, offices, a health club on the
 top storey and a helipad on the roof. It's a career told a day at a time:
 three days at each building, with more people every day. Maple Street
-Offices (6 storeys, a five-minute day; on the first day just one lift and 6
-people, then a second lift and 12), then Riverside House (10
+Offices (6 storeys, about five minutes a day; on the first day just one
+lift and 10 people, then a second lift and 18), then Riverside House (10
 storeys), Harbor Plaza (15, two parking levels) and The Empire (20, crowned
 like the Empire State Building), each day a little longer as the buildings
-grow: 5, 6, 7½ and 10 minutes. From level 13 you run Parkview (the
+grow: about 5, 7, 8½ and 11 minutes. From level 13 you run Parkview (the
 apartments) and Commerce Tower (the offices) across the street from each
 other, two lifts each, with more residents and workers every day and days
-growing from 10 minutes to 15 at the hardest levels. Banners mark the
+growing from about 9 minutes to 15 at the hardest levels. There's no
+waiting about: when no one has set off for 3 seconds and nobody's waiting
+for a lift, the clock (and the sun) races ahead to the next person.
+Banners mark the
 day's moments (the doors open, the morning rush, lunchtime, home time,
 nightfall). Played upright on a phone (either way on a tablet), to lift
 music.
