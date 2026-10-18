@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.40.0
+- Elevator Operator: call buttons light green for up and red for down. A
+  lift holds 6, shown side by side from its left wall. The floors its riders
+  want show a dot for each of them in the colour of their shirt -- no
+  numbers. Fixed people standing in the lobby who never got in: they were
+  shown coming back from the street before they had left the building.
+
 ## 1.39.0
 - Elevator Operator: longer days in the bigger buildings -- 5 minutes at Maple
   Street Offices, then 6, 7½ and 10 at The Empire -- and at Parkview and

@@ -284,7 +284,10 @@ class Tower {
     // Those coming in from outside (the street, the garage, the sky) set off
     // early, to reach the button about when they press it.
     for (const a of sim.pending) {
-      if (this.seen.has(a.id) || stays(B, a.from) || a.t - this.lead(a) > sim.t) continue;
+      if (this.seen.has(a.id) || stays(B, a.from)) continue;
+      // (Not while they're still on the way out, though.)
+      const off = sim.setsOff(a);
+      if (off === Infinity || off - this.lead(a) > sim.t || sim.t < (sim.doneAt.get(a.prev) ?? -Infinity) + 1) continue;
       this.seen.add(a.id);
       const v = { id: a.id, look: a.look, floor: a.from, to: a.to, mode: 'in', dir: 1, x: this.doorX, target: this.doorX, t: a.t };
       if (a.from === B.ground) {
@@ -664,14 +667,15 @@ class Tower {
     const pw = this.panelW;
     ctx.fillStyle = '#c9a54b';
     ctx.fillRect(px, y + rowH * 0.18, pw, rowH * 0.62);
+    // Lit green for up, red for down.
     const button = (on, cy, dir) => {
       const r = pw * 0.3;
-      ctx.fillStyle = on ? '#ff8c1a' : '#7a6330';
+      ctx.fillStyle = on ? (dir > 0 ? '#2bb673' : '#e5383b') : '#7a6330';
       ctx.beginPath();
       ctx.arc(px + pw / 2, cy, r, 0, Math.PI * 2);
       ctx.fill();
       if (on) {
-        ctx.fillStyle = 'rgba(255,170,60,0.35)';
+        ctx.fillStyle = dir > 0 ? 'rgba(43,182,115,0.35)' : 'rgba(229,56,59,0.35)';
         ctx.beginPath();
         ctx.arc(px + pw / 2, cy, r * 2.2, 0, Math.PI * 2);
         ctx.fill();
@@ -798,8 +802,8 @@ class Tower {
       ctx.arc(x + w / 2, y, 6 + r.t * 50, 0, Math.PI * 2);
       ctx.stroke();
     }
-    // The car, with its riders always in view (the doors are glass), from
-    // the left, spaced so that a full load fills it wall to wall.
+    // The car, with its riders always in view (the doors are glass), side
+    // by side from the left wall: small enough that a full load fits.
     const cy = this.top + (this.B.floors - 1 - car.pos) * rowH;
     const cw = w - 8;
     const cx = x + 4;
@@ -809,9 +813,9 @@ class Tower {
     ctx.fillRect(cx, cy + 1, cw, ch);
     ctx.fillStyle = '#fff3cf';
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
-    const mini = Math.max(1, Math.floor((ch - 5) / 12));
+    const mini = Math.max(0.5, Math.floor(2 * Math.min((ch - 5) / 12, (cw - 6) / (CAPACITY * 8))) / 2);
     const fw = mini * 8;
-    const stepX = Math.min(fw + 1, (cw - 6 - fw) / (CAPACITY - 1));
+    const stepX = Math.min(fw, (cw - 6 - fw) / (CAPACITY - 1));
     car.riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 + k * stepX, cy + ch - 1, mini, 'stand'));
     const half = (cw - 4) / 2;
     const open = half * car.open;
@@ -835,13 +839,11 @@ class Tower {
       ctx.textAlign = 'right';
       ctx.fillText(car.v > 0 ? '▲' : '▼', cx + cw - 2, cy + 3);
     }
+    // Someone delivered: a green flash.
     for (const p of this.pops.filter((q) => q.i === i)) {
-      ctx.globalAlpha = 1 - p.t;
-      ctx.fillStyle = '#2bb673';
-      ctx.font = `900 ${clamp(rowH * 0.45, 10, 15)}px system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('+1', x + w / 2, this.rowY(p.f) + rowH / 2 - p.t * 22);
-      ctx.globalAlpha = 1;
+      ctx.strokeStyle = `rgba(43,182,115,${1 - p.t})`;
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(x + 2, this.rowY(p.f) + 1.5, w - 4, rowH - 3);
     }
     // Which lift.
     ctx.fillStyle = '#3b3f4a';
@@ -856,7 +858,8 @@ class Tower {
   }
 
   // A floor someone in the lift has pressed: lit, with a dot for each rider
-  // who wants it (at most 8, in rows of 4).
+  // who wants it, in the colour of their shirt (a row of up to 6, or two
+  // rows of 3 if the shaft is narrow).
   drawLit(x, y, w, riders) {
     const { ctx, rowH } = this;
     const n = riders.length;
@@ -865,17 +868,22 @@ class Tower {
     ctx.strokeStyle = '#ffd23f';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(x + 3.5, y + 2.5, w - 7, rowH - 5);
-    const r = clamp(rowH * 0.1, 2, 4);
-    const per = Math.min(n, 4);
-    const rows = Math.ceil(n / 4);
-    ctx.fillStyle = '#ffd23f';
-    for (let k = 0; k < n; k++) {
-      const row = Math.floor(k / 4);
-      const col = k % 4;
+    let r = clamp(rowH * 0.1, 2, 4);
+    const across = (w - 10) / (r * 2.8) >= CAPACITY ? CAPACITY : 3;
+    r = Math.min(r, (w - 10) / (across * 2.8));
+    const per = Math.min(n, across);
+    const rows = Math.ceil(n / across);
+    ctx.strokeStyle = '#22283a';
+    ctx.lineWidth = 1;
+    riders.forEach((p, k) => {
+      const row = Math.floor(k / across);
+      const col = k % across;
+      ctx.fillStyle = lookOf(p.look).c;
       ctx.beginPath();
       ctx.arc(x + w / 2 + (col - (per - 1) / 2) * r * 2.8, y + rowH / 2 + (row - (rows - 1) / 2) * r * 2.8, r, 0, Math.PI * 2);
       ctx.fill();
-    }
+      ctx.stroke();
+    });
   }
 
 }

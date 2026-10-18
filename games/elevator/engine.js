@@ -43,7 +43,7 @@ export function floorName(b, f) {
 }
 
 export const CARS = 2;
-export const CAPACITY = 8;
+export const CAPACITY = 6;
 export const VMAX = 2.5; // floors per second
 export const ACCEL = 2.5; // floors per second^2
 export const DOOR = 0.8; // seconds for the doors to open, or to close
@@ -107,8 +107,8 @@ export function levelSpec(n) {
     day = ((n - 1) % 3) + 1;
   } else {
     const k = n - TWINS;
-    residents = Math.min(76, 24 + 4 * k);
-    workers = Math.min(32, 8 + 2 * k); // from elsewhere
+    residents = Math.min(64, 24 + 4 * k);
+    workers = Math.min(28, 8 + 2 * k); // from elsewhere
     play = Math.min(MAX_PLAY, 600 + 30 * k); // 10 minutes, growing to 15
     towers = [{ building: building(10, 1, 'residential') }, { building: building(10, 1) }];
     place = PLACES[4];
@@ -338,6 +338,15 @@ export class Sim {
     car.target = f;
   }
 
+  // When someone due to make trip a can set off: on time, but not before
+  // their last trip is over (and a moment to settle in) -- never, yet, if
+  // they're still on it.
+  setsOff(a) {
+    if (a.prev === undefined) return a.t;
+    const done = this.doneAt.get(a.prev);
+    return done === undefined ? Infinity : Math.max(a.t, done + SETTLE);
+  }
+
   // The floors the people in car i want (lit in its shaft).
   lit(i) {
     return new Set(this.cars[i].riders.map((p) => p.to));
@@ -352,12 +361,7 @@ export class Sim {
     // they'd be is still on their way there), they go once someone is.
     for (let k = 0; k < this.pending.length; k++) {
       const a = this.pending[k];
-      if (a.t > this.t) continue;
-      // Their last trip has to be over (and a moment to settle in) first.
-      if (a.prev !== undefined) {
-        const done = this.doneAt.get(a.prev);
-        if (done === undefined || this.t < done + SETTLE) continue;
-      }
+      if (this.setsOff(a) > this.t) continue;
       if (stays(this.building, a.from)) {
         if (this.occupancy[a.from] <= 0) continue;
         this.occupancy[a.from]--;
