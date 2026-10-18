@@ -4,7 +4,7 @@
 // -- with 8-bit people walking from their offices, cars and helicopters to
 // the call buttons and queueing; a shaft for each lift on the right, where
 // you tap a floor to send that lift there.
-import { Sim, CARS, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
+import { Day, CARS, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -70,50 +70,30 @@ export function drawSprite(ctx, look, x, base, px, pose = 'stand', dir = 1) {
   }
 }
 
-// ------------------------------------------------------------------- Play
+// ------------------------------------------------------------------ Tower
 
-export class Play {
-  constructor(canvas, hooks, spec) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.hooks = hooks;
-    this.timeScale = 1;
-    this.paused = true;
-    this.litStyle = 'figures'; // how a lit floor shows its riders: figures | number | pips
-    this.reset(spec);
-    this.resize();
-    this.last = performance.now();
-    const loop = (now) => {
-      const dt = Math.min(0.1, (now - this.last) / 1000) * this.timeScale;
-      this.last = now;
-      if (!this.paused) this.update(dt);
-      this.draw(now / 1000);
-      this.raf = requestAnimationFrame(loop);
-    };
-    this.raf = requestAnimationFrame(loop);
-    canvas.addEventListener('pointerdown', (e) => this.tap(e));
-  }
-
-  destroy() {
-    cancelAnimationFrame(this.raf);
-  }
-
-  // Start (or restart) the level; with `autopilot`, the dispatcher runs the
-  // lifts and you watch.
-  reset(spec = this.spec, autopilot = null) {
-    this.spec = spec;
-    this.B = spec.building;
-    this.sim = new Sim(spec);
-    this.autopilot = autopilot;
+// One building on screen -- its floors, shafts, people, cars and
+// helicopters -- drawn in its own strip of the screen (a level has one, or
+// two side by side).
+class Tower {
+  constructor(play, k, sim) {
+    this.play = play;
+    this.k = k;
+    this.sim = sim;
+    this.B = sim.building;
+    this.ctx = play.ctx;
+    this.hooks = play.hooks;
     this.people = new Map(); // id -> what we see of them (walking, queueing...)
     this.seen = 0; // arrivals already on their way in
     this.autos = []; // cars in the garage (driving in, parked, driving out)
     this.helis = []; // helicopters coming and going
     this.ripples = [];
     this.pops = [];
-    this.par = null;
     this.parked = false;
-    if (this.W) this.layout();
+  }
+
+  get litStyle() {
+    return this.play.litStyle;
   }
 
   // A car into the next free space on garage level f (already there, or
@@ -137,25 +117,12 @@ export class Play {
     return this.doorX + (slot % n) * (this.carW() + 6);
   }
 
-  // The dispatcher's result on this level (worked out once, when needed).
-  getPar() {
-    this.par ??= par(this.spec);
-    return this.par;
-  }
-
-  resize() {
-    const rect = this.canvas.getBoundingClientRect();
-    const dpr = Math.min(3, window.devicePixelRatio || 1);
-    this.W = Math.max(1, rect.width);
-    this.H = Math.max(1, rect.height);
-    this.dpr = dpr;
-    this.canvas.width = Math.round(this.W * dpr);
-    this.canvas.height = Math.round(this.H * dpr);
-    this.layout();
-  }
-
-  layout() {
-    const { W, H } = this;
+  // This tower's strip of the screen: from ox, W wide, H tall. Two towers
+  // side by side are narrower, so everything packs tighter.
+  layout(ox, W, H, narrow) {
+    this.ox = ox;
+    this.W = W;
+    this.H = H;
     const F = this.B.floors;
     this.hud = 34;
     this.tall = this.B.storeys >= 15; // the tall ones get the Empire State crown
@@ -163,16 +130,16 @@ export class Play {
     this.groundH = clamp(H * 0.03, 14, 26);
     this.rowH = Math.min(58, (H - this.hud - this.crownH - this.groundH) / F);
     this.top = H - this.groundH - this.rowH * F; // standing on the ground, sky above
-    this.x0 = clamp(W * 0.12, 34, 120); // the street is to the left
-    this.x1 = W - 6;
-    this.labelW = clamp(W * 0.07, 22, 34);
-    this.shaftW = clamp(W * 0.17, 50, 96);
+    this.x0 = clamp(W * 0.12, narrow ? 14 : 34, 120); // the street is to the left
+    this.x1 = W - (narrow ? 3 : 6);
+    this.labelW = clamp(W * 0.07, narrow ? 16 : 22, 34);
+    this.shaftW = clamp(W * 0.17, narrow ? 30 : 50, 96);
     this.gap = 6;
     this.shaftX = Array.from({ length: CARS }, (_, i) => this.x1 - 4 - (CARS - i) * this.shaftW - (CARS - 1 - i) * this.gap);
     this.panelW = clamp(this.rowH * 0.42, 9, 16);
     this.panelX = this.shaftX[0] - this.gap - this.panelW;
     this.doorX = this.x0 + this.labelW + 4; // the office door people come out of
-    this.px = Math.max(1, Math.floor((this.rowH * 0.8) / 12)); // sprite pixel size
+    this.px = Math.max(1, Math.min(narrow ? 2 : 9, Math.floor((this.rowH * 0.8) / 12))); // sprite pixel size
     this.spriteW = this.px * 8;
     this.padX = this.doorX + 6; // the helipad
     this.padR = Math.min(this.rowH * 0.3, (this.panelX - this.padX) * 0.3);
@@ -192,29 +159,21 @@ export class Play {
 
   // ------------------------------------------------------------- input
 
-  tap(e) {
-    if (this.paused || this.sim.over || this.autopilot) return;
-    const r = this.canvas.getBoundingClientRect();
-    const x = e.clientX - r.left;
-    const y = e.clientY - r.top;
+  // A tap at (x, y) in this tower's strip: on a shaft, send that lift there.
+  tap(x, y) {
     const f = this.B.floors - 1 - Math.floor((y - this.top) / this.rowH);
-    if (f < 0 || f >= this.B.floors) return;
+    if (f < 0 || f >= this.B.floors) return false;
     const i = this.shaftX.findIndex((sx) => x >= sx - this.gap / 2 && x <= sx + this.shaftW + this.gap / 2);
-    if (i < 0) return;
-    e.preventDefault();
+    if (i < 0) return false;
     this.sim.send(i, f);
     this.ripples.push({ i, f, t: 0 });
     this.hooks.sfx?.('tap');
+    return true;
   }
 
   // ------------------------------------------------------------- simulation
 
-  update(dt) {
-    const n = Math.max(1, Math.ceil(dt / (1 / 30)));
-    for (let k = 0; k < n; k++) {
-      if (this.autopilot) dispatch(this.sim, this.autopilot);
-      for (const e of this.sim.step(dt / n)) this.handle(e);
-    }
+  tick(dt) {
     this.movePeople(dt);
     for (const r of this.ripples) r.t += dt;
     this.ripples = this.ripples.filter((r) => r.t < 0.6);
@@ -255,8 +214,6 @@ export class Play {
       this.people.set(e.id, v);
       this.pops.push({ i: e.car, f: e.floor, t: 0 });
       h.sfx?.('drop');
-    } else if (e.type === 'over') {
-      h.onOver?.({ ...e, par: this.getPar(), watched: !!this.autopilot });
     }
   }
 
@@ -394,13 +351,6 @@ export class Play {
 
   draw(time) {
     const { ctx, W, H, rowH, B } = this;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#6ea8de');
-    sky.addColorStop(1, '#d6eafb');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
     const street = this.rowY(B.ground) + rowH;
     // The ground, cut away to show the garage.
     ctx.fillStyle = '#6b5641';
@@ -415,7 +365,6 @@ export class Play {
     this.drawAutos();
     for (let i = 0; i < CARS; i++) this.drawShaft(i, time);
     for (const h of this.helis) this.drawHeli(h, time);
-    this.drawHud();
   }
 
   // Outside, on the left: the pavement at lobby level, and the ramp down to
@@ -453,7 +402,35 @@ export class Play {
     ctx.fillStyle = '#b8ab92';
     ctx.fillRect(this.x0, y + rowH - 3, this.x1 - this.x0, 3);
     ctx.fillRect(this.x0, y + rowH * 0.62, 3, rowH * 0.38);
-    // Helipad.
+    if (B.type === 'residential') {
+      // A roof garden: a lawn and a few trees.
+      ctx.fillStyle = '#7cb342';
+      ctx.fillRect(this.x0 + 3, y + rowH - 6, this.panelX - this.x0 - 6, 3);
+      for (let x = this.doorX + 8; x < this.panelX - 12; x += 26) {
+        ctx.fillStyle = '#6b4f2a';
+        ctx.fillRect(x + 4, y + rowH * 0.62, 2, rowH * 0.3);
+        ctx.fillStyle = '#4caf50';
+        ctx.beginPath();
+        ctx.arc(x + 5, y + rowH * 0.55, rowH * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      this.drawPad(y);
+    }
+    // Machine room over the lifts.
+    ctx.fillStyle = '#d4cab5';
+    ctx.fillRect(this.shaftX[0] - 3, y - rowH * 0.5, this.x1 - this.shaftX[0] + 3, rowH * 0.5);
+    ctx.fillStyle = '#b8ab92';
+    ctx.fillRect(this.shaftX[0] - 3, y - rowH * 0.5, this.x1 - this.shaftX[0] + 3, 2);
+    if (Math.sin(time * 3) > 0) {
+      ctx.fillStyle = '#ff2d2d';
+      ctx.fillRect(this.x1 - 6, y - rowH * 0.5 - 4, 3, 3);
+    }
+  }
+
+  // The helipad, on the roof at y.
+  drawPad(y) {
+    const { ctx, rowH } = this;
     const pr = this.padR;
     const cx = this.padCX;
     ctx.fillStyle = '#4b4f5a';
@@ -465,15 +442,6 @@ export class Play {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('H', cx, y + rowH - 4);
-    // Machine room over the lifts.
-    ctx.fillStyle = '#d4cab5';
-    ctx.fillRect(this.shaftX[0] - 3, y - rowH * 0.5, this.x1 - this.shaftX[0] + 3, rowH * 0.5);
-    ctx.fillStyle = '#b8ab92';
-    ctx.fillRect(this.shaftX[0] - 3, y - rowH * 0.5, this.x1 - this.shaftX[0] + 3, 2);
-    if (Math.sin(time * 3) > 0) {
-      ctx.fillStyle = '#ff2d2d';
-      ctx.fillRect(this.x1 - 6, y - rowH * 0.5 - 4, 3, 3);
-    }
   }
 
   // A helicopter, 8-bit, its rotor a blur.
@@ -581,12 +549,13 @@ export class Play {
       ctx.fillRect(this.x0, y, this.panelX - this.x0, rowH);
     }
     // What kind of floor: parking, the lobby, the restaurant, the health club.
-    const tint = f < GROUND ? '#a3a6aa' : f === GROUND ? 'rgba(220,170,60,0.22)' : f === RESTAURANT ? 'rgba(200,70,50,0.13)' : f === GYM ? 'rgba(40,170,160,0.14)' : null;
+    const home = B.kinds[f] === 'home';
+    const tint = f < GROUND ? '#a3a6aa' : f === GROUND ? 'rgba(220,170,60,0.22)' : f === RESTAURANT ? 'rgba(200,70,50,0.13)' : f === GYM ? 'rgba(40,170,160,0.14)' : home ? 'rgba(110,100,200,0.1)' : null;
     if (tint) {
       ctx.fillStyle = tint;
       ctx.fillRect(this.x0, y, this.panelX - this.x0, rowH);
     }
-    const name = f < GROUND ? 'PARKING' : f === GROUND ? 'LOBBY' : f === RESTAURANT ? 'RESTAURANT' : f === GYM ? 'HEALTH CLUB' : f === ROOF ? 'HELIPAD' : '';
+    const name = f < GROUND ? 'PARKING' : f === GROUND ? 'LOBBY' : f === RESTAURANT ? 'RESTAURANT' : f === GYM ? 'HEALTH CLUB' : f === ROOF ? (B.type === 'residential' ? 'ROOF GARDEN' : 'HELIPAD') : '';
     if (name) {
       ctx.font = `800 ${clamp(rowH * 0.32, 8, 13)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
@@ -624,9 +593,9 @@ export class Play {
       ctx.fillStyle = '#3d3d42';
       ctx.fillRect(this.x0, y + rowH * 0.25, 4, rowH * 0.75 - 2);
     } else if (f !== ROOF) {
-      ctx.fillStyle = f === GROUND ? 'rgba(140,190,220,0.7)' : '#8a6a44';
+      ctx.fillStyle = f === GROUND ? 'rgba(140,190,220,0.7)' : home ? '#5c6b8a' : '#8a6a44';
       ctx.fillRect(this.doorX - 2, y + rowH * 0.12, dw, rowH * 0.86 - 2);
-      ctx.fillStyle = f === GROUND ? '#6a8aa0' : '#6b5133';
+      ctx.fillStyle = f === GROUND ? '#6a8aa0' : home ? '#46536e' : '#6b5133';
       ctx.fillRect(this.doorX - 2 + dw - 4, y + rowH * 0.5, 2, 2);
     }
     // How many people are on this floor just now (at their desks, eating,
@@ -894,10 +863,119 @@ export class Play {
     }
   }
 
+}
+
+// ------------------------------------------------------------------- Play
+
+export class Play {
+  constructor(canvas, hooks, spec) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.hooks = hooks;
+    this.timeScale = 1;
+    this.paused = true;
+    this.litStyle = 'figures'; // how a lit floor shows its riders: figures | number | pips
+    this.hud = 34;
+    this.reset(spec);
+    this.resize();
+    this.last = performance.now();
+    const loop = (now) => {
+      const dt = Math.min(0.1, (now - this.last) / 1000) * this.timeScale;
+      this.last = now;
+      if (!this.paused) this.update(dt);
+      this.draw(now / 1000);
+      this.raf = requestAnimationFrame(loop);
+    };
+    this.raf = requestAnimationFrame(loop);
+    canvas.addEventListener('pointerdown', (e) => this.tap(e));
+  }
+
+  destroy() {
+    cancelAnimationFrame(this.raf);
+  }
+
+  // Start (or restart) the level; with `autopilot` (the dispatcher's way for
+  // each tower), the computer runs the lifts and you watch.
+  reset(spec = this.spec, autopilot = null) {
+    this.spec = spec;
+    this.day = new Day(spec);
+    this.autopilot = autopilot;
+    this.par = null;
+    this.towers = this.day.sims.map((sim, k) => new Tower(this, k, sim));
+    if (this.W) this.layout();
+  }
+
+  // The first tower's lifts (one-tower levels have just the one).
+  get sim() {
+    return this.day.sims[0];
+  }
+
+  // The dispatcher's result on this level (worked out once, when needed).
+  getPar() {
+    this.par ??= par(this.spec);
+    return this.par;
+  }
+
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    this.W = Math.max(1, rect.width);
+    this.H = Math.max(1, rect.height);
+    this.dpr = dpr;
+    this.canvas.width = Math.round(this.W * dpr);
+    this.canvas.height = Math.round(this.H * dpr);
+    this.layout();
+  }
+
+  layout() {
+    const n = this.towers.length;
+    const w = this.W / n;
+    this.towers.forEach((t, k) => t.layout(k * w, w, this.H, n > 1));
+  }
+
+  tap(e) {
+    if (this.paused || this.day.over || this.autopilot) return;
+    const r = this.canvas.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const t = this.towers.find((q) => x >= q.ox && x < q.ox + q.W) || this.towers.at(-1);
+    if (t.tap(x - t.ox, y)) e.preventDefault();
+  }
+
+  update(dt) {
+    const n = Math.max(1, Math.ceil(dt / (1 / 30)));
+    for (let k = 0; k < n; k++) {
+      if (this.autopilot) this.day.sims.forEach((s, i) => dispatch(s, this.autopilot[i] || {}));
+      for (const e of this.day.step(dt / n)) {
+        if (e.type === 'over') this.hooks.onOver?.({ ...e, par: this.getPar(), watched: !!this.autopilot });
+        else this.towers[e.tower].handle(e);
+      }
+    }
+    for (const t of this.towers) t.tick(dt);
+  }
+
+  draw(time) {
+    const { ctx, W, H } = this;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#6ea8de');
+    sky.addColorStop(1, '#d6eafb');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+    for (const t of this.towers) {
+      ctx.save();
+      ctx.translate(t.ox, 0);
+      t.draw(time);
+      ctx.restore();
+    }
+    this.drawHud();
+  }
+
   // An analog clock: the time of day in the building.
   drawClock() {
     const { ctx } = this;
-    const mins = clockAt(this.spec, this.sim.arrivals, this.sim.t);
+    const mins = clockAt(this.spec, this.day.sims.flatMap((s) => s.arrivals), this.day.t);
     const r = 21;
     const cx = 8 + r;
     const cy = this.hud + 6 + r;
@@ -950,11 +1028,12 @@ export class Play {
   }
 
   drawHud() {
-    const { ctx, W, sim } = this;
+    const { ctx, W, day } = this;
     this.drawClock();
+    const sum = (f) => day.sims.reduce((a, s) => a + f(s), 0);
     const items = [
-      [`✓ ${sim.delivered}/${sim.arrivals.length}`, '#1d8a55'],
-      [`${sim.waitingCount()} waiting`, '#5b4a2e'],
+      [`✓ ${sum((s) => s.delivered)}/${sum((s) => s.arrivals.length)}`, '#1d8a55'],
+      [`${sum((s) => s.waitingCount())} waiting`, '#5b4a2e'],
     ];
     ctx.font = '800 15px system-ui, sans-serif';
     ctx.textBaseline = 'middle';

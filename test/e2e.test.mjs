@@ -910,8 +910,8 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     // Tap lift B's shaft at the 5th floor: that's where it goes.
     const box = await page.locator('canvas').boundingBox();
     const at = await page.evaluate(() => {
-      const p = window.__elevator;
-      return { x: p.shaftX[1] + p.shaftW / 2, y: p.rowY(5) + p.rowH / 2 };
+      const t = window.__elevator.towers[0];
+      return { x: t.ox + t.shaftX[1] + t.shaftW / 2, y: t.rowY(5) + t.rowH / 2 };
     });
     await page.touchscreen.tap(box.x + at.x, box.y + at.y);
     assert.equal(await page.evaluate(() => window.__elevator.sim.cars[1].target), 5);
@@ -926,7 +926,7 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
 
     // Someone walks in from their office, presses the button and waits.
     await page.evaluate(() => (window.__elevator.timeScale = 8));
-    await page.waitForFunction(() => [...window.__elevator.people.values()].some((v) => v.mode === 'wait'), null, { timeout: 30000 });
+    await page.waitForFunction(() => [...window.__elevator.towers[0].people.values()].some((v) => v.mode === 'wait'), null, { timeout: 30000 });
 
     // Run the rest fast, sending the lifts the way a player would (one stop
     // at a time, by hand rather than on autopilot), until everyone's there.
@@ -952,6 +952,20 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     await page.evaluate(() => (window.__elevator.timeScale = 40));
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 40000 });
     assert.match(await page.locator('.dialog h3').textContent(), /computer/i);
+
+    // Level 17: two towers, apartments and offices, four lifts.
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:elevator:progress', JSON.stringify({ unlocked: 17, stars: {} })));
+    await page.goto(`http://localhost:${server.address().port}/#/elevator/17`);
+    await page.reload();
+    await page.locator('[data-act=start]').click();
+    await page.waitForFunction(() => window.__elevator && window.__elevator.towers.length === 2 && !window.__elevator.paused);
+    const twin = await page.evaluate(() => {
+      const t = window.__elevator.towers[1];
+      return { x: t.ox + t.shaftX[0] + t.shaftW / 2, y: t.rowY(4) + t.rowH / 2, types: window.__elevator.towers.map((q) => q.B.type) };
+    });
+    assert.deepEqual(twin.types, ['residential', 'office']);
+    await page.touchscreen.tap(box.x + twin.x, box.y + twin.y);
+    assert.equal(await page.evaluate(() => window.__elevator.day.sims[1].cars[0].target), 4, 'the office tower\'s lift A');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

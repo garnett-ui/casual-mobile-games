@@ -39,7 +39,7 @@ test('the building: parking, the lobby, a restaurant on 2, offices, a health clu
   assert.equal(floorName(big, big.restaurant), '2');
   assert.equal(floorName(big, big.gym), '20');
   assert.equal(big.kinds[big.roof], 'roof');
-  assert.deepEqual([1, 4, 5, 9, 13, 20].map((n) => levelSpec(n).building.storeys), [6, 6, 10, 15, 20, 20]);
+  assert.deepEqual([1, 4, 5, 9, 13, 16].map((n) => levelSpec(n).building.storeys), [6, 6, 10, 15, 20, 20]);
   for (const mix of Object.values(MIX)) assert.ok(Math.abs(mix.in + mix.out + mix.inter - 1) < 1e-9);
   // The surveyed peaks: mornings ~85% in, lunch ~45/45/10.
   assert.equal(MIX.morning.in, 0.85);
@@ -247,4 +247,50 @@ test('the score: trip times, their average and median, and the sum of their squa
   const people = schedule(spec);
   assert.equal(clockAt(spec, people, 0), 450);
   assert.ok(clockAt(spec, people, people.at(-1).t + 25) === 570);
+});
+
+test('from level 17: an apartment tower and an office tower, side by side on one clock', async () => {
+  const { Day, TWINS } = await import('../games/elevator/engine.js');
+  const spec = levelSpec(TWINS);
+  assert.equal(spec.towers.length, 2);
+  const [homes, offices] = spec.towers;
+  assert.equal(homes.building.type, 'residential');
+  assert.equal(offices.building.type, 'office');
+  assert.ok(homes.building.kinds.filter((k) => k === 'home').length >= 8);
+  // Morning: the apartments are full (everyone's been asleep) and empty out;
+  // the offices start empty and fill.
+  const count = (tower) => {
+    const people = schedule(tower);
+    const occ = people.start.slice();
+    for (const p of people) {
+      if (stays(tower.building, p.from)) occ[p.from]--;
+      assert.ok(!stays(tower.building, p.from) || occ[p.from] >= 0);
+      if (stays(tower.building, p.to)) occ[p.to]++;
+    }
+    const sum = (o) => o.reduce((a, b) => a + b, 0);
+    return [sum(people.start), sum(occ)];
+  };
+  const [h0, h1] = count(homes);
+  const [o0, o1] = count(offices);
+  assert.ok(h0 > 20 && h1 < h0 * 0.4, `apartments ${h0} -> ${h1}`);
+  assert.ok(o0 === 0 && o1 > 15, `offices ${o0} -> ${o1}`);
+  // Evening: the other way round.
+  const evening = levelSpec(TWINS + 3);
+  assert.equal(evening.pattern, 'evening');
+  const [eh0, eh1] = count(evening.towers[0]);
+  const [, eo1] = count(evening.towers[1]);
+  assert.ok(eh1 > eh0 * 1.5, `home in the evening ${eh0} -> ${eh1}`);
+  assert.equal(eo1, 0, 'offices empty at night');
+  // Both run on one clock; the level ends when both are done; par covers both.
+  const day = new Day(spec);
+  const best = par(spec);
+  assert.equal(best.optsList.length, 2);
+  let over = null;
+  for (let t = 0; t < 3600 && !over; t += 1 / 20) {
+    day.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
+    over = day.step(1 / 20).find((e) => e.type === 'over');
+  }
+  assert.ok(over);
+  assert.equal(over.delivered, homes.people + offices.people);
+  assert.ok(Math.abs(over.squares - best.squares) < 1e-6, 'the same as par when flown the same way');
 });

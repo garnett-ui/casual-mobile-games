@@ -143,6 +143,10 @@ tablet), to lift music.
   population is at its desks, and in the evening everyone in the building
   goes home. Nobody leaves a floor nobody is on. Each floor shows how many
   people are on it just now.
+- From level 17 there are two towers side by side to run, two lifts each:
+  apartments (people sleep there at night: full first thing, emptying as
+  they go to work, filling again in the evening) and offices (empty first
+  thing, full by day, empty again by night).
 - People walk in off the street through the lobby's glass doors (and out
   again), drive down the ramp into the garage, park and walk to the lifts (or
   walk to their car and drive away), and now and then fly in or out by
@@ -257,7 +261,7 @@ games/breakout/             Breakout: engine.js (physics, rules), play.js, index
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
-games/elevator/             Elevator Operator: engine.js (building, lifts, arrivals, levels, dispatcher; runs in Node), play.js (tower, 8-bit people)
+games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers, 8-bit people)
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback

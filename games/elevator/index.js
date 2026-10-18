@@ -80,7 +80,7 @@ export function mount(root, ctx, sub) {
       id: 'elevator',
       title: 'Elevator Operator',
       intro: 'Run the two lifts in an office building, from the garage to the helipad. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
-      outro: 'Each level is a time of day, with more people, closer together; every four, a taller building: 6 storeys, then 10, 15 and 20.',
+      outro: 'Each level is a time of day, with more people, closer together; every four, a taller building: 6 storeys, then 10, 15 and 20 -- and from level 17, an apartment tower and an office tower side by side, four lifts in all.',
       progress,
     });
   }
@@ -129,7 +129,7 @@ export function mount(root, ctx, sub) {
 
     // Pause (and on a phone held sideways, a pause until it's upright).
     const pause = (why = 'pause') => {
-      if (!play || play.sim.over || !dialog.hidden) return;
+      if (!play || play.day.over || !dialog.hidden) return;
       play.paused = true;
       pausedCard.dataset.why = why;
       pausedCard.querySelector('b').textContent = why === 'rotate' ? 'Turn your phone upright' : 'Paused';
@@ -188,7 +188,7 @@ export function mount(root, ctx, sub) {
     function start(watch = false) {
       dialog.hidden = true;
       pausedCard.hidden = true;
-      play.reset(spec, watch ? play.getPar().opts : null);
+      play.reset(spec, watch ? play.getPar().optsList : null);
       play.timeScale = watch ? 2 : 1;
       play.paused = false;
       play.last = performance.now();
@@ -244,7 +244,9 @@ export function mount(root, ctx, sub) {
 
     showDialog(dialog, ctx, {
       title: `Level ${n}`,
-      text: `A ${spec.building.storeys}-storey building. ${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds. ${PATTERN[spec.pattern]}<br><br>
+      text: `${spec.towers.length > 1
+        ? `Two towers: apartments on the left (people sleep there at night) and offices on the right, two lifts each. ${spec.towers.reduce((a, t) => a + t.people, 0)} passengers.`
+        : `A ${spec.building.storeys}-storey building. ${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds.`} ${PATTERN[spec.pattern]}<br><br>
         <b>Tap a floor in a lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most). The floors they want light up, with a figure for each of them.<br><br>
         You’re done when everyone has got where they’re going. The shorter their trips, the better, and a long wait counts extra.`,

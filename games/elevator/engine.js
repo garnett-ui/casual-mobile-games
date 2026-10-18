@@ -8,21 +8,21 @@
 // buttons for their floors; those light up in the car's shaft.
 import { rng, seedFor } from '../../js/lib/random.js';
 
-// The building, from the bottom: parking below the street (P1, or P2 and
-// P1), the lobby at street level, a restaurant on the 2nd floor, offices,
-// a health club on the top storey, and the roof (R) with a helipad. It grows
-// with the levels: 6 storeys to start, then 10, 15 and 20.
-export function building(storeys, garages = storeys >= 15 ? 2 : 1) {
-  const kinds = [
-    ...Array(garages).fill('garage'),
-    'lobby',
-    'restaurant',
-    ...Array(storeys - 3).fill('office'),
-    'gym',
-    'roof',
-  ];
+// An office building, from the bottom: parking below the street (P1, or P2
+// and P1), the lobby at street level, a restaurant on the 2nd floor,
+// offices, a health club on the top storey, and the roof (R) with a
+// helipad. It grows with the levels: 6 storeys to start, then 10, 15 and 20.
+// An apartment tower has homes on every floor above the lobby.
+export function building(storeys, garages = storeys >= 15 ? 2 : 1, type = 'office') {
+  const kinds = type === 'residential'
+    ? [...Array(garages).fill('garage'), 'lobby', ...Array(storeys - 1).fill('home'), 'roof']
+    : [...Array(garages).fill('garage'), 'lobby', 'restaurant', ...Array(storeys - 3).fill('office'), 'gym', 'roof'];
   const ground = garages;
+  if (type === 'residential') {
+    return { type, storeys, kinds, floors: kinds.length, ground, garage: [...Array(garages).keys()], homes: [ground + 1, kinds.length - 2], restaurant: -1, gym: -1, offices: [-1, -2], roof: kinds.length - 1 };
+  }
   return {
+    type,
     storeys,
     kinds,
     floors: kinds.length,
@@ -79,7 +79,7 @@ export const HOURS = { morning: [450, 570], midday: [600, 720], lunch: [720, 840
 // level's span of the day, stretched over the time the people take to come.
 export function clockAt(spec, arrivals, t) {
   const [a, b] = HOURS[spec.pattern];
-  const length = (arrivals.at(-1)?.t ?? 60) + 25;
+  const length = arrivals.reduce((m, p) => Math.max(m, p.t), 60) + 25;
   return a + ((b - a) * Math.min(t, length)) / length;
 }
 
@@ -89,23 +89,42 @@ export function clockAt(spec, arrivals, t) {
 // closer together, through the day -- and every four, a taller building. (Real
 // buildings see 12 to 15% of their population in five minutes at the peaks,
 // 4 to 6% between them, but they have six or eight lifts, not two.)
+//
+// From level 17 there are two towers to run, side by side, with two lifts
+// each: apartments, where people sleep at night (full first thing, emptying
+// as they go to work; filling again in the evening), and offices, where they
+// work by day.
+export const TWINS = 17;
 export function levelSpec(n) {
-  const stage = Math.min(3, Math.floor((n - 1) / PERIODS.length));
-  return {
-    n,
-    people: Math.min(80, 20 + 5 * (n - 1)),
-    gap: Math.max(2.5, 10 * 0.87 ** (n - 1)),
-    pattern: PERIODS[(n - 1) % PERIODS.length],
-    building: building([6, 10, 15, 20][stage]),
-    seed: seedFor(n, BASE_SEED),
-  };
+  const pattern = PERIODS[(n - 1) % PERIODS.length];
+  let towers;
+  if (n < TWINS) {
+    const stage = Math.floor((n - 1) / PERIODS.length);
+    towers = [{
+      people: Math.min(80, 20 + 5 * (n - 1)),
+      gap: Math.max(2.5, 10 * 0.87 ** (n - 1)),
+      pattern,
+      building: building([6, 10, 15, 20][stage]),
+      seed: seedFor(n, BASE_SEED),
+    }];
+  } else {
+    const k = n - TWINS;
+    const each = Math.min(60, 30 + 4 * k);
+    const gap = Math.max(2.5, 6 * 0.93 ** k);
+    towers = [
+      { people: each, gap, pattern, building: building(10, 1, 'residential'), seed: seedFor(n * 2, BASE_SEED) },
+      { people: each, gap, pattern, building: building(10, 1), seed: seedFor(n * 2 + 1, BASE_SEED) },
+    ];
+  }
+  // (A one-tower level's details are also at the top.)
+  return { ...towers[0], n, pattern, towers };
 }
 
 // Floors where people stay a while (and are counted): the restaurant, the
 // offices and the health club. The lobby, garage and roof are on the way in
 // or out.
 export function stays(B, f) {
-  return f >= B.restaurant && f <= B.gym;
+  return ['restaurant', 'office', 'gym', 'home'].includes(B.kinds[f]);
 }
 
 // The arrivals: a Poisson process (independent, at a steady average rate),
@@ -115,6 +134,7 @@ export function stays(B, f) {
 // middle of the day the working population is at its desks. Returns the
 // people, with `start`: how many are on each floor to begin with.
 export function schedule(spec) {
+  if (spec.building.type === 'residential') return homeSchedule(spec);
   const r = rng(spec.seed);
   const B = spec.building;
   const N = spec.people;
@@ -209,6 +229,68 @@ export function schedule(spec) {
     if (stays(B, to)) coming.push([t + settle, to]);
     // Looks: skin, hair, shirt, trousers (indexes into the view's palettes).
     const look = [r(), r(), r(), r()].map((x) => Math.floor(x * 1e6));
+    people.push({ id, t, from, to, look });
+  }
+  people.start = start;
+  return people;
+}
+
+// The apartment tower's day: out to work in the morning (it's full first
+// thing: everyone's been asleep), a little coming and going through the day
+// (visiting neighbours, too), home again in the evening. (These mixes are
+// estimates, mirroring the offices.) Same rules: nobody leaves a floor
+// nobody is on.
+const HOME_MIX = {
+  morning: { in: 0.08, out: 0.87, inter: 0.05 },
+  midday: { in: 0.4, out: 0.4, inter: 0.2 },
+  lunch: { in: 0.45, out: 0.45, inter: 0.1 },
+  evening: { in: 0.87, out: 0.08, inter: 0.05 },
+};
+function homeSchedule(spec) {
+  const r = rng(spec.seed);
+  const B = spec.building;
+  const N = spec.people;
+  const home = () => B.homes[0] + Math.floor(r() * (B.homes[1] - B.homes[0] + 1));
+  const entrance = () => (r() < 0.75 ? B.ground : B.garage[Math.floor(r() * B.garage.length)]);
+  const occ = Array(B.floors).fill(0);
+  const asleep = { morning: 0.95, midday: 0.6, lunch: 0.6, evening: 0.3 }[spec.pattern];
+  for (let k = 0; k < Math.round(N * asleep); k++) occ[home()]++;
+  const start = occ.slice();
+  const someone = () => {
+    const fs = [];
+    for (let f = B.homes[0]; f <= B.homes[1]; f++) if (occ[f] > 0) fs.push(f);
+    if (!fs.length) return null;
+    let x = r() * fs.reduce((a, f) => a + occ[f], 0);
+    for (const f of fs) if ((x -= occ[f]) < 0) return f;
+    return fs.at(-1);
+  };
+  const m = HOME_MIX[spec.pattern];
+  const settle = 40 + 2 * B.floors;
+  const coming = [];
+  const people = [];
+  let t = WALK;
+  for (let id = 0; id < N; id++) {
+    if (id) t += -Math.log(1 - r()) * spec.gap;
+    for (let k = coming.length - 1; k >= 0; k--) {
+      if (coming[k][0] <= t) {
+        occ[coming[k][1]]++;
+        coming.splice(k, 1);
+      }
+    }
+    const x = r();
+    let kind = x < m.in ? 'in' : x < m.in + m.out ? 'out' : 'inter';
+    if (kind !== 'in' && someone() === null) kind = 'in';
+    let from;
+    let to;
+    if (kind === 'in') [from, to] = [entrance(), home()];
+    else if (kind === 'out') [from, to] = [someone(), entrance()];
+    else {
+      from = someone();
+      do to = home(); while (to === from && B.homes[1] > B.homes[0]);
+    }
+    if (stays(B, from)) occ[from]--;
+    if (stays(B, to)) coming.push([t + settle, to]);
+    const look = [r(), r(), r(), r()].map((v) => Math.floor(v * 1e6));
     people.push({ id, t, from, to, look });
   }
   people.start = start;
@@ -477,7 +559,7 @@ export function dispatch(sim, opts = {}) {
   }
 }
 
-// Runs the level with the dispatcher until everyone's delivered.
+// Runs one tower's day with the dispatcher until everyone's delivered.
 export function playDispatcher(spec, opts = {}, dt = 1 / 20) {
   const sim = new Sim(spec);
   while (!sim.over && sim.t < 3600) {
@@ -487,14 +569,65 @@ export function playDispatcher(spec, opts = {}, dt = 1 / 20) {
   return sim;
 }
 
-// The score to beat: the smallest sum of squared trips of a few versions of
-// the dispatcher, on the same people.
+// Several towers' stats as one (everyone's trips together).
+export function combine(list) {
+  const totals = list.flatMap((s) => s.totals);
+  const n = totals.length || 1;
+  const sorted = [...totals].sort((a, b) => a - b);
+  const median = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : 0;
+  const weigh = (key) => list.reduce((a, s) => a + s[key] * s.totals.length, 0) / n;
+  return {
+    delivered: list.reduce((a, s) => a + s.delivered, 0),
+    wait: weigh('wait'),
+    ride: weigh('ride'),
+    trip: weigh('trip'),
+    median,
+    squares: list.reduce((a, s) => a + s.squares, 0),
+    totals,
+    time: Math.max(...list.map((s) => s.time)),
+  };
+}
+
+// The level's towers run side by side on one clock (one tower, or two).
+export class Day {
+  constructor(spec) {
+    this.spec = spec;
+    this.sims = (spec.towers || [spec]).map((t) => new Sim(t));
+    this.t = 0;
+    this.over = false;
+  }
+
+  step(dt) {
+    const ev = [];
+    if (this.over) return ev;
+    this.t += dt;
+    this.sims.forEach((sim, tower) => {
+      for (const e of sim.step(dt)) if (e.type !== 'over') ev.push({ ...e, tower });
+    });
+    if (this.sims.every((s) => s.over)) {
+      this.over = true;
+      ev.push({ type: 'over', ...this.stats() });
+    }
+    return ev;
+  }
+
+  stats() {
+    return combine(this.sims.map((s) => s.stats()));
+  }
+}
+
+// The score to beat: for each tower, the version of the dispatcher with the
+// smallest sum of squared trips (on the same people), all together.
 export const VARIANTS = [{}, { claim: false }, { park: false }, { ahead: false }];
 export function par(spec) {
-  let best = null;
-  for (const opts of VARIANTS) {
-    const s = playDispatcher(spec, opts).stats();
-    if (!best || s.squares < best.squares) best = { ...s, opts };
-  }
-  return best;
+  const each = (spec.towers || [spec]).map((tower) => {
+    let best = null;
+    for (const opts of VARIANTS) {
+      const s = playDispatcher(tower, opts).stats();
+      if (!best || s.squares < best.squares) best = { ...s, opts };
+    }
+    return best;
+  });
+  const optsList = each.map((b) => b.opts);
+  return { ...combine(each), optsList, opts: optsList[0] };
 }

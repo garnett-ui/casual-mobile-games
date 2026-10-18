@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.35.0
+- Elevator Operator, from level 17: two towers side by side, two lifts each
+  -- an apartment tower, where people sleep at night (full first thing,
+  emptying as everyone goes to work, filling again in the evening; it has a
+  roof garden), and an office tower, busy by day and empty at night. One
+  clock, one score for everyone's trips.
+
 ## 1.34.0
 - Elevator Operator has an analog clock showing the time of day as the level
   goes by: the morning rush from 7:30, midday from 10, lunch from 12 (some
