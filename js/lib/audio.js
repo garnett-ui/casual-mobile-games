@@ -191,6 +191,13 @@ const SFX = {
     tone('sine', 2650, 2650, 0.25, 0.06);
     tone('sine', 3980, 3980, 0.18, 0.035);
   },
+  // Elevator: a lift arriving (the classic two-tone chime), and someone
+  // stepping out where they wanted to be.
+  ding: () => {
+    tone('sine', 1319, 1319, 0.5, 0.09);
+    tone('sine', 1047, 1047, 0.8, 0.09, 0.18);
+  },
+  drop: () => tone('triangle', 660, 990, 0.09, 0.05),
   checkpoint: () => [784, 988, 1175].forEach((f, k) => tone('square', f, f, 0.12, 0.06, k * 0.09, 4000)),
 };
 

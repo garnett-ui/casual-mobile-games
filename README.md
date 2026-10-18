@@ -92,8 +92,8 @@ keyboard, use the arrows or WASD.
   3 km adds time, a little less each time.
 - Bends tighten the further you go, so the sharpest ones need the brake. Hit a
   post and you stop and lose time.
-- After the opening stretch the road starts to fork. A green overhead sign (with
-  a copy at the top of the screen) says where each branch goes, in jokes and
+- After the opening stretch the road starts to fork. A green overhead sign
+  says where each branch goes (read it while you can), in jokes and
   riddles: *FREE EGGS → take the EGGS-IT*, *EXIT 404: road not found*, *What
   has a bed but never sleeps?* One branch ends in a hazard, drawn
   realistically: a brick wall, a road on fire, a bridge that's out, the Grand
@@ -128,6 +128,28 @@ tells you what he needs and reacts as you go.
   solvable and finds the fewest pours possible; harder levels have longer
   shortest solutions, or more beakers. Hint shows the next pour of a
   shortest solution from wherever you are.
+
+### Elevator
+
+You're the dispatcher for the two lifts in a 20-storey tower, for a
+three-minute day. Best played with the phone upright.
+
+- **Tap a floor in a lift's shaft** to send it there. Each lift has exactly
+  one next stop; tap another floor and it changes course at once (braking and
+  turning round if it has to).
+- When a lift stops, anyone for that floor gets off and everyone waiting gets
+  on, up to 8. The floors the riders want light up with a ✓ in that lift's
+  shaft; the floor it's heading for is outlined.
+- People arrive in waves: the morning rush up from the lobby, the middle of
+  the day between floors, and the evening rush down. They turn from green to
+  red the longer they wait; the lamps by each floor show who wants up or down.
+- At the end you're scored against a computer dispatcher running **the very
+  same day** (arrivals are seeded): *you got 87%*. The truly optimal schedule
+  can't be computed in any reasonable time, so the yardstick is the classic
+  "collective control" used by real lift groups (keep going one way, stopping
+  wherever someone wants to get on or off, then turn round; don't send both
+  lifts to the same call), tried a few ways with the best taken. You can
+  watch it run your day, or play the same day again.
 
 ### Jigsaw
 
@@ -203,6 +225,7 @@ games/breakout/             Breakout: engine.js (physics, rules), play.js, index
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
+games/elevator/             Elevator: engine.js (building, lifts, arrivals, dispatcher; runs in Node), play.js
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback

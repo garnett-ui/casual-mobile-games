@@ -893,3 +893,62 @@ test('water lab: drag a beaker onto another to pour, and measure the amount aske
     server.close();
   }
 });
+
+test('elevator: tap a shaft to send a lift, a whole day, then the score against the dispatcher', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=elevator]').click();
+    await page.locator('[data-act=start]').click();
+    await page.waitForFunction(() => window.__elevator && !window.__elevator.paused);
+
+    // Tap lift B's shaft at the 12th floor: that's where it goes.
+    const box = await page.locator('canvas').boundingBox();
+    const at = await page.evaluate(() => {
+      const p = window.__elevator;
+      return { x: p.shaftX[1] + p.shaftW / 2, y: p.rowY(11) + p.rowH / 2 };
+    });
+    await page.touchscreen.tap(box.x + at.x, box.y + at.y);
+    assert.equal(await page.evaluate(() => window.__elevator.sim.cars[1].target), 11);
+    await page.waitForFunction(() => window.__elevator.sim.cars[1].pos > 1);
+
+    // Pause holds the clock.
+    await page.locator('[data-act=pause]').click();
+    const t0 = await page.evaluate(() => window.__elevator.sim.t);
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__elevator.sim.t), t0);
+    await page.locator('.pause-card').click();
+
+    // Run the rest of the day fast, sending the lifts the way a player
+    // would (one stop at a time, by hand rather than on autopilot).
+    await page.evaluate(async () => {
+      const m = await import('/games/elevator/engine.js');
+      const p = window.__elevator;
+      p.timeScale = 30;
+      window.__drive = setInterval(() => m.dispatch(p.sim), 20);
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 40000 });
+    await page.evaluate(() => clearInterval(window.__drive));
+    const text = await page.locator('.dialog').innerText();
+    assert.match(text, /You delivered \d+ of the \d+ people/);
+    assert.match(text, /The dispatcher managed \d+ on the same day: you got \d+%/);
+    assert.ok(await page.evaluate(() => localStorage.getItem('pocket-arcade:elevator:best')));
+
+    // Watch the dispatcher run the same day.
+    const seed = await page.evaluate(() => window.__elevator.seed);
+    await page.locator('[data-act=watch]').click();
+    assert.equal(await page.evaluate(() => window.__elevator.seed), seed);
+    assert.ok(await page.evaluate(() => !!window.__elevator.autopilot));
+    await page.evaluate(() => (window.__elevator.timeScale = 40));
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 40000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /dispatcher/i);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

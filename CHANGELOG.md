@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.30.0
+- New game: **Elevator**. You run the two lifts in a 20-storey tower for a
+  three-minute day: tap a floor in a lift's shaft to send it there (one next
+  stop at a time; tap another and it changes course at once). People get off
+  where they wanted and everyone waiting gets on; the floors they want light
+  up with a ✓. The morning rush goes up, the evening rush comes down. At the
+  end you're scored against a computer dispatcher running the very same day,
+  and you can watch it play your day or try the day again.
+
 ## 1.29.2
 - Lunar Lander: the tilt under the artificial horizon is signed: +3° when
   you're leaning right, −3° leaning left. It's green while you're level
