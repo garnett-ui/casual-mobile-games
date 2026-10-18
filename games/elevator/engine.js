@@ -42,7 +42,7 @@ export function floorName(b, f) {
   return String(f - b.ground + 1);
 }
 
-export const CARS = 2;
+export const CARS = 2; // lifts in a building (but just one on the first day)
 export const CAPACITY = 6;
 export const VMAX = 2.5; // floors per second
 export const ACCEL = 2.5; // floors per second^2
@@ -65,6 +65,7 @@ export function approach(B, f) {
   return WALK;
 }
 export const SETTLE = 3; // seconds at least between someone's trips
+export const PRESS = 0.5; // seconds from pressing the button to stepping into a lift that's there
 export const BASE_SEED = 20261018;
 
 // The day: every level is a whole working day, 7 AM to 7:30 PM, played in
@@ -110,9 +111,9 @@ export function levelSpec(n) {
   let day;
   if (n < TWINS) {
     const stage = Math.floor((n - 1) / 3);
-    workers = [10, 16, 20, 26][stage] + 2 * ((n - 1) % 3);
+    workers = n === 1 ? 7 : [10, 16, 20, 26][stage] + 2 * ((n - 1) % 3); // (day one: one lift, a small firm)
     play = [300, 360, 450, 600][stage]; // 5 to 10 minutes
-    towers = [{ building: building([6, 10, 15, 20][stage]) }];
+    towers = [{ building: building([6, 10, 15, 20][stage]), cars: n === 1 ? 1 : CARS }];
     place = PLACES[stage];
     day = ((n - 1) % 3) + 1;
   } else {
@@ -320,7 +321,7 @@ export class Sim {
     // out): they leave it when they go for a lift, and add to it when they
     // get out at it.
     this.occupancy = this.arrivals.start ? this.arrivals.start.slice() : Array(this.floors).fill(0);
-    this.cars = Array.from({ length: CARS }, (_, i) => ({
+    this.cars = Array.from({ length: spec.cars ?? CARS }, (_, i) => ({
       i,
       pos: spec.building.ground, // floor, fractional while moving
       v: 0, // floors per second, + up
@@ -406,6 +407,7 @@ export class Sim {
 
   stepCar(car, dt, ev) {
     const here = this.floorOf(car);
+    const ready = (p) => this.t >= p.t + PRESS - 1e-9; // (they've pressed the button)
     switch (car.phase) {
       case 'idle':
         if (car.target === null) {
@@ -466,8 +468,8 @@ export class Sim {
             this.trips.push({ wait: p.boarded - p.t, ride: this.t - p.boarded });
             ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look, onward: p.onward });
             car.timer += EXIT_TIME;
-          } else if (this.waiting[here].length && car.riders.length < CAPACITY) {
-            const p = this.waiting[here].shift();
+          } else if (this.waiting[here].some(ready) && car.riders.length < CAPACITY) {
+            const [p] = this.waiting[here].splice(this.waiting[here].findIndex(ready), 1);
             p.boarded = this.t;
             car.riders.push(p);
             ev.push({ type: 'board', car: car.i, floor: here, id: p.id });
@@ -477,8 +479,9 @@ export class Sim {
             break;
           }
         }
-        // Then it waits here, doors open, until it's sent somewhere.
-        car.settled = car.timer <= 0 && car.dwell >= DWELL;
+        // Then it waits here, doors open, until it's sent somewhere (not
+        // with someone just pressing the button for it).
+        car.settled = car.timer <= 0 && car.dwell >= DWELL && !(car.riders.length < CAPACITY && this.waiting[here].length);
         break;
       }
       case 'closing':

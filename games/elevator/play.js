@@ -4,7 +4,7 @@
 // -- with 8-bit people walking from their offices, cars and helicopters to
 // the call buttons and queueing; a shaft for each lift on the right, where
 // you tap a floor to send that lift there.
-import { Day, CARS, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
+import { Day, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -84,6 +84,12 @@ export function lookOf(look) {
 
 // Draws a person with their feet at (x, base), px screen pixels per sprite
 // pixel. pose: stand | walk1 | walk2 | press (arm up); dir -1 faces left.
+// To the nearest screen pixel (so sprites stay crisp at any size).
+const snap = (v) => {
+  const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
+  return Math.round(v * dpr) / dpr;
+};
+
 export function drawSprite(ctx, look, x, base, px, pose = 'stand', dir = 1) {
   const L = lookOf(look);
   const rows = [...BODY, ...FEET[pose === 'press' ? 'stand' : pose]];
@@ -96,14 +102,16 @@ export function drawSprite(ctx, look, x, base, px, pose = 'stand', dir = 1) {
       if (L.dress && r >= 9 && r <= 9 && ch === 'p') ch = 'c'; // a dress to the knee
       ctx.fillStyle = colour[ch];
       const col = dir < 0 ? 7 - i : i;
-      ctx.fillRect(Math.round(x + col * px), Math.round(y0 + r * px), Math.ceil(px), Math.ceil(px));
+      const [x0, x1, y1, y2] = [x + col * px, x + (col + 1) * px, y0 + r * px, y0 + (r + 1) * px].map(snap);
+      ctx.fillRect(x0, y1, x1 - x0, y2 - y1);
     }
   });
   if (pose === 'press') {
     // Reaching up to the button.
     ctx.fillStyle = L.s;
     const col = dir < 0 ? 0 : 7;
-    for (let r = 2; r <= 5; r++) ctx.fillRect(Math.round(x + (col + dir) * px), Math.round(y0 + r * px), Math.ceil(px), Math.ceil(px));
+    const [x0, x1] = [x + (col + dir) * px, x + (col + dir + 1) * px].map(snap);
+    ctx.fillRect(x0, snap(y0 + 2 * px), x1 - x0, snap(y0 + 6 * px) - snap(y0 + 2 * px));
   }
 }
 
@@ -151,12 +159,14 @@ class Tower {
 
   // This tower's strip of the screen: from ox, W wide, H tall. Two towers
   // side by side are narrower, so everything packs tighter.
-  layout(ox, W, H, narrow) {
+  layout(ox, oy, W, H, narrow, hud = 34) {
     this.ox = ox;
+    this.oy = oy;
     this.W = W;
     this.H = H;
     const F = this.B.floors;
-    this.hud = 34;
+    const CARS = this.sim.cars.length;
+    this.hud = hud; // (room above for the header)
     this.tall = this.B.storeys >= 15; // the tall ones get the Empire State crown
     this.crownH = this.tall ? clamp(H * 0.13, 50, 130) : clamp(H * 0.08, 30, 70);
     this.groundH = clamp(H * 0.03, 14, 26);
@@ -170,20 +180,14 @@ class Tower {
     this.doorX = this.x0 + this.labelW + 4; // the office door people come out of
     // People are the same size everywhere -- on the floors and in the lifts
     // -- as big as they can be with the lifts wide enough for a full load
-    // side by side (or, if that's too wide, in two rows, front and back)
-    // and room on the floors to queue.
-    const fit = (px, rows) => Math.ceil(CAPACITY / rows) * 8 * px + 14;
-    let px = Math.max(1, Math.floor((this.rowH * 0.8) / 12));
-    let rows = 1;
-    for (; px > 1; px--) {
-      rows = [1, 2].find((n) => (n === 1 || this.rowH - 8 >= 12 * px * 1.4) && this.x1 - 4 - CARS * fit(px, n) - CARS * this.gap - this.panelW - this.doorX >= Math.max(W * 0.2, 4 * 8 * px + 30));
-      if (rows) break;
-    }
-    rows ||= this.x1 - 4 - CARS * fit(1, 1) - CARS * this.gap - this.panelW - this.doorX >= W * 0.2 ? 1 : 2;
+    // side by side and room on the floors to queue.
+    // (In steps of a screen pixel, to stay crisp.)
+    const dpr = this.play.dpr || 1;
+    let px = Math.max(1, Math.floor((this.rowH * 0.8 * dpr) / 12) / dpr);
+    while (px > 1 && this.x1 - 4 - CARS * (liftWidth(px) + this.gap) - this.panelW - this.doorX < Math.max(W * 0.2, 4 * 8 * px + 30)) px = Math.max(1, px - 1 / dpr);
     this.px = px; // sprite pixel size
-    this.carRows = rows;
     this.spriteW = px * 8;
-    this.shaftW = Math.max(fit(px, rows), narrow ? 30 : 50);
+    this.shaftW = liftWidth(px);
     this.shaftX = Array.from({ length: CARS }, (_, i) => this.x1 - 4 - (CARS - i) * this.shaftW - (CARS - 1 - i) * this.gap);
     this.panelX = this.shaftX[0] - this.gap - this.panelW;
     this.padX = this.doorX + 6; // the helipad
@@ -327,13 +331,12 @@ class Tower {
         sp = left > 0 ? Math.max(speed, Math.abs(v.target - v.x) / left) : speed * 4;
       } else if (v.mode === 'wait') sp = speed * 3; // (catching up)
       else if (v.mode === 'board') {
-        // In once the lift's on its way; first, a moment at the button.
+        // In once the lift's on its way (at the latest).
         const car = sim.cars[v.lift];
         if (car.phase === 'moving' || car.phase === 'closing') {
           this.people.delete(v.id);
           continue;
         }
-        if (sim.t - (v.pressT ?? -1) < 0.4) continue;
         sp = speed * 2.5;
       }
       const dx = step(v, sp);
@@ -416,7 +419,7 @@ class Tower {
     for (let f = 0; f < B.floors; f++) this.drawFloor(f, time);
     this.drawStreet(street);
     this.drawAutos();
-    for (let i = 0; i < CARS; i++) this.drawShaft(i, time);
+    for (let i = 0; i < this.sim.cars.length; i++) this.drawShaft(i, time);
     for (const h of this.helis) this.drawHeli(h, time);
   }
 
@@ -816,7 +819,7 @@ class Tower {
       ctx.stroke();
     }
     // The car, with its riders always in view (the doors are glass), side
-    // by side from the left wall (the back row a step up and over).
+    // by side from the left wall.
     const cy = this.top + (this.B.floors - 1 - car.pos) * rowH;
     const cw = w - 8;
     const cx = x + 4;
@@ -828,14 +831,7 @@ class Tower {
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
     const mini = this.px;
     const fw = mini * 8;
-    const per = Math.ceil(CAPACITY / this.carRows);
-    const stepX = Math.min(fw, (cw - 6 - fw) / (per - 1));
-    const spot = (k) => {
-      const back = k >= per;
-      const col = back ? k - per : k;
-      return [cx + 3 + col * stepX + (back ? fw / 2 : 0), cy + ch - 1 - (back ? mini * 5 : 0)];
-    };
-    for (let k = riders.length - 1; k >= 0; k--) drawSprite(ctx, riders[k].look, ...spot(k), mini, 'stand');
+    riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 + k * fw, cy + ch - 1, mini, 'stand'));
     const half = (cw - 4) / 2;
     const open = half * car.open;
     ctx.fillStyle = 'rgba(150,165,185,0.35)';
@@ -907,6 +903,12 @@ class Tower {
 
 }
 
+// How wide a lift is drawn for people px screen pixels per sprite pixel:
+// room for a full load side by side.
+function liftWidth(px) {
+  return CAPACITY * 8 * px + 14;
+}
+
 // ------------------------------------------------------------------- Play
 
 export class Play {
@@ -968,10 +970,13 @@ export class Play {
     this.layout();
   }
 
+  // Two towers side by side if there's room for their lifts (each wide
+  // enough for a full load); otherwise (a phone) one above the other.
   layout() {
     const n = this.towers.length;
-    const w = this.W / n;
-    this.towers.forEach((t, k) => t.layout(k * w, w, this.H, n > 1));
+    const side = n === 1 || this.W / n >= 2 * (liftWidth(1) + 6) + 110;
+    this.towers.forEach((t, k) =>
+      side ? t.layout(k * (this.W / n), 0, this.W / n, this.H, n > 1) : t.layout(0, (k * this.H) / n, this.W, this.H / n, false, k ? 6 : this.hud));
   }
 
   tap(e) {
@@ -979,8 +984,8 @@ export class Play {
     const r = this.canvas.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    const t = this.towers.find((q) => x >= q.ox && x < q.ox + q.W) || this.towers.at(-1);
-    if (t.tap(x - t.ox, y)) e.preventDefault();
+    const t = this.towers.find((q) => x >= q.ox && x < q.ox + q.W && y >= q.oy && y < q.oy + q.H) || this.towers.at(-1);
+    if (t.tap(x - t.ox, y - t.oy)) e.preventDefault();
   }
 
   update(dt) {
@@ -1006,7 +1011,7 @@ export class Play {
     this.drawSky(mins, time);
     for (const t of this.towers) {
       ctx.save();
-      ctx.translate(t.ox, 0);
+      ctx.translate(t.ox, t.oy);
       t.draw(time);
       ctx.restore();
     }

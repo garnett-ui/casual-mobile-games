@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, Day, approach, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
+import { Sim, Day, approach, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, PRESS, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -60,7 +60,7 @@ test('one next stop at a time: a new one turns the lift round at once', () => {
 test('a full lift leaves people behind', () => {
   const sim = only(Array.from({ length: 11 }, () => ({ t: 0.05, from: 0, to: 9 })));
   sim.send(0, 0);
-  run(sim, 8);
+  run(sim, approach(sim.building, 0) + PRESS + CAPACITY * 0.4 + 2);
   assert.equal(sim.cars[0].riders.length, CAPACITY);
   assert.equal(sim.waiting[0].length, 11 - CAPACITY);
 });
@@ -103,6 +103,26 @@ test('nobody gets on before they reach the button, even with the lift standing o
     assert.ok(sim.arrivals[0].t >= leave.at - 1e-9, `floor ${from}: pressed the button on getting there`);
     assert.ok(sim.arrivals[0].boarded >= leave.at - 1e-9, `floor ${from}: and only then got on`);
   }
+});
+
+test('at the button: they press it, and step into a lift standing there a moment later', () => {
+  const B = TALL.building;
+  const sim = only([{ t: 1, from: B.ground + 4, to: B.ground }, { t: 400, from: 1, to: 2 }]);
+  sim.send(0, B.ground + 4);
+  const ev = run(sim, 15);
+  const press = ev.find((e) => e.type === 'arrive' && e.id === 0);
+  const board = ev.find((e) => e.type === 'board' && e.id === 0);
+  assert.ok(sim.arrivals[0].boarded >= sim.arrivals[0].t + PRESS - 1e-9, 'pressed, then got on');
+  assert.ok(ev.indexOf(press) < ev.indexOf(board));
+});
+
+test('the first day: six storeys, one lift', () => {
+  const spec = levelSpec(1);
+  assert.equal(spec.building.storeys, 6);
+  assert.equal(new Sim(spec).cars.length, 1);
+  assert.equal(new Sim(levelSpec(2)).cars.length, 2);
+  const best = par(spec);
+  assert.equal(best.delivered, spec.people);
 });
 
 test('everyone getting off goes before anyone gets on; sent off early, the rest stay aboard', () => {

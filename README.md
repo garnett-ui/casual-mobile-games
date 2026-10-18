@@ -137,7 +137,8 @@ night -- in an office building: parking below the street, the lobby at
 street level, a restaurant on the 2nd floor, offices, a health club on the
 top storey and a helipad on the roof. It's a career told a day at a time:
 three days at each building, with more people every day. Maple Street
-Offices (6 storeys, 10 people, a five-minute day), then Riverside House (10
+Offices (6 storeys, a five-minute day; on the first day just one lift and 6
+people, then a second lift and 12), then Riverside House (10
 storeys), Harbor Plaza (15, two parking levels) and The Empire (20, crowned
 like the Empire State Building), each day a little longer as the buildings
 grow: 5, 6, 7½ and 10 minutes. From level 13 you run Parkview (the
@@ -152,9 +153,10 @@ music.
   one next stop; tap another floor and it changes course at once. A lift you
   haven't sent anywhere waits with its doors open.
 - When a lift stops, anyone for that floor walks out (one at a time), then
-  everyone waiting walks in, up to 6. People get on only once they've
-  walked up to the lifts and pressed the button, even if one is standing
-  open for them. The floors the riders want light up in
+  everyone waiting walks in, up to 6 -- shown side by side, the same size as
+  everyone on the floors (the lifts are drawn wide enough). People walk up
+  to the lifts, press the button (it lights), and only then step into a lift
+  standing there. On a phone the twin towers are one above the other. The floors the riders want light up in
   that lift's shaft, with a dot for each of them in the colour of their
   shirt. The call buttons light green for up, red for down.
 - The day is made of people, each with their own day: an office worker

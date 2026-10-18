@@ -907,15 +907,16 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     await page.locator('[data-act=start]').click();
     await page.waitForFunction(() => window.__elevator && !window.__elevator.paused);
 
-    // Tap lift B's shaft at the 5th floor: that's where it goes.
+    // The first day has one lift. Tap its shaft at the 5th floor: that's where it goes.
     const box = await page.locator('canvas').boundingBox();
     const at = await page.evaluate(() => {
       const t = window.__elevator.towers[0];
-      return { x: t.ox + t.shaftX[1] + t.shaftW / 2, y: t.rowY(5) + t.rowH / 2 };
+      return { x: t.ox + t.shaftX[0] + t.shaftW / 2, y: t.rowY(5) + t.rowH / 2, lifts: t.sim.cars.length };
     });
+    assert.equal(at.lifts, 1);
     await page.touchscreen.tap(box.x + at.x, box.y + at.y);
-    assert.equal(await page.evaluate(() => window.__elevator.sim.cars[1].target), 5);
-    await page.waitForFunction(() => window.__elevator.sim.cars[1].pos > 1.5);
+    assert.equal(await page.evaluate(() => window.__elevator.sim.cars[0].target), 5);
+    await page.waitForFunction(() => window.__elevator.sim.cars[0].pos > 1.5);
 
     // Pause holds the clock.
     await page.locator('[data-act=pause]').click();
@@ -962,7 +963,7 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     await page.waitForFunction(() => window.__elevator && window.__elevator.towers.length === 2 && !window.__elevator.paused);
     const twin = await page.evaluate(() => {
       const t = window.__elevator.towers[1];
-      return { x: t.ox + t.shaftX[0] + t.shaftW / 2, y: t.rowY(4) + t.rowH / 2, types: window.__elevator.towers.map((q) => q.B.type) };
+      return { x: t.ox + t.shaftX[0] + t.shaftW / 2, y: t.oy + t.rowY(4) + t.rowH / 2, types: window.__elevator.towers.map((q) => q.B.type) };
     });
     assert.deepEqual(twin.types, ['residential', 'office']);
     await page.touchscreen.tap(box.x + twin.x, box.y + twin.y);

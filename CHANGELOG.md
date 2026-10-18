@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.44.0
+- Elevator Operator: the first day at Maple Street Offices has a single
+  lift (and a small firm of 6); the second lift opens on day 2. Every lift is
+  drawn wide enough for all 6 riders side by side, the same size as the
+  people on the floors -- bigger than before on most buildings -- and on a
+  phone the twin towers sit one above the other to make room. People walk
+  up, press the button (it lights), and a moment later step into a lift
+  that's there.
+
 ## 1.43.0
 - Elevator Operator: a new picture on its card -- the lift operator at the
   controls of an art-deco lift. People are the same size in the lifts as on

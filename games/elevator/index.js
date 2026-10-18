@@ -73,7 +73,7 @@ export function mount(root, ctx, sub) {
     renderLevelSelect(root, ctx, {
       id: 'elevator',
       title: 'Elevator Operator',
-      intro: 'Run the two lifts in an office building, from the garage to the helipad. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
+      intro: 'Run the lifts in an office building, from the garage to the helipad. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
       outro: 'Each level is a whole working day, with more people; every three levels a taller building (6 storeys, then 10, 15 and 20) and from level 13, an apartment tower and an office tower side by side, four lifts in all.',
       progress,
     });
@@ -243,16 +243,18 @@ export function mount(root, ctx, sub) {
         ? `The big one: you run Parkview Apartments and, across the street, Commerce Tower -- two lifts in each. ${spec.residents} residents are asleep in Parkview. Around 8 they'll all head out, most of them over the street to work in Commerce Tower (on foot, by car, a couple by helicopter), the rest into town, while ${spec.workers} more arrive at the offices from elsewhere. Tonight, everyone comes home.`
         : `Day ${spec.day} at Parkview and Commerce Tower: ${people}.`)
       : spec.day === 1
-        ? [`Your first day as the lift operator at Maple Street Offices: six storeys, two lifts, ${people} at work.`,
+        ? [`Your first day as the lift operator at Maple Street Offices: six storeys, ${people} at work, and one lift -- yours.`,
           `Promoted! Riverside House has ten storeys, a garage, a restaurant and a health club -- and ${people}.`,
           `Harbor Plaza: fifteen storeys, two levels of parking, ${people}. The days are longer here.`,
           `The Empire: twenty storeys under its famous crown, ${people} -- and still only two lifts.`][Math.min(3, Math.floor((n - 1) / 3))]
-        : `Day ${spec.day} at ${spec.place}. Word has got around: ${people} work here now.`;
+        : spec.n === 2
+          ? `Day 2 at Maple Street Offices: they've opened up the second lift, and taken on more staff -- ${people} work here now.`
+          : `Day ${spec.day} at ${spec.place}. Word has got around: ${people} work here now.`;
     showDialog(dialog, ctx, {
       title: spec.day === 1 ? spec.place : `${spec.place}, day ${spec.day}`,
       text: `${story}<br><br>
         A whole day, 7 AM to 7:30 PM, in about ${Math.round(spec.play / 60)} minutes: the morning rush, meetings, lunch (out, the restaurant or the gym), home time.<br><br>
-        <b>Tap a floor in a lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
+        <b>Tap a floor in ${spec.cars === 1 ? 'the' : 'a'} lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most). The floors they want light up, with a dot for each of them.<br><br>
         The shorter everyone’s trips, the better, and a long wait counts extra.`,
       buttons: [{ label: 'Open the doors', act: 'start', primary: true, run: () => start() }],
