@@ -8,10 +8,10 @@ import { lockOrientation, unlockOrientation, currentOrientation } from '../../js
 
 const NOTE = '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="17.5" cy="16" r="2.6"/></svg>';
 const PATTERN = {
-  mixed: 'People going every which way.',
-  morning: 'The morning rush: most of them are arriving at work, up from the lobby.',
-  evening: 'Going home: most of them want the lobby.',
-  lunch: 'Lunchtime: down to the lobby, and later back up again.',
+  morning: 'The morning rush: nearly everyone is arriving for work, from the street or the garage, and a few are off to the gym or breakfast first.',
+  midday: 'The middle of the day: people going floor to floor -- meetings, coffee in the restaurant, the gym -- as well as coming and going.',
+  lunch: 'Lunchtime: out to the street, down to the restaurant on 2 or up to the health club, and back again.',
+  evening: 'Going home: most people want the lobby or their car in the garage; a few are off to the gym.',
 };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -38,8 +38,8 @@ export function mount(root, ctx, sub) {
     renderLevelSelect(root, ctx, {
       id: 'elevator',
       title: 'Elevator Operator',
-      intro: 'Run the two lifts in a 20-storey tower. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
-      outro: 'Each level brings more people, closer together.',
+      intro: 'Run the two lifts in a 20-storey tower, from the garage to the health club. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
+      outro: 'Each level is a time of day, with more people, closer together.',
       progress,
     });
   }

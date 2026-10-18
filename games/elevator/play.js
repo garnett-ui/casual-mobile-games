@@ -2,7 +2,7 @@
 // State Building, with 8-bit people walking in from their offices, pressing
 // the call button and queueing; a shaft for each lift on the right, where
 // you tap a floor to send that lift there.
-import { Sim, FLOORS, CARS, CAPACITY, WALK, dispatch, par } from './engine.js';
+import { Sim, FLOORS, CARS, CAPACITY, WALK, GROUND, GARAGE, RESTAURANT, GYM, floorName, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -259,14 +259,17 @@ export class Play {
     ctx.fillRect(this.x0, this.top - 2, this.x1 - this.x0, rowH * FLOORS + 2);
     for (let f = 0; f < FLOORS; f++) this.drawFloor(f, time);
     for (let i = 0; i < CARS; i++) this.drawShaft(i, time);
-    // The street.
-    const sy = this.top + rowH * FLOORS;
+    // The street, at lobby level; the garage is below it, in the ground.
+    const street = this.rowY(GROUND) + rowH;
+    ctx.fillStyle = '#6b5641';
+    ctx.fillRect(0, street, this.x0, H - street);
+    ctx.fillRect(this.x1, street, W - this.x1, H - street);
+    ctx.fillRect(0, this.top + rowH * FLOORS, W, H);
+    ctx.fillStyle = '#4a4a4f';
+    ctx.fillRect(0, street - 1, this.x0 + 1, 4);
+    ctx.fillRect(this.x1 - 1, street - 1, W - this.x1 + 1, 4);
     ctx.fillStyle = '#9a9a9a';
-    ctx.fillRect(0, sy, W, this.streetH);
-    ctx.fillStyle = '#5c5c5c';
-    ctx.fillRect(0, sy + this.streetH * 0.45, W, this.streetH * 0.55);
-    ctx.fillStyle = '#e9d36a';
-    for (let x = 6; x < W; x += 26) ctx.fillRect(x, sy + this.streetH * 0.7, 12, 2);
+    ctx.fillRect(this.x0, street - 1, this.panelX - this.x0, 3);
     this.drawHud();
   }
 
@@ -342,10 +345,22 @@ export class Play {
       ctx.fillStyle = 'rgba(120,90,40,0.05)';
       ctx.fillRect(this.x0, y, this.panelX - this.x0, rowH);
     }
-    if (f === 0) {
-      ctx.fillStyle = 'rgba(220,170,60,0.2)';
+    // What kind of floor: parking, the lobby, the restaurant, the health club.
+    const tint = f < GROUND ? '#a3a6aa' : f === GROUND ? 'rgba(220,170,60,0.22)' : f === RESTAURANT ? 'rgba(200,70,50,0.13)' : f === GYM ? 'rgba(40,170,160,0.14)' : null;
+    if (tint) {
+      ctx.fillStyle = tint;
       ctx.fillRect(this.x0, y, this.panelX - this.x0, rowH);
     }
+    const name = f < GROUND ? 'PARKING' : f === GROUND ? 'LOBBY' : f === RESTAURANT ? 'RESTAURANT' : f === GYM ? 'HEALTH CLUB' : '';
+    if (name) {
+      ctx.font = `800 ${clamp(rowH * 0.32, 8, 13)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = f < GROUND ? 'rgba(255,255,255,0.55)' : 'rgba(90,70,40,0.35)';
+      ctx.fillText(name, (this.doorX + this.spriteW + this.panelX) / 2, y + rowH * 0.3);
+    }
+    if (f === RESTAURANT) this.drawTables(y);
+    if (f === GYM) this.drawWeights(y);
     ctx.fillStyle = '#b7a684';
     ctx.fillRect(this.x0, y + rowH - 2, this.x1 - this.x0, 2);
     // Floor number.
@@ -354,13 +369,17 @@ export class Play {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#5b4a2e';
-    ctx.fillText(f === 0 ? 'L' : String(f + 1), this.x0 + this.labelW / 2, y + rowH / 2);
-    // The door they come out of (glass doors in the lobby).
+    ctx.fillText(floorName(f), this.x0 + this.labelW / 2, y + rowH / 2);
+    // Where they come from: a door (glass onto the street in the lobby), or
+    // in the garage, their parked car.
     const dw = this.spriteW + 4;
-    ctx.fillStyle = f === 0 ? 'rgba(140,190,220,0.7)' : '#8a6a44';
-    ctx.fillRect(this.doorX - 2, y + rowH * 0.12, dw, rowH * 0.86 - 2);
-    ctx.fillStyle = f === 0 ? '#6a8aa0' : '#6b5133';
-    ctx.fillRect(this.doorX - 2 + dw - 4, y + rowH * 0.5, 2, 2);
+    if (f < GROUND) this.drawCar(this.doorX - 4, y + rowH - 2, f);
+    else {
+      ctx.fillStyle = f === GROUND ? 'rgba(140,190,220,0.7)' : '#8a6a44';
+      ctx.fillRect(this.doorX - 2, y + rowH * 0.12, dw, rowH * 0.86 - 2);
+      ctx.fillStyle = f === GROUND ? '#6a8aa0' : '#6b5133';
+      ctx.fillRect(this.doorX - 2 + dw - 4, y + rowH * 0.5, 2, 2);
+    }
     // The call buttons: lit for anyone waiting to go up, or down.
     const w = sim.waiting[f];
     const up = w.some((p) => p.to > f);
@@ -403,6 +422,54 @@ export class Play {
         const waited = sim.t - v.since;
         if (waited > 20) this.bubble(v.x + this.spriteW / 2, base - this.px * 12 - 2, waited > 40 ? '!' : '…', waited > 40);
       }
+    }
+  }
+
+  // A parked car, 8-bit, its nose to the left.
+  drawCar(x, base, f) {
+    const { ctx } = this;
+    const p = Math.max(1, this.px * 0.75);
+    const body = ['#c1121f', '#1d3557', '#ffb703'][f % 3];
+    const rows = [
+      '...wwwww....',
+      '..wwbbbbww..',
+      'cccccccccccc',
+      'cccccccccccc',
+      '.kk......kk.',
+    ];
+    const colour = { w: '#bfe3f5', b: '#bfe3f5', c: body, k: '#1b1b1b' };
+    const y0 = base - rows.length * p;
+    rows.forEach((row, r) => {
+      for (let i = 0; i < row.length; i++) {
+        if (row[i] === '.') continue;
+        ctx.fillStyle = r < 2 && row[i] === 'w' ? body : colour[row[i]];
+        ctx.fillRect(Math.round(x + i * p), Math.round(y0 + r * p), Math.ceil(p), Math.ceil(p));
+      }
+    });
+  }
+
+  // The restaurant's tables and the health club's weights, along the back.
+  drawTables(y) {
+    const { ctx, rowH } = this;
+    const from = this.doorX + this.spriteW + 14;
+    for (let x = from; x < this.panelX - 70; x += 38) {
+      ctx.fillStyle = '#8a5a3c';
+      ctx.fillRect(x, y + rowH * 0.62, 16, 3);
+      ctx.fillRect(x + 7, y + rowH * 0.62, 2, rowH * 0.3);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x + 3, y + rowH * 0.55, 4, 3);
+    }
+  }
+
+  drawWeights(y) {
+    const { ctx, rowH } = this;
+    const from = this.doorX + this.spriteW + 14;
+    for (let x = from; x < this.panelX - 70; x += 40) {
+      const cy = y + rowH * 0.72;
+      ctx.fillStyle = '#3b3f4a';
+      ctx.fillRect(x, cy - 1, 18, 2);
+      ctx.fillRect(x, cy - 4, 4, 8);
+      ctx.fillRect(x + 14, cy - 4, 4, 8);
     }
   }
 

@@ -8,7 +8,18 @@
 // buttons for their floors; those light up in the car's shaft.
 import { rng, seedFor } from '../../js/lib/random.js';
 
-export const FLOORS = 20; // 0 is the lobby
+// The building, from the bottom: two levels of parking (P2, P1), the lobby
+// at street level, a restaurant on the 2nd floor, offices on 3 to 19 and a
+// health club on the top floor (20).
+export const FLOORS = 22;
+export const GROUND = 2; // the lobby
+export const GARAGE = [0, 1];
+export const RESTAURANT = 3;
+export const GYM = FLOORS - 1;
+export const OFFICES = [4, FLOORS - 2]; // first and last office floor
+export function floorName(f) {
+  return f < GROUND ? `P${GROUND - f}` : f === GROUND ? 'L' : String(f - 1);
+}
 export const CARS = 2;
 export const CAPACITY = 8;
 export const VMAX = 2.5; // floors per second
@@ -23,20 +34,70 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export const WALK = 3; // seconds a new arrival takes to walk up and press the button
 export const BASE_SEED = 20261018;
 
-// Level n: how many people come, how often (on average), and where they're
-// going. The first is 20 people about 10 seconds apart; each level after
-// brings more of them, closer together, and the traffic changes: a mix,
-// the morning rush (up from the lobby), the evening rush (down to it), and
-// lunchtime (down, then back up).
-const PATTERNS = ['mixed', 'morning', 'evening', 'lunch'];
+// How the traffic divides at different times of the working day: people
+// coming in (from the street or the garage), going out, and going floor to
+// floor (offices, the restaurant, the health club). The morning and lunch
+// figures are from surveys of modern office buildings (Peters Research: a
+// morning up peak of about 85% in, 10% out, 5% floor to floor; the busiest
+// part of lunch about 45% in, 45% out, 10% floor to floor). Between the peaks
+// and going home are estimates: much more floor to floor in the middle of
+// the day, and in the evening mostly out (modern surveys find no sharp
+// "down peak" -- people drift away -- but most trips are leaving).
+export const MIX = {
+  morning: { in: 0.85, out: 0.1, inter: 0.05 },
+  midday: { in: 0.25, out: 0.25, inter: 0.5 },
+  lunch: { in: 0.45, out: 0.45, inter: 0.1 },
+  evening: { in: 0.1, out: 0.8, inter: 0.1 },
+};
+export const PERIODS = ['morning', 'midday', 'lunch', 'evening'];
+
+// Level n: how many people come, how often (on average), and the time of
+// day. The first is the morning rush: 20 people about 10 seconds apart; each
+// level after brings more of them, closer together, through the day. (Real
+// buildings see 12 to 15% of their population in five minutes at the peaks,
+// 4 to 6% between them, but they have six or eight lifts, not two.)
 export function levelSpec(n) {
   return {
     n,
     people: Math.min(80, 20 + 5 * (n - 1)),
     gap: Math.max(2.5, 10 * 0.87 ** (n - 1)),
-    pattern: PATTERNS[(n - 1) % PATTERNS.length],
+    pattern: PERIODS[(n - 1) % PERIODS.length],
     seed: seedFor(n, BASE_SEED),
   };
+}
+
+// One person's trip for the time of day.
+function trip(pattern, r) {
+  const pick = (weights) => {
+    let x = r() * weights.reduce((a, [w]) => a + w, 0);
+    for (const [w, v] of weights) if ((x -= w) < 0) return typeof v === 'function' ? v() : v;
+    return weights.at(-1)[1];
+  };
+  const office = () => OFFICES[0] + Math.floor(r() * (OFFICES[1] - OFFICES[0] + 1));
+  // In and out by the lobby mostly; about a fifth drive and park downstairs.
+  const entrance = () => pick([[0.8, GROUND], [0.1, GARAGE[1]], [0.1, GARAGE[0]]]);
+  const m = MIX[pattern];
+  const kind = pick([[m.in, 'in'], [m.out, 'out'], [m.inter, 'inter']]);
+  if (pattern === 'lunch') {
+    // Out to lunch -- the street, the restaurant, or a workout -- and back.
+    const place = () => pick([[0.45, GROUND], [0.4, RESTAURANT], [0.15, GYM]]);
+    if (kind === 'in') return [place(), office()];
+    if (kind === 'out') return [office(), place()];
+  } else if (kind === 'in') {
+    // Coming in: to work, and in the morning some to the gym or breakfast
+    // first; in the evening, those coming in are mostly off to the gym.
+    const to = pattern === 'morning' ? pick([[0.88, office], [0.07, GYM], [0.05, RESTAURANT]])
+      : pattern === 'evening' ? pick([[0.4, office], [0.6, GYM]]) : office();
+    return [entrance(), to];
+  } else if (kind === 'out') {
+    // Going home -- or, in the evening, to the gym first.
+    if (pattern === 'evening' && r() < 0.15) return [office(), GYM];
+    return [office(), entrance()];
+  }
+  // Floor to floor: meetings, coffee in the restaurant, the gym.
+  const a = office();
+  const b = pick([[0.7, office], [0.18, RESTAURANT], [0.12, GYM]]);
+  return a === b ? [a, b === OFFICES[0] ? b + 1 : b - 1] : r() < 0.5 ? [a, b] : [b, a];
 }
 
 // The arrivals: a Poisson process (independent, at a steady average rate),
@@ -44,32 +105,10 @@ export function levelSpec(n) {
 export function schedule(spec) {
   const r = rng(spec.seed);
   const people = [];
-  const floor = () => 1 + Math.floor(r() * (FLOORS - 1));
   let t = WALK;
   for (let id = 0; id < spec.people; id++) {
     if (id) t += -Math.log(1 - r()) * spec.gap;
-    const k = id / spec.people;
-    // [up from the lobby, down to it]; the rest go floor to floor, as
-    // people do during the working day.
-    const [up, down] = {
-      mixed: [0.35, 0.3],
-      morning: [0.6, 0.1],
-      evening: [0.1, 0.6],
-      lunch: k < 0.5 ? [0.1, 0.55] : [0.55, 0.1],
-    }[spec.pattern];
-    const pick = r();
-    let from;
-    let to;
-    if (pick < up) {
-      from = 0;
-      to = floor();
-    } else if (pick < up + down) {
-      from = floor();
-      to = 0;
-    } else {
-      from = floor();
-      do to = floor(); while (to === from);
-    }
+    const [from, to] = trip(spec.pattern, r);
     // Looks: skin, hair, shirt, trousers (indexes into the view's palettes).
     const look = [r(), r(), r(), r()].map((x) => Math.floor(x * 1e6));
     people.push({ id, t, from, to, look });
@@ -86,13 +125,17 @@ export class Sim {
     this.waiting = Array.from({ length: FLOORS }, () => []);
     this.cars = Array.from({ length: CARS }, (_, i) => ({
       i,
-      pos: 0, // floor, fractional while moving
+      pos: GROUND, // floor, fractional while moving
       v: 0, // floors per second, + up
       target: null, // the one next stop
-      phase: 'idle', // idle | moving | opening | loading | closing
+      // idle (doors shut) | moving | opening | loading (doors open: people
+      // get off and on, then it waits there, open, until sent somewhere) |
+      // closing. They start the day open in the lobby.
+      phase: 'loading',
       timer: 0,
-      open: 0, // how open the doors are, 0..1
-      dwell: 0,
+      open: 1, // how open the doors are, 0..1
+      dwell: DWELL,
+      settled: true, // doors open with nobody left to get off or on
       riders: [],
       dir: 1, // which way it was last going (for the dispatcher)
     }));
@@ -175,12 +218,15 @@ export class Sim {
           car.open = 1;
           car.timer = 0;
           car.dwell = 0;
+          car.settled = false;
         }
         break;
       case 'loading': {
         // Sent somewhere else with the doors open: they close at once, and
-        // anyone who hadn't got off yet stays on.
+        // anyone who hadn't got off yet stays on. (Sent to where it is:
+        // it's there already.)
         if (this.leaving(car, here)) break;
+        if (car.target === here) car.target = null;
         car.dwell += dt;
         car.timer -= dt;
         // One at a time: first everyone getting off, then -- once they're
@@ -204,15 +250,13 @@ export class Sim {
             break;
           }
         }
-        if (car.timer <= 0 && car.dwell >= DWELL) {
-          car.phase = 'closing';
-          car.timer = DOOR;
-        }
+        // Then it waits here, doors open, until it's sent somewhere.
+        car.settled = car.timer <= 0 && car.dwell >= DWELL;
         break;
       }
       case 'closing':
-        // Someone just arrived (or you sent it back here): open up again.
-        if ((car.target === here || (car.target === null && this.waiting[here].length)) && car.riders.length < CAPACITY) {
+        // Sent back here after all: open up again.
+        if (car.target === here || car.target === null) {
           car.target = null;
           car.phase = 'opening';
           car.timer = DOOR * (1 - car.open);
@@ -235,6 +279,7 @@ export class Sim {
   leaving(car, here) {
     if (car.target === null || car.target === here) return false;
     car.phase = 'closing';
+    car.settled = false;
     car.timer = DOOR * car.open;
     return true;
   }
@@ -247,6 +292,7 @@ export class Sim {
   openAt(car, ev) {
     car.target = null;
     car.phase = 'opening';
+    car.settled = false;
     car.timer = DOOR;
     ev.push({ type: 'stop', car: car.i, floor: this.floorOf(car) });
   }
@@ -289,7 +335,9 @@ export function dispatch(sim, opts = {}) {
         want.add(f);
       });
     }
-    const busy = car.phase === 'opening' || car.phase === 'loading' || car.phase === 'closing';
+    // Busy until it's done letting people off and on (then it stands open,
+    // ready to be sent on).
+    const busy = car.phase === 'opening' || car.phase === 'closing' || (car.phase === 'loading' && !car.settled);
     const stopping = (car.v * car.v) / (2 * ACCEL) + 0.15;
     const nearest = (dir, from, min) => {
       let best = null;
@@ -310,7 +358,7 @@ export function dispatch(sim, opts = {}) {
     let f = nearest(car.dir, here, 1);
     if (f === null) f = nearest(-car.dir, here, 1);
     if (f === null && want.has(here) && sim.waiting[here].length) f = here;
-    if (f === null && park && here !== 0 && car.i === 0) f = 0; // wait in the lobby
+    if (f === null && park && here !== GROUND && car.i === 0) f = GROUND; // wait in the lobby
     if (f !== null) sim.send(car.i, f);
   }
 }

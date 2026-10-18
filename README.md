@@ -132,7 +132,10 @@ tells you what he needs and reacts as you go.
 ### Elevator Operator
 
 You run the two lifts in a 20-storey tower, crowned like the Empire State
-Building. Played upright on a phone (either way on a tablet), to lift music.
+Building: two levels of parking below the street (P2, P1), the lobby at
+street level, a restaurant on the 2nd floor, offices on 3 to 19 and a health
+club on 20. Played upright on a phone (either way on a tablet), to lift
+music.
 
 - **Tap a floor in a lift's shaft** to send it there. Each lift has exactly
   one next stop; tap another floor and it changes course at once (braking and
@@ -143,11 +146,17 @@ Building. Played upright on a phone (either way on a tablet), to lift music.
 - When a lift stops, anyone for that floor walks out and away, and everyone
   waiting walks in, up to 8. The floors the riders want light up in that
   lift's shaft, with a little figure for each of them.
+- A lift you haven't sent anywhere waits with its doors open (anyone who
+  comes along walks in); the doors close when you send it.
 - Levels: a set number of passengers arriving as a Poisson process, starting
-  with 20 about 10 s apart; each level brings more, closer together, and the
-  traffic changes (a mix, the morning rush up from the lobby, the evening
-  rush down, lunchtime down and back up). The level ends when everyone has
-  got where they're going.
+  with 20 about 10 s apart; each level brings more, closer together. Each is
+  a time of the working day, with that time's mix of trips in, out and floor
+  to floor. The peaks follow surveys of modern office buildings (Peters
+  Research): mornings about 85% in, 10% out, 5% floor to floor; the busiest
+  part of lunch 45% in, 45% out, 10% floor to floor (out to the street, the
+  restaurant or the gym, and back). Between the peaks (half floor to floor)
+  and going home (80% out) are estimates. About a fifth of people use the
+  garage. The level ends when everyone has got where they're going.
 - Scored on the average trip (waiting plus riding) against a computer
   dispatcher with exactly the same people (arrivals are seeded). The truly
   optimal schedule can't be computed in any reasonable time, so the yardstick
