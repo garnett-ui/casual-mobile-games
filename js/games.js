@@ -52,8 +52,8 @@ export const GAMES = [
   },
   {
     id: 'elevator',
-    title: 'Elevator',
-    blurb: 'Run the two lifts in a 20-storey tower: tap a floor to send a lift there. Can you beat the computer dispatcher?',
+    title: 'Elevator Operator',
+    blurb: 'Run the lifts in a 20-storey tower: tap a floor to send a lift there and get everyone where they’re going. Can you beat the computer?',
     color: '#2a9d8f',
     load: () => import('../games/elevator/index.js'),
     art: () => import('../games/elevator/art.js'),

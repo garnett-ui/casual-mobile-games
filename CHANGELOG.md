@@ -6,6 +6,21 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.31.0
+- Elevator Operator (the new lift game) has levels: each one is a set number
+  of passengers -- 20 to start, arriving about 10 seconds apart at random --
+  and it's over when everyone has got where they're going. Later levels bring
+  more people, closer together, and change the traffic: the morning rush up
+  from the lobby, the evening rush down, lunchtime down and back up. You're
+  scored on the average trip against the computer dispatcher with the same
+  people.
+- The people are little 8-bit figures who walk out of their offices, press
+  the lit call button by the lifts and queue (getting impatient if kept
+  waiting), then walk in and out of the lifts. Each floor a rider wants
+  lights up in the lift's shaft with a figure for each of them.
+- The tower is topped like the Empire State Building, and there's lift music
+  (a bossa nova; the ♪ button turns it off). On a phone it's played upright.
+
 ## 1.30.0
 - New game: **Elevator**. You run the two lifts in a 20-storey tower for a
   three-minute day: tap a floor in a lift's shaft to send it there (one next

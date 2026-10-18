@@ -1,17 +1,16 @@
-// Elevator: the building, the people and the cars -- no DOM, so it can be
-// tested in Node.
+// Elevator Operator: the building, the people and the cars -- no DOM, so it
+// can be tested in Node.
 //
 // You're the dispatcher. Each car has one "next stop" at a time: send it to
 // a floor and it goes there (turning round at once if you change your mind),
 // opens its doors, lets out anyone who wanted that floor, takes on everyone
 // waiting (up to its capacity) and closes again. The people inside press the
 // buttons for their floors; those light up in the car's shaft.
-import { rng } from '../../js/lib/random.js';
+import { rng, seedFor } from '../../js/lib/random.js';
 
 export const FLOORS = 20; // 0 is the lobby
 export const CARS = 2;
 export const CAPACITY = 8;
-export const DURATION = 180; // seconds: a three-minute day
 export const VMAX = 2.5; // floors per second
 export const ACCEL = 2.5; // floors per second^2
 export const DOOR = 0.8; // seconds for the doors to open, or to close
@@ -20,25 +19,44 @@ export const DWELL = 0.8; // the doors stay open at least this long
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// The day's arrivals, seeded so you and the dispatcher face exactly the same
-// people. Three waves: the morning rush up from the lobby, the middle of the
-// day between floors, and the evening rush down to the lobby -- arriving at
-// a rate that rises and falls.
-export function schedule(seed) {
-  const r = rng(seed);
+export const WALK = 3; // seconds a new arrival takes to walk up and press the button
+export const BASE_SEED = 20261018;
+
+// Level n: how many people come, how often (on average), and where they're
+// going. The first is 20 people about 10 seconds apart; each level after
+// brings more of them, closer together, and the traffic changes: a mix,
+// the morning rush (up from the lobby), the evening rush (down to it), and
+// lunchtime (down, then back up).
+const PATTERNS = ['mixed', 'morning', 'evening', 'lunch'];
+export function levelSpec(n) {
+  return {
+    n,
+    people: Math.min(80, 20 + 5 * (n - 1)),
+    gap: Math.max(2.5, 10 * 0.87 ** (n - 1)),
+    pattern: PATTERNS[(n - 1) % PATTERNS.length],
+    seed: seedFor(n, BASE_SEED),
+  };
+}
+
+// The arrivals: a Poisson process (independent, at a steady average rate),
+// seeded so you and the dispatcher meet exactly the same people.
+export function schedule(spec) {
+  const r = rng(spec.seed);
   const people = [];
-  const rate = (t) => 0.3 + 0.28 * Math.sin((Math.PI * t) / 45) ** 2; // people per second
-  let t = 0.5;
-  for (let id = 0; ; id++) {
-    t += -Math.log(1 - r()) / rate(t);
-    if (t >= DURATION - 2) break;
-    const p = t / DURATION;
-    const up = 0.1 + 0.8 * Math.max(0, 1 - 2.2 * p);
-    const down = 0.1 + 0.8 * Math.max(0, 2.2 * p - 1.2);
-    const pick = r() * (up + down + 0.35);
+  const floor = () => 1 + Math.floor(r() * (FLOORS - 1));
+  let t = WALK;
+  for (let id = 0; id < spec.people; id++) {
+    if (id) t += -Math.log(1 - r()) * spec.gap;
+    const k = id / spec.people;
+    const [up, down] = {
+      mixed: [0.4, 0.35],
+      morning: [0.75, 0.1],
+      evening: [0.1, 0.75],
+      lunch: k < 0.5 ? [0.15, 0.7] : [0.7, 0.15],
+    }[spec.pattern];
+    const pick = r();
     let from;
     let to;
-    const floor = () => 1 + Math.floor(r() * (FLOORS - 1));
     if (pick < up) {
       from = 0;
       to = floor();
@@ -49,16 +67,18 @@ export function schedule(seed) {
       from = floor();
       do to = floor(); while (to === from);
     }
-    people.push({ id, t, from, to });
+    // Looks: skin, hair, shirt, trousers (indexes into the view's palettes).
+    const look = [r(), r(), r(), r()].map((x) => Math.floor(x * 1e6));
+    people.push({ id, t, from, to, look });
   }
   return people;
 }
 
 export class Sim {
-  constructor(seed) {
-    this.seed = seed;
+  constructor(spec) {
+    this.spec = spec;
     this.t = 0;
-    this.arrivals = schedule(seed);
+    this.arrivals = schedule(spec);
     this.next = 0;
     this.waiting = Array.from({ length: FLOORS }, () => []);
     this.cars = Array.from({ length: CARS }, (_, i) => ({
@@ -102,12 +122,13 @@ export class Sim {
     while (this.next < this.arrivals.length && this.arrivals[this.next].t <= this.t) {
       const a = this.arrivals[this.next++];
       this.waiting[a.from].push({ ...a });
-      ev.push({ type: 'arrive', floor: a.from });
+      ev.push({ type: 'arrive', floor: a.from, id: a.id });
     }
     for (const car of this.cars) this.stepCar(car, dt, ev);
-    if (this.t >= DURATION) {
+    // Done when everyone has got where they were going.
+    if (this.delivered === this.arrivals.length) {
       this.over = true;
-      ev.push({ type: 'over', delivered: this.delivered });
+      ev.push({ type: 'over', ...this.stats() });
     }
     return ev;
   }
@@ -157,13 +178,13 @@ export class Sim {
             const [p] = car.riders.splice(out, 1);
             this.delivered++;
             this.trips.push({ wait: p.boarded - p.t, ride: this.t - p.boarded });
-            ev.push({ type: 'deliver', car: car.i, floor: here });
+            ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look });
             car.timer += STEP_TIME;
           } else if (this.waiting[here].length && car.riders.length < CAPACITY) {
             const p = this.waiting[here].shift();
             p.boarded = this.t;
             car.riders.push(p);
-            ev.push({ type: 'board', car: car.i, floor: here });
+            ev.push({ type: 'board', car: car.i, floor: here, id: p.id });
             car.timer += STEP_TIME;
           } else {
             car.timer = 0;
@@ -194,6 +215,15 @@ export class Sim {
     car.phase = 'opening';
     car.timer = DOOR;
     ev.push({ type: 'stop', car: car.i, floor: this.floorOf(car) });
+  }
+
+  // Average wait (from pressing the button to getting in), ride and the
+  // whole trip, and when the last person arrived.
+  stats() {
+    const n = this.trips.length || 1;
+    const wait = this.trips.reduce((a, x) => a + x.wait, 0) / n;
+    const ride = this.trips.reduce((a, x) => a + x.ride, 0) / n;
+    return { delivered: this.delivered, wait, ride, trip: wait + ride, time: this.t };
   }
 
   waitingCount() {
@@ -246,28 +276,29 @@ export function dispatch(sim, opts = {}) {
     let f = nearest(car.dir, here, 1);
     if (f === null) f = nearest(-car.dir, here, 1);
     if (f === null && want.has(here) && sim.waiting[here].length) f = here;
-    if (f === null && park && here !== 0 && car.i === 0 && sim.t < DURATION * 0.6) f = 0; // wait in the lobby for the rush
+    if (f === null && park && here !== 0 && car.i === 0) f = 0; // wait in the lobby
     if (f !== null) sim.send(car.i, f);
   }
 }
 
-// Plays the whole day with the dispatcher; returns how many it delivered.
-export function playDispatcher(seed, opts = {}, dt = 1 / 20) {
-  const sim = new Sim(seed);
-  while (!sim.over) {
+// Runs the level with the dispatcher until everyone's delivered.
+export function playDispatcher(spec, opts = {}, dt = 1 / 20) {
+  const sim = new Sim(spec);
+  while (!sim.over && sim.t < 3600) {
     dispatch(sim, opts);
     sim.step(dt);
   }
   return sim;
 }
 
-// The score to beat: the best of a few versions of the dispatcher.
+// The time to beat: the shortest average trip of a few versions of the
+// dispatcher, on the same people.
 export const VARIANTS = [{}, { claim: false }, { park: false }, { ahead: false }];
-export function par(seed) {
+export function par(spec) {
   let best = null;
   for (const opts of VARIANTS) {
-    const sim = playDispatcher(seed, opts);
-    if (!best || sim.delivered > best.delivered) best = { delivered: sim.delivered, opts };
+    const s = playDispatcher(spec, opts).stats();
+    if (!best || s.trip < best.trip) best = { ...s, opts };
   }
   return best;
 }

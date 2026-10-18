@@ -129,27 +129,34 @@ tells you what he needs and reacts as you go.
   shortest solutions, or more beakers. Hint shows the next pour of a
   shortest solution from wherever you are.
 
-### Elevator
+### Elevator Operator
 
-You're the dispatcher for the two lifts in a 20-storey tower, for a
-three-minute day. Best played with the phone upright.
+You run the two lifts in a 20-storey tower, crowned like the Empire State
+Building. Played upright on a phone (either way on a tablet), to lift music.
 
 - **Tap a floor in a lift's shaft** to send it there. Each lift has exactly
   one next stop; tap another floor and it changes course at once (braking and
   turning round if it has to).
-- When a lift stops, anyone for that floor gets off and everyone waiting gets
-  on, up to 8. The floors the riders want light up with a ✓ in that lift's
-  shaft; the floor it's heading for is outlined.
-- People arrive in waves: the morning rush up from the lobby, the middle of
-  the day between floors, and the evening rush down. They turn from green to
-  red the longer they wait; the lamps by each floor show who wants up or down.
-- At the end you're scored against a computer dispatcher running **the very
-  same day** (arrivals are seeded): *you got 87%*. The truly optimal schedule
-  can't be computed in any reasonable time, so the yardstick is the classic
-  "collective control" used by real lift groups (keep going one way, stopping
-  wherever someone wants to get on or off, then turn round; don't send both
-  lifts to the same call), tried a few ways with the best taken. You can
-  watch it run your day, or play the same day again.
+- People are little 8-bit figures: they walk out of their office, press the
+  call button by the lifts (it lights up, ▲ or ▼) and queue. A "…" bubble
+  means they've waited 20 s, a red "!" 40 s.
+- When a lift stops, anyone for that floor walks out and away, and everyone
+  waiting walks in, up to 8. The floors the riders want light up in that
+  lift's shaft, with a little figure for each of them.
+- Levels: a set number of passengers arriving as a Poisson process, starting
+  with 20 about 10 s apart; each level brings more, closer together, and the
+  traffic changes (a mix, the morning rush up from the lobby, the evening
+  rush down, lunchtime down and back up). The level ends when everyone has
+  got where they're going.
+- Scored on the average trip (waiting plus riding) against a computer
+  dispatcher with exactly the same people (arrivals are seeded). The truly
+  optimal schedule can't be computed in any reasonable time, so the yardstick
+  is the classic "collective control" used by real lift groups (keep going one
+  way, stopping wherever someone wants to get on or off, then turn round;
+  don't send both lifts to the same call), tried a few ways with the best
+  taken. 100% or better earns three stars. You can watch it run your level.
+- The music is synthesised, like all the sound: a bossa nova in C on electric
+  piano, bass, vibraphone and shaker (the ♪ button turns it off).
 
 ### Jigsaw
 
@@ -225,7 +232,7 @@ games/breakout/             Breakout: engine.js (physics, rules), play.js, index
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
-games/elevator/             Elevator: engine.js (building, lifts, arrivals, dispatcher; runs in Node), play.js
+games/elevator/             Elevator Operator: engine.js (building, lifts, arrivals, levels, dispatcher; runs in Node), play.js (tower, 8-bit people)
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback

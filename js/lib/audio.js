@@ -332,6 +332,7 @@ export function setLoop(name, on) {
 export function stopLoops() {
   for (const name of Object.keys(playing)) setLoop(name, false);
   for (const stop of [...clipsPlaying]) stop();
+  stopMusic();
 }
 
 // Recorded clips: fetched and decoded once, played through the same volume
@@ -400,4 +401,157 @@ export function sfx(name, arg) {
   } catch {
     // Never let audio problems break the game.
   }
+}
+
+// ------------------------------------------------------------------ music
+// Background music, synthesised like everything else. So far one tune:
+// "muzak", lift music -- a gentle bossa nova in C: electric piano chords,
+// a walking bass, a vibraphone melody and a soft shaker, round and round.
+
+const MUZAK = {
+  bpm: 104,
+  // Eight bars of chords (MIDI notes, voiced close), two per bar.
+  chords: [
+    [[53, 57, 60, 64], [53, 57, 60, 64]], // Fmaj7
+    [[52, 55, 59, 62], [57, 61, 64, 67]], // Em7, A7
+    [[50, 53, 57, 60], [50, 53, 57, 60]], // Dm7
+    [[55, 59, 62, 65], [55, 59, 62, 65]], // G7
+    [[48, 52, 55, 59], [48, 52, 55, 59]], // Cmaj7
+    [[57, 60, 64, 67], [57, 60, 64, 67]], // Am7
+    [[50, 53, 57, 60], [55, 59, 62, 65]], // Dm7, G7
+    [[48, 52, 55, 59], [55, 59, 62, 65]], // Cmaj7, G7
+  ],
+  bass: [41, 40, 38, 43, 36, 45, 38, 36], // roots, bar by bar (an octave down)
+  bass2: [null, 45, null, null, null, null, 43, 43], // the chord change mid-bar
+  // The tune: [beat (from the top, in eighths), MIDI note, length in eighths].
+  melody: [
+    [0, 76, 3], [3, 77, 1], [4, 76, 2], [6, 72, 2],
+    [8, 74, 4], [12, 73, 2], [14, 74, 2],
+    [16, 77, 3], [19, 76, 1], [20, 74, 2], [22, 72, 2],
+    [24, 71, 4], [28, 74, 4],
+    [32, 79, 3], [35, 77, 1], [36, 76, 2], [38, 74, 2],
+    [40, 76, 4], [44, 72, 4],
+    [48, 74, 3], [51, 76, 1], [52, 77, 2], [54, 71, 2],
+    [56, 72, 6],
+  ],
+};
+
+let music = null;
+
+const hz = (m) => 440 * 2 ** ((m - 69) / 12);
+
+function musicVoice(out, type, freq, at, dur, vol, { attack = 0.01, release = 0.4, cutoff = 0, trem = 0 } = {}) {
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.linearRampToValueAtTime(vol, at + attack);
+  g.gain.setTargetAtTime(vol * 0.5, at + attack, dur * 0.6);
+  g.gain.setTargetAtTime(0.0001, at + dur, release / 3);
+  let node = o;
+  if (cutoff) {
+    const f = ac.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = cutoff;
+    o.connect(f);
+    node = f;
+  }
+  if (trem) {
+    // A vibraphone's motor: the loudness wobbles.
+    const t = ac.createGain();
+    const lfo = ac.createOscillator();
+    const depth = ac.createGain();
+    lfo.frequency.value = trem;
+    depth.gain.value = 0.35;
+    t.gain.value = 0.65;
+    lfo.connect(depth);
+    depth.connect(t.gain);
+    node.connect(t);
+    node = t;
+    lfo.start(at);
+    lfo.stop(at + dur + release + 0.1);
+  }
+  node.connect(g);
+  g.connect(out);
+  o.start(at);
+  o.stop(at + dur + release + 0.1);
+}
+
+function musicNoise(out, at, dur, vol, freq, type = 'highpass') {
+  const src = ac.createBufferSource();
+  src.buffer = noise;
+  const f = ac.createBiquadFilter();
+  f.type = type;
+  f.frequency.value = freq;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vol, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  src.connect(f);
+  f.connect(g);
+  g.connect(out);
+  src.start(at, Math.random());
+  src.stop(at + dur + 0.02);
+}
+
+// One eighth-note step of the tune, starting at time `at`.
+function muzakStep(out, step, at, e) {
+  const bar = Math.floor(step / 8) % 8;
+  const inBar = step % 8;
+  const half = inBar < 4 ? 0 : 1;
+  // Electric piano: the bossa rhythm, on the "and"s.
+  if ([0, 3, 6].includes(inBar)) {
+    const chord = MUZAK.chords[bar][half];
+    chord.forEach((m, k) => {
+      musicVoice(out, 'sine', hz(m), at + k * 0.008, e * 1.6, 0.05, { attack: 0.006, release: 0.5 });
+      musicVoice(out, 'triangle', hz(m) * 2, at + k * 0.008, e * 0.7, 0.012, { attack: 0.004, release: 0.2, cutoff: 2500 });
+    });
+  }
+  // Bass: root on the one, fifth on the three (or the next chord's root).
+  if (inBar === 0) musicVoice(out, 'triangle', hz(MUZAK.bass[bar]), at, e * 2.6, 0.22, { attack: 0.01, release: 0.2, cutoff: 600 });
+  if (inBar === 3) musicVoice(out, 'triangle', hz(MUZAK.bass[bar] + 7), at, e * 0.9, 0.14, { release: 0.1, cutoff: 600 });
+  if (inBar === 4) {
+    const m = MUZAK.bass2[bar] ?? MUZAK.bass[bar] + 7;
+    musicVoice(out, 'triangle', hz(m), at, e * 2.6, 0.2, { attack: 0.01, release: 0.2, cutoff: 600 });
+  }
+  // Vibes: the tune.
+  for (const [b, m, len] of MUZAK.melody) {
+    if (b === step % 64) musicVoice(out, 'sine', hz(m), at, e * len, 0.07, { attack: 0.005, release: 0.9, trem: 5.5 });
+  }
+  // Shaker on every eighth (accented on the beat), rim on the clave.
+  musicNoise(out, at, 0.06, inBar % 2 ? 0.02 : 0.035, 6000);
+  if ([0, 3, 6].includes(inBar) && bar % 2 === 0) musicNoise(out, at, 0.04, 0.05, 1800, 'bandpass');
+}
+
+export function startMusic(name = 'muzak', vol = 0.5) {
+  if (!ac || !getSetting('sound') || music) return;
+  const out = ac.createGain();
+  out.gain.setValueAtTime(0.0001, ac.currentTime);
+  out.gain.linearRampToValueAtTime(vol, ac.currentTime + 1.5);
+  out.connect(master);
+  const e = 60 / MUZAK.bpm / 2; // an eighth note, s
+  const swing = e * 0.12; // the off-beats lean back a little
+  let step = 0;
+  let next = ac.currentTime + 0.1;
+  const tick = () => {
+    while (next < ac.currentTime + 0.4) {
+      muzakStep(out, step, next + (step % 2 ? swing : 0), e);
+      step++;
+      next += e;
+    }
+  };
+  tick();
+  music = { name, out, timer: setInterval(tick, 100) };
+}
+
+export function stopMusic() {
+  if (!music) return;
+  const { out, timer } = music;
+  clearInterval(timer);
+  const t = ac.currentTime;
+  out.gain.cancelScheduledValues(t);
+  out.gain.setValueAtTime(out.gain.value, t);
+  out.gain.linearRampToValueAtTime(0, t + 0.4);
+  setTimeout(() => out.disconnect(), 3000);
+  music = null;
 }

@@ -449,6 +449,8 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .bo-overlay[hidden], .ll-paused[hidden], .pause-card[hidden] { display: none; }
 .pause-card { z-index: 4; cursor: pointer; }
 .el-screen .icon-btn svg { fill: currentColor; }
+.el-screen .el-music.off { opacity: .4; }
+.el-screen .bar h2 { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ll-paused { z-index: 4; cursor: pointer; }
 .ll-screen .icon-btn svg { fill: currentColor; }
 .bo-overlay div, .ll-paused div, .pause-card div {

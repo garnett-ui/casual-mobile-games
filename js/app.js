@@ -1,5 +1,5 @@
 import { GAMES, COMING_SOON } from './games.js';
-import { unlockAudio, sfx, setLoop, loopLevel, stopLoops, loadClip, playClip } from './lib/audio.js';
+import { unlockAudio, sfx, setLoop, loopLevel, stopLoops, loadClip, playClip, startMusic, stopMusic } from './lib/audio.js';
 import { getSetting, setSetting, haptic } from './lib/settings.js';
 import { load, save } from './lib/storage.js';
 import { canPrompt, promptInstall, isIOS, isStandalone, onInstallChange } from './lib/install.js';
@@ -76,6 +76,8 @@ function ctxFor(game) {
     stopLoops,
     loadClip,
     playClip,
+    startMusic,
+    stopMusic,
     haptic,
     toast,
     navigate,
