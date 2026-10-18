@@ -455,36 +455,50 @@ export class Play {
       ctx.arc(x + w / 2, y, 6 + r.t * 50, 0, Math.PI * 2);
       ctx.stroke();
     }
-    // The car: riders inside, doors sliding apart.
+    // The car, with its riders always in view (the doors are glass), packed
+    // closer together the fuller it gets.
     const cy = this.top + (FLOORS - 1 - car.pos) * rowH;
     const cw = w - 8;
     const cx = x + 4;
     const ch = rowH - 3;
+    const full = car.riders.length >= CAPACITY;
     ctx.fillStyle = '#d9dde4';
     ctx.fillRect(cx, cy + 1, cw, ch);
     ctx.fillStyle = '#fff3cf';
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
-    const mini = Math.max(1, Math.floor((ch - 6) / 12));
-    car.riders.slice(0, Math.floor((cw - 6) / (mini * 8 + 1))).forEach((p, k) => {
-      drawSprite(ctx, p.look, cx + 3 + k * (mini * 8 + 1), cy + ch - 1, mini, 'stand');
-    });
+    const mini = Math.max(1, Math.floor((ch - 5) / 12));
+    const fw = mini * 8;
+    const n = car.riders.length;
+    const room = cw - 6 - fw;
+    const stepX = n > 1 ? Math.min(fw + 1, room / (n - 1)) : 0;
+    const startX = cx + 3 + (room - stepX * (n - 1)) / 2;
+    car.riders.forEach((p, k) => drawSprite(ctx, p.look, startX + k * stepX, cy + ch - 1, mini, 'stand'));
     const half = (cw - 4) / 2;
     const open = half * car.open;
-    ctx.fillStyle = '#a7afbd';
+    ctx.fillStyle = 'rgba(150,165,185,0.35)';
     ctx.fillRect(cx + 2, cy + 3, half - open, ch - 4);
     ctx.fillRect(cx + 2 + half + open, cy + 3, half - open, ch - 4);
-    ctx.fillStyle = '#7d8696';
-    if (car.open < 0.05) ctx.fillRect(cx + 2 + half - 0.5, cy + 3, 1, ch - 4);
-    ctx.strokeStyle = '#6b7383';
+    ctx.strokeStyle = 'rgba(110,120,140,0.9)';
     ctx.lineWidth = 1;
+    if (half - open > 1) {
+      ctx.strokeRect(cx + 2.5, cy + 3.5, half - open - 1, ch - 5);
+      ctx.strokeRect(cx + 2.5 + half + open, cy + 3.5, half - open - 1, ch - 5);
+    }
+    ctx.strokeStyle = full ? '#e5383b' : '#6b7383';
+    ctx.lineWidth = full ? 2 : 1;
     ctx.strokeRect(cx + 0.5, cy + 1.5, cw - 1, ch - 1);
-    if (car.open < 0.5) {
-      ctx.font = `800 ${clamp(rowH * 0.38, 9, 14)}px system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = car.riders.length >= CAPACITY ? '#e5383b' : '#22283a';
-      const arrow = car.phase === 'moving' ? (car.v > 0 ? '▲' : '▼') : '';
-      ctx.fillText(`${arrow}${car.riders.length}/${CAPACITY}`, cx + cw / 2, cy + ch / 2 + 1);
+    // Going up or down; full.
+    ctx.font = `900 ${clamp(rowH * 0.3, 8, 11)}px system-ui, sans-serif`;
+    ctx.textBaseline = 'top';
+    if (car.phase === 'moving') {
+      ctx.fillStyle = '#22283a';
+      ctx.textAlign = 'right';
+      ctx.fillText(car.v > 0 ? '▲' : '▼', cx + cw - 2, cy + 3);
+    }
+    if (full) {
+      ctx.fillStyle = '#e5383b';
+      ctx.textAlign = 'left';
+      ctx.fillText('FULL', cx + 3, cy + 3);
     }
     for (const p of this.pops.filter((q) => q.i === i)) {
       ctx.globalAlpha = 1 - p.t;

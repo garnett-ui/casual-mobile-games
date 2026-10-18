@@ -6,6 +6,17 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.31.1
+- Elevator Operator: a lift standing at a floor now opens its doors when
+  someone there presses the call button (it used to sit there with its
+  doors shut until you sent it), and closing doors open again for someone
+  who just arrived.
+- The people in a lift are shown as little people (the doors are glass)
+  instead of a count; a full lift has a red outline.
+- People get off one at a time, quickly, and nobody gets on until they're
+  all out. Send the lift somewhere else while its doors are open and they
+  close at once: anyone who hadn't got off yet stays aboard.
+
 ## 1.31.0
 - Elevator Operator (the new lift game) has levels: each one is a set number
   of passengers -- 20 to start, arriving about 10 seconds apart at random --

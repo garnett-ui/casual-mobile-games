@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, schedule, levelSpec, dispatch, playDispatcher, par, FLOORS, CAPACITY, WALK } from '../games/elevator/engine.js';
+import { Sim, schedule, levelSpec, dispatch, playDispatcher, par, FLOORS, CAPACITY, WALK, DOOR } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -79,6 +79,7 @@ test('one next stop at a time: a new one turns the lift round at once', () => {
 
 test('a full lift leaves people behind', () => {
   const sim = only(Array.from({ length: 11 }, () => ({ t: 0.05, from: 0, to: 9 })));
+  sim.cars[1].pos = 15; // (out of the way: it would open for them too)
   sim.send(0, 0);
   run(sim, 8);
   assert.equal(sim.cars[0].riders.length, CAPACITY);
@@ -112,4 +113,42 @@ test('the dispatcher does well; par is its best; idling or sending lifts at rand
     if (++k % 120 === 0) s.cars.forEach((c, i) => c.target === null && s.send(i, (k * 7 + i * 5) % FLOORS));
   });
   assert.ok(!random.over || random.stats().trip > par(spec).trip * 1.4, 'random is much slower');
+});
+
+test('a lift standing at a floor opens for someone who presses the button there', () => {
+  const sim = only([{ t: 0.1, from: 3, to: 9 }, { t: 30, from: 3, to: 7 }, { t: 400, from: 1, to: 2 }]);
+  sim.send(0, 3);
+  run(sim, 12);
+  assert.equal(sim.cars[0].riders.length, 1);
+  sim.cars[0].riders = []; // (as if they'd been taken up)
+  assert.equal(sim.cars[0].phase, 'idle');
+  // Nobody sends it anywhere, but someone arrives and presses the button.
+  run(sim, 25);
+  assert.equal(sim.cars[0].riders.length, 1, 'the doors opened and they got on');
+  assert.equal(sim.cars[0].riders[0].to, 7);
+});
+
+test('everyone getting off goes before anyone gets on; sent off early, the rest stay aboard', () => {
+  const sim = only([
+    ...Array.from({ length: 4 }, () => ({ t: 0.05, from: 0, to: 6 })),
+    { t: 0.06, from: 6, to: 0 },
+    { t: 400, from: 1, to: 2 },
+  ]);
+  sim.send(0, 0);
+  run(sim, 6);
+  assert.equal(sim.cars[0].riders.length, 4);
+  sim.send(0, 6);
+  const ev = [];
+  while (sim.cars[0].phase !== 'loading') ev.push(...sim.step(1 / 30));
+  // Two get off, then the lift is sent away before the others can.
+  while (sim.delivered < 2) ev.push(...sim.step(1 / 30));
+  sim.send(0, 10);
+  ev.push(...run(sim, DOOR + 0.5));
+  assert.equal(sim.delivered, 2);
+  assert.equal(sim.cars[0].riders.length, 2, 'two still aboard, still wanting 6');
+  assert.ok(sim.lit(0).has(6));
+  // Nobody boarded while people were still getting off.
+  const order = ev.filter((e) => e.type === 'deliver' || e.type === 'board').map((e) => e.type);
+  assert.ok(!order.includes('board'), order.join(','));
+  assert.equal(sim.waiting[6].length, 1, 'the one waiting at 6 is still waiting');
 });

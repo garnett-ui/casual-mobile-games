@@ -14,7 +14,8 @@ export const CAPACITY = 8;
 export const VMAX = 2.5; // floors per second
 export const ACCEL = 2.5; // floors per second^2
 export const DOOR = 0.8; // seconds for the doors to open, or to close
-export const STEP_TIME = 0.4; // seconds for each person to get on or off
+export const STEP_TIME = 0.4; // seconds for each person to get on
+export const EXIT_TIME = 0.25; // ...and to get off (quicker: they're ready)
 export const DWELL = 0.8; // the doors stay open at least this long
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -137,7 +138,13 @@ export class Sim {
     const here = this.floorOf(car);
     switch (car.phase) {
       case 'idle':
-        if (car.target === null) break;
+        if (car.target === null) {
+          // Standing at a floor where someone presses the button: the doors
+          // open for them (unless it's full, or the other lift already has
+          // its doors open here).
+          if (this.waiting[here].length && car.riders.length < CAPACITY && !this.openHere(car, here)) this.openAt(car, ev);
+          break;
+        }
         if (car.target === here) this.openAt(car, ev);
         else car.phase = 'moving';
         break;
@@ -158,6 +165,7 @@ export class Sim {
         break;
       }
       case 'opening':
+        if (this.leaving(car, here)) break;
         car.timer -= dt;
         car.open = clamp(1 - car.timer / DOOR, 0, 1);
         if (car.timer <= 0) {
@@ -168,10 +176,13 @@ export class Sim {
         }
         break;
       case 'loading': {
+        // Sent somewhere else with the doors open: they close at once, and
+        // anyone who hadn't got off yet stays on.
+        if (this.leaving(car, here)) break;
         car.dwell += dt;
         car.timer -= dt;
-        // One at a time: first everyone getting off, then everyone waiting
-        // gets on (while there's room).
+        // One at a time: first everyone getting off, then -- once they're
+        // all out -- everyone waiting gets on (while there's room).
         while (car.timer <= 0) {
           const out = car.riders.findIndex((p) => p.to === here);
           if (out >= 0) {
@@ -179,7 +190,7 @@ export class Sim {
             this.delivered++;
             this.trips.push({ wait: p.boarded - p.t, ride: this.t - p.boarded });
             ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look });
-            car.timer += STEP_TIME;
+            car.timer += EXIT_TIME;
           } else if (this.waiting[here].length && car.riders.length < CAPACITY) {
             const p = this.waiting[here].shift();
             p.boarded = this.t;
@@ -198,6 +209,13 @@ export class Sim {
         break;
       }
       case 'closing':
+        // Someone just arrived (or you sent it back here): open up again.
+        if ((car.target === here || (car.target === null && this.waiting[here].length)) && car.riders.length < CAPACITY) {
+          car.target = null;
+          car.phase = 'opening';
+          car.timer = DOOR * (1 - car.open);
+          break;
+        }
         car.timer -= dt;
         car.open = clamp(car.timer / DOOR, 0, 1);
         if (car.timer <= 0) {
@@ -208,6 +226,20 @@ export class Sim {
       default:
         break;
     }
+  }
+
+  // If the lift has been sent elsewhere while its doors are open, start
+  // closing them (from however far open they are).
+  leaving(car, here) {
+    if (car.target === null || car.target === here) return false;
+    car.phase = 'closing';
+    car.timer = DOOR * car.open;
+    return true;
+  }
+
+  // Is another lift here with its doors open (or opening)?
+  openHere(car, here) {
+    return this.cars.some((o) => o !== car && (o.phase === 'opening' || o.phase === 'loading') && this.floorOf(o) === here);
   }
 
   openAt(car, ev) {
