@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, Day, approach, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, PRESS, LULL, DAY, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
+import { pace, dueIn, idle, FAST } from '../games/elevator/pace.js';
+import { Sim, Day, approach, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, PRESS, DAY, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -222,8 +223,7 @@ test('every level is a whole working day, 7 AM to 7:30 PM: about five minutes to
     assert.ok(Math.min(...times) < toPlay(8.5 * 60, spec.play), `level ${n}: starts with the morning rush`);
     assert.ok(Math.max(...times) > toPlay(17.5 * 60, spec.play), `level ${n}: ends with the evening`);
     const { over, best, day } = runDay(spec);
-    assert.ok(over.time > spec.length * 0.7 && over.time < spec.length * 1.3, `level ${n}: ${Math.round(over.time)} s, about ${spec.length}`);
-    assert.ok(over.time < 16 * 60, `level ${n}: at most about fifteen minutes`);
+    assert.ok(over.time > spec.play * 0.85 && over.time < spec.play * 1.25, `level ${n}: ${Math.round(over.time)} s of ${spec.play}`);
     assert.ok(best.rms < 45, `level ${n}: playable (the computer's RMS trip ${Math.round(best.rms)} s)`);
     assert.ok(day.clock <= DAY.end && day.clock > 18 * 60, `level ${n}: over by the evening (${day.clock})`);
   }
@@ -231,33 +231,46 @@ test('every level is a whole working day, 7 AM to 7:30 PM: about five minutes to
   assert.deepEqual([1, 2, 3, 4].map((n) => [levelSpec(n).place, levelSpec(n).day]), [['Maple Street Offices', 1], ['Maple Street Offices', 2], ['Maple Street Offices', 3], ['Riverside House', 1]]);
 });
 
-test('lulls: the clock skips ahead so someone new sets off within 3 s -- unless anyone is waiting for a lift', () => {
+test('lulls: the game eases up to five times as fast while nothing is going on, and back before anyone sets off', () => {
+  // The ramp: smoothly up while it's calm, smoothly down otherwise.
+  let r = { ramp: 0, rate: 1 };
+  const rates = [];
+  for (let k = 0; k < 60; k++) rates.push((r = pace(r.ramp, true, 100, 1 / 30)).rate);
+  assert.equal(rates.at(-1), FAST);
+  assert.ok(rates.every((x, k) => k === 0 || x >= rates[k - 1]), 'easing up');
+  assert.ok(rates[1] - rates[0] < rates[20] - rates[19], 'easing in');
+  assert.ok(pace(1, true, 2, 1 / 30).rate < FAST, 'slowing for someone due soon');
+  assert.ok(pace(1, false, 100, 1 / 30).rate < FAST, 'slowing when something happens');
+  // A whole day played that way: everything happens just as it would (the
+  // same score); it's quicker to play; and it's never fast with someone
+  // setting off.
   for (const n of [1, 4, TWINS]) {
     const spec = levelSpec(n);
     const best = par(spec);
     const day = new Day(spec);
-    let last = 0;
-    let first = null;
-    let quietGaps = 0;
+    let real = 0;
+    let ramp = 0;
+    let fastStart = 0;
     while (!day.over && day.t < 3600) {
       day.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
-      const busy = day.sims.some((s) => s.waiting.some((w) => w.length) || s.walking.length);
-      // (Someone on the schedule -- not waiting on their last trip, or for
-      // someone to be on the floor they'd leave.)
-      const due = day.sims.some((s) => s.pending.some((a) => Number.isFinite(a.t) && s.setsOff(a) === a.t && !(stays(s.building, a.from) && s.occupancy[a.from] <= 0)));
-      for (const e of day.step(1 / 20)) {
-        if (e.type !== 'leave') continue;
-        first ??= day.t;
-        last = day.t;
-      }
-      // Quiet -- nobody setting off, nobody waiting -- with someone on the
-      // schedule, for more than LULL: shouldn't happen.
-      if (busy) last = Math.max(last, day.t);
-      if (!busy && due && day.t - last > LULL + 0.11) quietGaps++;
+      const p = pace(ramp, idle(day), dueIn(day), 1 / 30);
+      ramp = p.ramp;
+      real += 1 / 30;
+      // (In small steps, as the game takes them.)
+      const steps = Math.ceil(p.rate);
+      for (let k = 0; k < steps; k++) for (const e of day.step(p.rate / 30 / steps)) if (e.type === 'leave' && p.rate > 1.5) fastStart++;
     }
-    assert.ok(first <= LULL + 0.1, `level ${n}: the first person sets off at ${first} s`);
-    assert.equal(quietGaps, 0, `level ${n}: no quiet stretches`);
-    assert.ok(day.skipped > 0, `level ${n}: the clock skipped ahead`);
+    const plain = new Day(spec);
+    while (!plain.over && plain.t < 3600) {
+      plain.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
+      plain.step(1 / 30);
+    }
+    const [rms, was] = [day.stats().rms, plain.stats().rms];
+    assert.ok(Math.abs(rms - was) < was * 0.05, `level ${n}: the same day, about the same score (${rms.toFixed(1)}, ${was.toFixed(1)})`);
+    // (Quicker to play when there are quiet spells: the first day has plenty;
+    // busier ones may have none at all.)
+    assert.ok(real <= day.t + 1e-6 && (n > 1 || real < day.t * 0.95), `level ${n}: quicker to play (${Math.round(real)} s for ${Math.round(day.t)} s of day)`);
+    assert.equal(fastStart, 0, `level ${n}: nobody sets off in fast-forward`);
   }
 });
 
@@ -404,6 +417,6 @@ test(`from level ${TWINS}: an apartment tower and an office tower, one day betwe
     assert.ok(Object.values(TRANSIT).includes(b.transit));
     assert.equal(b.look.join(), a.look.join());
     const done = (other === o ? h : o).doneAt.get(a.id);
-    assert.ok(b.t + day.skipped >= done + b.transit - 1e-9, 'set off after crossing (or the clock skipped ahead)');
+    assert.ok(b.t >= done + b.transit - 1e-9, 'set off after crossing');
   }
 });

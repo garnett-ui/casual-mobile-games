@@ -138,17 +138,16 @@ street level, a restaurant on the 2nd floor, offices, a health club on the
 top storey and a helipad on the roof. It's a career told a day at a time:
 three days at each building, with more people every day. Maple Street
 Offices (6 storeys, about five minutes a day; on the first day just one
-lift and 10 people, then a second lift and 18), then Riverside House (10
+lift and 6 people, then a second lift and 12), then Riverside House (10
 storeys), Harbor Plaza (15, two parking levels) and The Empire (20, crowned
 like the Empire State Building), each day a little longer as the buildings
-grow: about 5, 7, 8½ and 11 minutes. From level 13 you run Parkview (the
+grow: about 5, 6, 7½ and 10 minutes. From level 13 you run Parkview (the
 apartments) and Commerce Tower (the offices) across the street from each
 other, two lifts each, with more residents and workers every day and days
-growing from about 9 minutes to 15 at the hardest levels. There's no
-waiting about: when no one has set off for 3 seconds and nobody's waiting
-for a lift, the clock (and the sun) races ahead to the next person.
-Banners mark the
-day's moments (the doors open, the morning rush, lunchtime, home time,
+growing from 10 minutes to 15 at the hardest levels. Whenever the screen
+is at rest -- nobody waiting or walking, the lifts empty and parked -- the
+game eases up to five times as fast (▶▶ by the clock), and back down before
+the next person sets off. Banners mark the day's moments (the doors open, the morning rush, lunchtime, home time,
 nightfall). Played upright on a phone (either way on a tablet), to lift
 music.
 
@@ -161,10 +160,12 @@ music.
 - When a lift stops, anyone for that floor walks out (one at a time), then
   everyone waiting walks in, up to 6 -- shown side by side, the same size as
   everyone on the floors (the lifts are drawn wide enough). People walk up
-  to the lifts, press the button (it lights), and only then step into a lift
-  standing there. On a phone the twin towers are one above the other. The floors the riders want light up in
-  that lift's shaft, with a dot for each of them in the colour of their
-  shirt. The call buttons light green for up, red for down.
+  to the lifts, press the button (it lights), and only then walk into a lift
+  standing there, into their place in the car (and out the same way). On a
+  phone the twin towers are one above the other. Each rider's floor is
+  marked in that lift's shaft by a small arrow in the colour of their shirt,
+  in the column where they stand. The call buttons light green for up, red
+  for down.
 - The day is made of people, each with their own day: an office worker
   arrives in the morning rush (around 8:30) -- walking in off the street,
   driving down into the garage, or now and then by helicopter -- may go to a

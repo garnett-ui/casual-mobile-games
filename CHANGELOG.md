@@ -6,6 +6,20 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.52.0
+- Elevator Operator: the quiet spells now play fast instead of jumping.
+  Whenever the screen is at rest -- nobody waiting or walking, the lifts
+  empty and parked -- the game eases smoothly up to five times as fast
+  (clock hands, sun and cat too, with ▶▶ by the clock) and eases back down
+  before the next person sets off. It never speeds up while there's
+  anything for you to do. The days are back to their earlier sizes and
+  lengths.
+- People walk smoothly into their place in a lift, and out again, even
+  into the far lift. The floors riders want are marked with small arrows
+  in their shirt colours, each in the column where that rider stands --
+  no more boxes and dots.
+- The cars in the garage are drawn in proportion to the people.
+
 ## 1.51.0
 - Elevator Operator: tap ahead. Each tap in a lift's shaft lines that floor
   up after its other stops -- up to 4, numbered in the shaft -- and the

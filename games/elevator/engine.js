@@ -67,12 +67,11 @@ export function approach(B, f) {
 }
 export const SETTLE = 3; // seconds at least between someone's trips
 export const PRESS = 0.5; // seconds from pressing the button to stepping into a lift that's there
-export const LULL = 3; // at most this long without anyone new setting off: the day moves on
 export const BASE_SEED = 20261018;
 
-// The day: every level is a whole working day, 7 AM to 7:30 PM, its
-// schedule spread over `play` seconds -- though it plays quicker: the clock
-// runs ahead through the lulls (see Day).
+// The day: every level is a whole working day, 7 AM to 7:30 PM, spread over
+// `play` seconds -- though it plays quicker: through the lulls, with
+// nothing going on, the game runs fast (see pace.js).
 export const DAY = { start: 7 * 60, end: 19.5 * 60 }; // minutes after midnight
 export const PLAY = 300; // seconds the day's schedule is spread over (longer in bigger buildings)
 export const toPlay = (min, play = PLAY) => ((min - DAY.start) / (DAY.end - DAY.start)) * play;
@@ -92,17 +91,16 @@ export const MIX = {
 };
 
 // Level n: the buildings and how many people work (and live) in them. One
-// office building to start -- 6 storeys, one lift and 10 people on the first
+// office building to start -- 6 storeys, one lift and 6 people on the first
 // day, then two lifts -- growing every three levels (10, 15, 20 storeys)
 // with a few more people each level (two lifts can only do so much: a real
 // 20-storey tower would have six or eight). From level 13 there are two
 // towers to run, two lifts each: apartments, where people sleep at night,
 // and offices, where they (and others from elsewhere) work by day.
 //
-// Bigger buildings take longer: about 4.5 minutes to play the first day, 5
-// at Maple Street, 6.5, 8.5 and 11 in the taller ones, 9.5 growing to 15 for
-// the two towers. Each building has a name, and each level is the next day
-// there.
+// Bigger buildings take longer: about 5 minutes at Maple Street, 6, 7.5
+// and 10 in the taller ones, 10 growing to 15 for the two towers. Each
+// building has a name, and each level is the next day there.
 export const TWINS = 13;
 export const MAX_PLAY = 900; // the longest day's schedule (about 15 minutes to play)
 export const PLACES = ['Maple Street Offices', 'Riverside House', 'Harbor Plaza', 'The Empire', 'Parkview & Commerce Tower'];
@@ -112,25 +110,25 @@ export function levelSpec(n) {
   let workers;
   let residents = 0;
   let play;
-  let length; // about how long it takes to play (the lulls skipped)
+  let length; // about how long it takes to play (fast through the lulls)
   let place;
   let day;
   if (n < TWINS) {
     const stage = Math.floor((n - 1) / 3);
     const d = (n - 1) % 3;
     // (Day one: one lift, a small firm.)
-    workers = n === 1 ? 10 : [16, 24, 28, 34][stage] + 2 * d;
-    play = n === 1 ? 500 : [400, 540, 630, 800][stage] + 50 * d;
+    workers = n === 1 ? 6 : [10, 16, 20, 26][stage] + 2 * d;
+    play = [300, 360, 450, 600][stage];
     towers = [{ building: building([6, 10, 15, 20][stage]), cars: n === 1 ? 1 : CARS }];
-    length = play * [0.6, 0.8, 0.8, 0.85][stage];
+    length = play * (stage ? 1 : 0.92);
     place = PLACES[stage];
     day = ((n - 1) % 3) + 1;
   } else {
     const k = n - TWINS;
     residents = Math.min(64, 24 + 4 * k);
     workers = Math.min(28, 8 + 2 * k); // from elsewhere
-    play = Math.min(MAX_PLAY, 700 + 25 * k);
-    length = play * 0.95;
+    play = Math.min(MAX_PLAY, 600 + 30 * k);
+    length = play;
     towers = [{ building: building(10, 1, 'residential') }, { building: building(10, 1) }];
     place = PLACES[4];
     day = k + 1;
@@ -295,6 +293,9 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY }) {
       last = { tower: leg.tower, trip };
     }
   }
+  // The early bird: someone's on their way as soon as the doors open.
+  const first = lists.flat().filter((a) => a.prev === undefined && Number.isFinite(a.t)).sort((a, b) => a.t - b.t)[0];
+  if (first) first.t = Math.min(first.t, 1);
   lists.forEach((list, k) => {
     list.sort((a, b) => a.t - b.t);
     list.start = k === 0 && twin ? hStart : Array(buildings[k].floors).fill(0);
@@ -322,7 +323,6 @@ export class Sim {
     this.pending = this.arrivals.slice(); // not yet at the button
     this.doneAt = new Map(); // id -> when they got where they were going
     this.walking = []; // on their way to the button
-    this.skipped = 0; // (the day's clock: see Day)
     this.waiting = Array.from({ length: this.floors }, () => []);
     // How many people are on each floor (at their desks, eating, working
     // out): they leave it when they go for a lift, and add to it when they
@@ -495,13 +495,13 @@ export class Sim {
             this.doneAt.set(p.id, this.t);
             if (stays(this.building, here)) this.occupancy[here]++;
             this.trips.push({ wait: p.boarded - p.t, ride: this.t - p.boarded });
-            ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look, onward: p.onward });
+            ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look, onward: p.onward, slot: out });
             car.timer += EXIT_TIME;
           } else if (this.waiting[here].some(ready) && car.riders.length < CAPACITY) {
             const [p] = this.waiting[here].splice(this.waiting[here].findIndex(ready), 1);
             p.boarded = this.t;
             car.riders.push(p);
-            ev.push({ type: 'board', car: car.i, floor: here, id: p.id });
+            ev.push({ type: 'board', car: car.i, floor: here, id: p.id, slot: car.riders.length - 1 });
             car.timer += STEP_TIME;
           } else {
             car.timer = 0;
@@ -686,7 +686,7 @@ function eta(car, f) {
 // lunch and empty at lunch and in the evening; homes the other way round.
 function staging(sim) {
   const B = sim.building;
-  const h = clockAt(sim.t + sim.skipped, sim.spec.play ?? PLAY) / 60;
+  const h = clockAt(sim.t, sim.spec.play ?? PLAY) / 60;
   const mode = B.type === 'residential'
     ? h < 10.5 ? 'out' : h < 16 ? 'mixed' : 'in'
     : h < 11.75 ? 'in' : h < 12.75 ? 'out' : h < 14 ? 'in' : h < 15.75 ? 'mixed' : 'out';
@@ -745,24 +745,20 @@ export class Day {
     this.sims = (spec.towers || [spec]).map((t) => new Sim(t));
     this.t = 0;
     this.over = false;
-    this.skipped = 0; // seconds of the day skipped through lulls
-    this.lastLeave = 0; // when someone last set off
   }
 
-  // The time of day (minutes), the clock running on through the lulls.
+  // The time of day (minutes).
   get clock() {
-    return Math.min(DAY.end, clockAt(this.t + this.skipped, this.spec.play));
+    return Math.min(DAY.end, clockAt(this.t, this.spec.play));
   }
 
   step(dt) {
     const ev = [];
     if (this.over) return ev;
     this.t += dt;
-    this.skipLull();
     this.sims.forEach((sim, tower) => {
       for (const e of sim.step(dt)) {
         if (e.type === 'over') continue;
-        if (e.type === 'leave') this.lastLeave = this.t;
         // Out of one tower and off to the other: they reach its lobby,
         // garage or roof after the walk, drive or flight across.
         if (e.type === 'deliver' && e.onward !== undefined) {
@@ -781,32 +777,6 @@ export class Day {
 
   stats() {
     return combine(this.sims.map((s) => s.stats()));
-  }
-
-  // A lull -- nobody new setting off for LULL seconds, and nobody waiting
-  // for a lift: the day moves on (the clock runs ahead) to whoever's next.
-  // Everything to come comes that much sooner (and everything past was
-  // that much longer ago: time enough to settle in after a trip). Not for
-  // anyone waiting on something -- their last trip to finish, or someone to
-  // be on the floor they'd leave -- they go when they can.
-  skipLull() {
-    if (this.t - this.lastLeave < LULL) return;
-    if (this.sims.some((s) => s.waiting.some((w) => w.length) || s.walking.length)) return;
-    let next = Infinity;
-    for (const sim of this.sims) {
-      for (const a of sim.pending) {
-        if (stays(sim.building, a.from) && sim.occupancy[a.from] <= 0) continue;
-        next = Math.min(next, sim.setsOff(a));
-      }
-    }
-    if (!Number.isFinite(next) || next <= this.t) return;
-    const skip = next - this.t;
-    for (const sim of this.sims) {
-      for (const a of sim.pending) if (Number.isFinite(a.t)) a.t -= skip;
-      for (const [id, t] of sim.doneAt) sim.doneAt.set(id, t - skip);
-      sim.skipped += skip;
-    }
-    this.skipped += skip;
   }
 }
 

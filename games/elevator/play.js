@@ -6,6 +6,23 @@
 // you tap a floor to send that lift there.
 import { drawSprite, lookOf, WALK_FRAMES } from './sprites.js';
 import { Cat } from './cat.js';
+import { pace, dueIn, idle } from './pace.js';
+
+const BOARD_WALK = 0.9; // seconds to step from the floor into a lift
+
+// A car, side on, facing right: c body, b glass, k tyres, r tail light, l
+// headlight.
+const CAR = [
+  '......cccccccccc........',
+  '.....cbbbbcbbbbbc.......',
+  '....cbbbbbcbbbbbbc......',
+  '..cccccccccccccccccccc..',
+  'rccccccccccccccccccccccl',
+  'cccccccccccccccccccccccc',
+  '.cckkkkcccccccccckkkkcc.',
+  '...kkkk..........kkkk...',
+  '....kk............kk....',
+];
 import { Day, DAY, CAPACITY, WALK, floorName, stays, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -65,7 +82,6 @@ class Tower {
     this.autos = []; // cars in the garage (driving in, parked, driving out)
     this.helis = []; // helicopters coming and going
     this.ripples = [];
-    this.pops = [];
     this.parked = false;
   }
 
@@ -81,13 +97,27 @@ class Tower {
     return car;
   }
 
-  carW() {
-    return Math.max(1, this.px * 0.75) * 12;
+  // Cars are drawn in proportion to the people: about two-thirds as tall,
+  // and a good deal longer than one is tall.
+  carU() {
+    return this.px * 1.1;
   }
 
+  carW() {
+    return CAR[0].length * this.carU();
+  }
+
+  // How many cars fit along a garage level, in each row.
+  carsPerRow() {
+    return Math.max(1, Math.floor((this.panelX - this.doorX - this.spriteW * 2) / (this.carW() + 4)));
+  }
+
+  // Parking space `slot`: along the front row, then a second row behind
+  // (half a car over), then round again.
   slotX(slot) {
-    const n = Math.max(1, Math.floor((this.panelX - 70 - this.doorX) / (this.carW() + 6)));
-    return this.doorX + (slot % n) * (this.carW() + 6);
+    const n = this.carsPerRow();
+    const back = Math.floor(slot / n) % 2;
+    return this.doorX + (slot % n) * (this.carW() + 4) + back * this.carW() * 0.5;
   }
 
   // This tower's strip of the screen: from ox, W wide, H tall. Two towers
@@ -158,6 +188,12 @@ class Tower {
     return true;
   }
 
+  // Nothing moving on screen (bar the cat): nobody walking, no cars on the
+  // move, no helicopters, no taps rippling.
+  still() {
+    return !this.people.size && this.autos.every((c) => c.state === 'parked') && !this.helis.length && !this.ripples.length;
+  }
+
   // ------------------------------------------------------------- simulation
 
   tick(dt) {
@@ -165,8 +201,6 @@ class Tower {
     this.cat?.tick(dt);
     for (const r of this.ripples) r.t += dt;
     this.ripples = this.ripples.filter((r) => r.t < 0.6);
-    for (const p of this.pops) p.t += dt;
-    this.pops = this.pops.filter((p) => p.t < 1);
   }
 
   handle(e) {
@@ -197,9 +231,12 @@ class Tower {
     } else if (e.type === 'board') {
       const v = this.people.get(e.id);
       if (v) {
+        // Walking smoothly into their place in the lift (as if every lift
+        // were right by the floor).
         v.mode = 'board';
         v.lift = e.car;
-        v.target = this.shaftX[e.car] + this.shaftW / 2 - this.spriteW / 2;
+        v.target = this.riderX(e.car, e.slot);
+        v.due = this.sim.t + BOARD_WALK;
       }
     } else if (e.type === 'deliver') {
       // Out of the lift and off: into their office, out into the street, to
@@ -207,7 +244,7 @@ class Tower {
       const B = this.B;
       const v = {
         id: e.id, look: e.look, floor: e.floor, mode: 'out', dir: -1,
-        x: this.shaftX[e.car] + this.shaftW / 2 - this.spriteW / 2, target: this.doorX,
+        x: this.riderX(e.car, e.slot), target: this.doorX,
       };
       if (e.floor === B.ground) v.target = -this.spriteW * 2;
       else if (e.floor < B.ground) {
@@ -220,7 +257,6 @@ class Tower {
         v.target = this.padCX + this.spriteW / 2;
       }
       this.people.set(e.id, v);
-      this.pops.push({ i: e.car, f: e.floor, t: 0 });
       h.sfx?.('drop');
     }
   }
@@ -257,7 +293,11 @@ class Tower {
     const speed = Math.max(30, corridor / (WALK * 0.9));
     const step = (o, sp) => {
       const d = o.target - o.x;
-      const dx = Math.sign(d) * Math.min(Math.abs(d), sp * dt);
+      if (Math.abs(d) <= sp * dt) {
+        o.x = o.target; // (there, exactly)
+        return d;
+      }
+      const dx = Math.sign(d) * sp * dt;
       o.x += dx;
       return dx;
     };
@@ -270,13 +310,13 @@ class Tower {
         sp = left > 0 ? Math.max(speed, Math.abs(v.target - v.x) / left) : speed * 4;
       } else if (v.mode === 'wait') sp = speed * 3; // (catching up)
       else if (v.mode === 'board') {
-        // In once the lift's on its way (at the latest).
+        // In before the doors close (and in, at the latest, once it's off).
         const car = sim.cars[v.lift];
-        if (car.phase === 'moving' || car.phase === 'closing') {
+        if (car.phase === 'moving') {
           this.people.delete(v.id);
           continue;
         }
-        sp = speed * 2.5;
+        sp = Math.max(speed, Math.abs(v.target - v.x) / Math.max(0.05, v.due - sim.t));
       }
       const dx = step(v, sp);
       v.moving = Math.abs(dx) > 0.01;
@@ -360,7 +400,25 @@ class Tower {
     this.drawStreet(street);
     this.drawAutos();
     for (let i = 0; i < this.sim.cars.length; i++) this.drawShaft(i, time);
+    this.drawMovers(time);
     for (const h of this.helis) this.drawHeli(h, time);
+  }
+
+  // Those stepping into a lift or out of one, walking across the shafts.
+  drawMovers(time) {
+    for (const v of this.people.values()) {
+      if (v.hidden || (v.mode !== 'board' && v.mode !== 'out')) continue;
+      const pressing = v.mode === 'board' && v.pressT !== undefined && this.sim.t - v.pressT < 0.5 && !v.moving;
+      const pose = pressing ? 'press' : v.moving ? WALK_FRAMES[Math.floor(time * 10 + v.id) % 5] : 'stand';
+      // (A step up into the car.)
+      const step = v.x + this.spriteW / 2 > this.shaftX[0] - this.gap ? 2 : 0;
+      drawSprite(this.ctx, v.look, v.x, this.rowY(v.floor) + this.rowH - 2 - step, this.px, pose, v.dir);
+    }
+  }
+
+  // Where the k-th rider stands in lift i (the left of their sprite).
+  riderX(i, k) {
+    return this.shaftX[i] + 7 - this.px + k * this.px * 6;
   }
 
   // Outside, on the left: the pavement at lobby level, and the ramp down to
@@ -387,7 +445,11 @@ class Tower {
   }
 
   drawAutos() {
-    for (const c of this.autos) this.drawCar(c.x, this.rowY(c.floor) + this.rowH - 2, c.colour);
+    // The back row first (a little higher up), then the front.
+    const back = (c) => c.state === 'parked' && Math.floor(c.slot / this.carsPerRow()) % 2 === 1;
+    for (const c of [...this.autos].sort((a, b) => back(b) - back(a))) {
+      this.drawCar(c.x, this.rowY(c.floor) + this.rowH - 2 - (back(c) ? this.carU() * 3 : 0), c.colour);
+    }
   }
 
   // The roof: open to the sky, the helipad on the left, the lift machine
@@ -644,10 +706,11 @@ class Tower {
     };
     if (f < B.floors - 1) button(up, y + rowH * 0.34, 1);
     if (f > 0) button(down, y + rowH * 0.64, -1);
-    // People on this floor.
+    // People on this floor (but those stepping into or out of a lift are
+    // drawn over the shafts).
     const base = y + rowH - 2;
     for (const v of this.people.values()) {
-      if (v.floor !== f || v.hidden) continue;
+      if (v.floor !== f || v.hidden || v.mode === 'board' || v.mode === 'out') continue;
       const pressing = v.pressT !== undefined && sim.t - v.pressT < 0.5 && (v.mode === 'wait' || v.mode === 'board');
       const pose = pressing ? 'press' : v.moving ? WALK_FRAMES[Math.floor(time * 10 + v.id) % 5] : 'stand';
       drawSprite(this.ctx, v.look, v.x, base, this.px, pose, v.mode === 'wait' && !v.moving ? 1 : v.dir);
@@ -662,25 +725,21 @@ class Tower {
   // A parked car, 8-bit, its nose to the left.
   drawCar(x, base, paint) {
     const { ctx } = this;
-    const p = Math.max(1, this.px * 0.75);
-    const body = ['#c1121f', '#1d3557', '#ffb703', '#2a9d8f'][paint % 4];
-    const rows = [
-      '...wwwww....',
-      '..wwbbbbww..',
-      'cccccccccccc',
-      'cccccccccccc',
-      '.kk......kk.',
-    ];
-    const colour = { w: '#bfe3f5', b: '#bfe3f5', c: body, k: '#1b1b1b' };
-    const y0 = base - rows.length * p;
-    rows.forEach((row, r) => {
+    const u = this.carU();
+    const colour = { c: ['#c1121f', '#1d3557', '#ffb703', '#2a9d8f'][paint % 4], b: '#bfe3f5', k: '#1b1b1b', r: '#ff3b30', l: '#ffe680' };
+    const y0 = base - CAR.length * u;
+    const dpr = this.play.dpr || 1;
+    const snap = (v) => Math.round(v * dpr) / dpr;
+    CAR.forEach((row, r) => {
       for (let i = 0; i < row.length; i++) {
         if (row[i] === '.') continue;
-        ctx.fillStyle = r < 2 && row[i] === 'w' ? body : colour[row[i]];
-        ctx.fillRect(Math.round(x + i * p), Math.round(y0 + r * p), Math.ceil(p), Math.ceil(p));
+        ctx.fillStyle = colour[row[i]];
+        const [x0, x1, y1, y2] = [x + i * u, x + (i + 1) * u, y0 + r * u, y0 + (r + 1) * u].map(snap);
+        ctx.fillRect(x0, y1, x1 - x0, y2 - y1);
       }
     });
   }
+
 
   // The restaurant's tables and the health club's weights, along the back.
   drawTables(y) {
@@ -728,20 +787,13 @@ class Tower {
     const car = sim.cars[i];
     ctx.fillStyle = '#3b3f4a';
     ctx.fillRect(x, this.top - 2, w, rowH * this.B.floors + 2);
-    // Who's in this lift (once they've stepped in), and which floors they
-    // want.
-    const riders = car.riders.filter((p) => this.people.get(p.id)?.mode !== 'board');
-    const wanted = new Map();
-    for (const p of riders) {
-      if (!wanted.has(p.to)) wanted.set(p.to, []);
-      wanted.get(p.to).push(p);
-    }
+    // Who's in this lift (once they've stepped in), each in their place.
+    const aboard = car.riders.map((p, k) => [p, k]).filter(([p]) => this.people.get(p.id)?.mode !== 'board');
     for (let f = 0; f < this.B.floors; f++) {
       const y = this.rowY(f);
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 3.5, y + 2.5, w - 7, rowH - 5);
-      if (wanted.has(f)) this.drawLit(x, y, w, wanted.get(f));
     }
     // Where it's been sent: a pulsing outline; the stops lined up after it,
     // dashed, numbered in order.
@@ -789,7 +841,7 @@ class Tower {
     ctx.fillStyle = '#fff3cf';
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
     const mini = this.px;
-    riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 - mini + k * mini * 6, cy + ch - 1, mini, 'stand'));
+    for (const [p, k] of aboard) drawSprite(ctx, p.look, this.riderX(i, k), cy + ch - 1, mini, 'stand');
     this.cat?.drawInCar(i, cx, cy, cw, ch);
     const half = (cw - 4) / 2;
     const open = half * car.open;
@@ -813,12 +865,9 @@ class Tower {
       ctx.textAlign = 'right';
       ctx.fillText(car.v > 0 ? '▲' : '▼', cx + cw - 2, cy + 3);
     }
-    // Someone delivered: a green flash.
-    for (const p of this.pops.filter((q) => q.i === i)) {
-      ctx.strokeStyle = `rgba(43,182,115,${1 - p.t})`;
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(x + 2, this.rowY(p.f) + 1.5, w - 4, rowH - 3);
-    }
+    // The floors they want: an arrow in each one's shirt colour, pointing
+    // out of the lift, in the column where they stand.
+    for (const [p, k] of aboard) this.drawArrow(this.riderX(i, k) + mini, this.rowY(p.to) + rowH / 2, mini * 6, lookOf(p.look).c);
     // Which lift.
     ctx.fillStyle = '#3b3f4a';
     ctx.beginPath();
@@ -831,34 +880,27 @@ class Tower {
     ctx.fillText(`LIFT ${String.fromCharCode(65 + i)}`, x + w / 2, this.top - 10);
   }
 
-  // A floor someone in the lift has pressed: lit, with a dot for each rider
-  // who wants it, in the colour of their shirt (a row of up to 6, or two
-  // rows of 3 if the shaft is narrow).
-  drawLit(x, y, w, riders) {
-    const { ctx, rowH } = this;
-    const n = riders.length;
-    ctx.fillStyle = 'rgba(255,196,50,0.35)';
-    ctx.fillRect(x + 3, y + 2, w - 6, rowH - 4);
-    ctx.strokeStyle = '#ffd23f';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(x + 3.5, y + 2.5, w - 7, rowH - 5);
-    let r = clamp(rowH * 0.1, 2, 4);
-    const across = (w - 10) / (r * 2.8) >= CAPACITY ? CAPACITY : 3;
-    r = Math.min(r, (w - 10) / (across * 2.8));
-    const per = Math.min(n, across);
-    const rows = Math.ceil(n / across);
-    ctx.strokeStyle = '#22283a';
+  // A small arrow pointing left (out of the lift), w wide, centred on y.
+  drawArrow(x, y, w, colour) {
+    const { ctx } = this;
+    const h = Math.max(5, w * 0.7);
+    const head = w * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + head, y - h / 2);
+    ctx.lineTo(x + head, y - h / 5);
+    ctx.lineTo(x + w, y - h / 5);
+    ctx.lineTo(x + w, y + h / 5);
+    ctx.lineTo(x + head, y + h / 5);
+    ctx.lineTo(x + head, y + h / 2);
+    ctx.closePath();
+    ctx.fillStyle = colour;
+    ctx.fill();
+    ctx.strokeStyle = '#1b1b1b';
     ctx.lineWidth = 1;
-    riders.forEach((p, k) => {
-      const row = Math.floor(k / across);
-      const col = k % across;
-      ctx.fillStyle = lookOf(p.look).c;
-      ctx.beginPath();
-      ctx.arc(x + w / 2 + (col - (per - 1) / 2) * r * 2.8, y + rowH / 2 + (row - (rows - 1) / 2) * r * 2.8, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    });
+    ctx.stroke();
   }
+
 
 }
 
@@ -905,7 +947,9 @@ export class Play {
     this.autopilot = autopilot;
     this.par = null;
     this.towers = this.day.sims.map((sim, k) => new Tower(this, k, sim));
-    this.mins = this.day.clock; // the time of day on show
+    this.mins = this.day.clock; // the time of day
+    this.ramp = 0; // (how far into fast-forward)
+    this.rate = 1;
     if (this.W) this.layout();
   }
 
@@ -952,6 +996,9 @@ export class Play {
   update(dt) {
     const before = this.mins;
     if (this.banner) this.banner.t += dt / this.timeScale;
+    // Fast through the lulls (see pace.js).
+    ({ ramp: this.ramp, rate: this.rate } = pace(this.ramp, idle(this.day) && this.towers.every((t) => t.still()), dueIn(this.day), dt / this.timeScale));
+    dt *= this.rate;
     const n = Math.max(1, Math.ceil(dt / (1 / 30)));
     for (let k = 0; k < n; k++) {
       if (this.autopilot) this.day.sims.forEach((s, i) => dispatch(s, this.autopilot[i] || {}));
@@ -961,10 +1008,7 @@ export class Play {
       }
     }
     for (const t of this.towers) t.tick(dt);
-    // The clock (and the sun) catch up quickly when the day skips ahead
-    // through a lull.
-    const gap = this.day.clock - this.mins;
-    this.mins += Math.min(gap, Math.max(gap * 4, 2) * dt);
+    this.mins = this.day.clock;
     this.note(before === DAY.start ? before - 1 : before, this.mins);
   }
 
@@ -1127,6 +1171,16 @@ export class Play {
     ctx.fill();
     ctx.fillStyle = '#22283a';
     ctx.fillText(label, cx, cy + r + 5);
+    // Fast-forwarding through a lull.
+    if (this.rate > 1.2) {
+      ctx.globalAlpha = Math.min(1, (this.rate - 1.2) / 2);
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 13px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('▶▶', cx + r + 6, cy);
+      ctx.globalAlpha = 1;
+    }
   }
 
   drawHud() {
