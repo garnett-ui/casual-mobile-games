@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, Day, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, MIX, PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
+import { Sim, Day, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -161,13 +161,14 @@ test('the building: parking, the lobby, a restaurant on 2, offices, a health clu
   assert.ok(levelSpec(2).workers > levelSpec(1).workers && levelSpec(5).workers > levelSpec(4).workers);
 });
 
-test('every level is a whole working day, 7 AM to 7:30 PM: five minutes to start, longer in bigger buildings', () => {
+test('every level is a whole working day, 7 AM to 7:30 PM: five minutes to start, up to fifteen in the hardest', () => {
   assert.equal(clockAt(0), 7 * 60);
   assert.equal(clockAt(PLAY), 19.5 * 60);
   assert.equal(levelSpec(1).play, PLAY);
   const plays = [1, 4, 7, 10, TWINS].map((n) => levelSpec(n).play);
   assert.deepEqual([...plays].sort((a, b) => a - b), plays, 'longer as the buildings grow');
-  for (const n of [1, 4, 7, 10, TWINS]) {
+  assert.equal(Math.max(...[TWINS + 10, TWINS + 20, 100].map((n) => levelSpec(n).play)), MAX_PLAY, 'the longest days, fifteen minutes');
+  for (const n of [1, 4, 7, 10, TWINS, TWINS + 13]) {
     const spec = levelSpec(n);
     const times = spec.towers.flatMap((t) => t.arrivals.map((a) => a.t)).filter(Number.isFinite);
     assert.ok(Math.min(...times) < toPlay(8.5 * 60, spec.play), `level ${n}: starts with the morning rush`);
@@ -269,7 +270,7 @@ test(`from level ${TWINS}: an apartment tower and an office tower, one day betwe
   // At about 10 AM the apartments are empty and the offices busy.
   const morning = new Day(spec);
   const best = par(spec);
-  while (morning.t < toPlay(10.5 * 60)) {
+  while (morning.t < toPlay(10.5 * 60, spec.play)) {
     morning.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
     morning.step(1 / 20);
   }

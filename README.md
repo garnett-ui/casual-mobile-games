@@ -139,10 +139,11 @@ top storey and a helipad on the roof. It's a career told a day at a time:
 three days at each building, with more people every day. Maple Street
 Offices (6 storeys, 10 people, a five-minute day), then Riverside House (10
 storeys), Harbor Plaza (15, two parking levels) and The Empire (20, crowned
-like the Empire State Building), each day a little longer -- up to eight
-minutes -- as the buildings grow. From level 13 you run Parkview (the
+like the Empire State Building), each day a little longer as the buildings
+grow: 5, 6, 7½ and 10 minutes. From level 13 you run Parkview (the
 apartments) and Commerce Tower (the offices) across the street from each
-other, two lifts each, in days of eight or nine minutes. Banners mark the
+other, two lifts each, with more residents and workers every day and days
+growing from 10 minutes to 15 at the hardest levels. Banners mark the
 day's moments (the doors open, the morning rush, lunchtime, home time,
 nightfall). Played upright on a phone (either way on a tablet), to lift
 music.

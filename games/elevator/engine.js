@@ -88,6 +88,7 @@ export const MIX = {
 // first, 5.7, 6.7 and 8 in the taller ones, 8 to 9 for the two towers. Each
 // building has a name, and each level is the next day there.
 export const TWINS = 13;
+export const MAX_PLAY = 900; // the longest day: 15 minutes
 export const PLACES = ['Maple Street Offices', 'Riverside House', 'Harbor Plaza', 'The Empire', 'Parkview & Commerce Tower'];
 export function levelSpec(n) {
   const seed = seedFor(n, BASE_SEED);
@@ -99,16 +100,16 @@ export function levelSpec(n) {
   let day;
   if (n < TWINS) {
     const stage = Math.floor((n - 1) / 3);
-    workers = [10, 16, 20, 24][stage] + 2 * ((n - 1) % 3);
-    play = [300, 340, 400, 480][stage];
+    workers = [10, 16, 20, 26][stage] + 2 * ((n - 1) % 3);
+    play = [300, 360, 450, 600][stage]; // 5 to 10 minutes
     towers = [{ building: building([6, 10, 15, 20][stage]) }];
     place = PLACES[stage];
     day = ((n - 1) % 3) + 1;
   } else {
     const k = n - TWINS;
-    residents = Math.min(48, 24 + 3 * k);
-    workers = Math.min(24, 8 + k); // from elsewhere
-    play = Math.min(540, 480 + 15 * k);
+    residents = Math.min(76, 24 + 4 * k);
+    workers = Math.min(32, 8 + 2 * k); // from elsewhere
+    play = Math.min(MAX_PLAY, 600 + 30 * k); // 10 minutes, growing to 15
     towers = [{ building: building(10, 1, 'residential') }, { building: building(10, 1) }];
     place = PLACES[4];
     day = k + 1;

@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.39.0
+- Elevator Operator: longer days in the bigger buildings -- 5 minutes at Maple
+  Street Offices, then 6, 7½ and 10 at The Empire -- and at Parkview and
+  Commerce Tower days grow from 10 minutes to 15, with more residents and
+  office workers each day up to the hardest levels.
+
 ## 1.38.1
 - Elevator Operator: a lit floor in a lift's shaft shows a dot for each rider
   going there, instead of little figures.
