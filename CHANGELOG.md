@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.55.0
+- New game: Morse Rain. Learn Morse code by ear: letters fall like
+  Scrabble tiles, face down, each sounding its code (600 Hz, keyed at 20
+  words a minute, 5 words a minute overall to start). Tap a tile on the
+  board with the letter you heard to clear it and the falling one; the
+  tiles above drop down. Wrong letter? A copy of the right one drops in.
+  Lessons bring in the short letters first, then longer ones, numbers and
+  punctuation, and then speed up to 20 words a minute.
+
 ## 1.54.0
 - Elevator Operator on a big screen: the building is as tall as the screen
   allows (taller floors, bigger people) and no wider than it needs to be,

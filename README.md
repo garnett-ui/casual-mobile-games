@@ -221,6 +221,28 @@ behind a lit window now and then.
 - The music is synthesised, like all the sound: a bossa nova in C on electric
   piano, bass, vibraphone and shaker (the ♪ button turns it off).
 
+### Morse Rain
+
+Learn Morse code by ear. Letters fall like Scrabble tiles, face down, each
+sounding its code as it comes into view -- a 600 Hz tone, always keyed at
+20 words a minute, with the gaps between letters stretched so the overall
+rate starts at 5 words a minute (Farnsworth timing).
+
+- **Tap a tile on the board with the letter you heard**: it's cleared, and
+  so is the falling one, and the tiles above it drop down. A letter nobody
+  answers lands face up (so you can see what it was) and stays. Tap the
+  wrong letter and a copy of the right one drops in, sounding again. Tap a
+  falling tile to hear it again.
+- Get through the lesson without a column reaching the top. Stars for how
+  many of the letters you could have answered (their letter was on the
+  board as they fell) you got, with half off for each wrong tap.
+- The lessons go by how long the codes are: E and T, then I M, A N (the one
+  and two symbol letters), then the three-symbol letters two at a time, a
+  review, the four-symbol letters, another review, the numbers and the
+  punctuation (. , ? /) -- each new pair played half the time, shown with
+  their codes across the top. After that the speed goes up, level by
+  level, to 20 words a minute.
+
 ### Jigsaw
 
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo
@@ -294,6 +316,7 @@ games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
 games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
 games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
+games/morse/                Morse Rain: code.js (the code, lessons, timing; runs in Node), play.js (the board)
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
 games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg), city.js (the city round about), pace.js (fast through the lulls)
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js

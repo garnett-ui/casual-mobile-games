@@ -894,6 +894,66 @@ test('water lab: drag a beaker onto another to pour, and measure the amount aske
   }
 });
 
+test('morse rain: letters fall face down, sounding; tap the one heard on the board to clear it', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=morse]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__morse);
+    // The lesson's new letters, to hear.
+    assert.equal(await page.locator('.mr-key').count(), 2);
+    await page.locator('[data-act=start]').click();
+    await page.evaluate(() => (window.__morse.timeScale = 4));
+    // Wait for a tile on the board and one falling with the same letter, then
+    // really tap the board tile.
+    const at = await page.evaluateHandle(() => new Promise((resolve) => {
+      const w = setInterval(() => {
+        const p = window.__morse;
+        const f = p.falling.find((q) => !q.penalty);
+        if (!f) return;
+        for (let c = 0; c < p.cols; c++) {
+          const k = p.stacks[c].findIndex((t) => t.ch === f.ch);
+          if (k < 0) continue;
+          clearInterval(w);
+          p.timeScale = 0.001;
+          const r = p.canvas.getBoundingClientRect();
+          resolve({ x: r.left + p.colX(c) + p.size / 2, y: r.top + p.restY(k) + p.size / 2 });
+          return;
+        }
+      }, 30);
+    }));
+    const { x, y } = await at.jsonValue();
+    await page.touchscreen.tap(x, y);
+    assert.equal(await page.evaluate(() => window.__morse.right), 1);
+    // The rest of the lesson, answered.
+    await page.evaluate(() => {
+      const p = window.__morse;
+      p.timeScale = 6;
+      setInterval(() => {
+        const f = p.falling.find((q) => !q.penalty);
+        if (!f) return;
+        for (let c = 0; c < p.cols; c++) {
+          const k = p.stacks[c].findIndex((t) => t.ch === f.ch);
+          if (k >= 0) return p.answer(c, k);
+        }
+      }, 50);
+    });
+    await page.locator('.dialog:not([hidden]) .stars').waitFor({ timeout: 60000 });
+    assert.match(await page.locator('.dialog p').textContent(), /You got \d+ of the \d+ letters/);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:progress')));
+    assert.equal(saved.unlocked, 2);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('elevator operator: tap a shaft to send a lift, deliver everyone, scored against the dispatcher', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

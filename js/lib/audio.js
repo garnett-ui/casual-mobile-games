@@ -203,6 +203,10 @@ const SFX = {
     tone('sawtooth', 110, 104, 0.2, 0.09, 0, 900);
     tone('square', 116, 110, 0.2, 0.05, 0, 900);
   },
+  // Morse Rain: a tile landing on the board (a soft wooden knock), and one
+  // cleared.
+  tile: () => thump(0.18, 0.06, 900),
+  pop: () => tone('triangle', 1200, 1800, 0.07, 0.07),
   checkpoint: () => [784, 988, 1175].forEach((f, k) => tone('square', f, f, 0.12, 0.06, k * 0.09, 4000)),
 };
 
@@ -397,6 +401,37 @@ export function playClip(url, vol = 0.9) {
     src.start();
   });
   return stop;
+}
+
+// Morse code: a pure tone keyed on and off (with a few milliseconds' rise
+// and fall, so it doesn't click), starting `at` seconds from now; unit is
+// the length of a dit. Returns false if there's no sound to be had.
+export function playMorse(code, { at = 0, unit = 0.06, freq = 600, vol = 0.45 } = {}) {
+  if (!getSetting('sound') || !ac) return false;
+  try {
+    const t0 = ac.currentTime + 0.02 + at;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t0);
+    let t = t0;
+    for (const s of code) {
+      const d = (s === '.' ? 1 : 3) * unit;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.005);
+      g.gain.setValueAtTime(vol, t + d - 0.005);
+      g.gain.linearRampToValueAtTime(0, t + d);
+      t += d + unit;
+    }
+    o.connect(g);
+    g.connect(master);
+    o.start(t0);
+    o.stop(t + 0.05);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function sfx(name, arg) {

@@ -59,6 +59,14 @@ export const GAMES = [
     art: () => import('../games/elevator/art.js'),
   },
   {
+    id: 'morse',
+    title: 'Morse Rain',
+    blurb: 'Learn Morse code by ear: letters fall face down, each sounding its code. Tap the letter you heard before the board fills up.',
+    color: '#2d6a4f',
+    load: () => import('../games/morse/index.js'),
+    art: () => import('../games/morse/art.js'),
+  },
+  {
     id: 'jigsaw',
     title: 'Jigsaw',
     blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',
