@@ -295,10 +295,10 @@ test('the offices are empty at dawn and empty at night; the mix at the peaks mat
   const { day } = runDay(spec);
   assert.equal(sum(day.sims[0].occupancy), 0, 'empty at night');
   assert.equal(day.sims[0].delivered, trips.length);
-  // Mixes, over a few levels' worth of people: in the morning rush nearly
+  // Mixes, over a few ordinary days' worth of people: in the morning rush nearly
   // everyone is arriving; at lunch it's in and out (and some to the
   // restaurant or the gym).
-  const all = [1, 2, 3, 4, 5, 6].flatMap((n) => levelSpec(n).arrivals.map((a) => ({ ...a, B: levelSpec(n).building, play: levelSpec(n).play })));
+  const all = [1, 4, 7, 10].flatMap((n) => levelSpec(n).arrivals.map((a) => ({ ...a, B: levelSpec(n).building, play: levelSpec(n).play })));
   const inside = (a, f) => stays(a.B, f);
   const share = (lo, hi) => {
     const w = all.filter((a) => a.t >= toPlay(lo * 60, a.play) && a.t < toPlay(hi * 60, a.play));

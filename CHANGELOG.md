@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.53.1
+- Elevator Operator: each day the building is busy in different places --
+  tenants of different sizes (some floors busy, some quiet, now and then
+  one nearly empty) and a different floor where most of the meetings are --
+  so the calls don't follow the same pattern from level to level. Fridays
+  are a little gentler.
+
 ## 1.53.0
 - Elevator Operator: nobody gets into a lift with people going the other
   way -- with someone going up and someone going down at the same floor,

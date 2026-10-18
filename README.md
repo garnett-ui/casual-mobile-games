@@ -173,8 +173,11 @@ music.
   lunches in), a traffic jam (all late at once), free pizza at noon, review
   week (meetings everywhere), a lunchtime fitness class, an all-hands
   meeting on the top floor, Friday (long lunches out, home by four), a trade
-  fair (helicopters), launch day (working late), an early start. A level is
-  always the same day, with the same people. A bar at the top fills as they
+  fair (helicopters), launch day (working late), an early start. And each
+  day the building is busy in different places: tenants of different sizes
+  (some floors busy, some quiet, now and then one nearly empty) and one
+  floor where most of the day's meetings are. A level is always the same
+  day, with the same people. A bar at the top fills as they
   get where they're going.
 - The day is made of people, each with their own day: an office worker
   arrives in the morning rush (around 8:30) -- walking in off the street,

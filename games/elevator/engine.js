@@ -191,7 +191,7 @@ export const TWISTS = {
   reviews: { line: 'Review week: meetings all over the building, morning and afternoon.', meetAM: 0.85, meetPM: 0.8 },
   fitness: { line: 'A fitness class at the health club at lunchtime -- and plenty going after work.', lunchWhere: [[0.3, 'ground'], [0.2, 'restaurant'], [0.5, 'gym']], gymAfter: 0.4 },
   allHands: { line: 'All-hands meeting on the top floor at 11!', allHands: 11 * 60, meetAM: 0.15 },
-  friday: { line: "Friday: long lunches out, and everyone's gone by four.", lunch: 0.85, lunchWhere: [[0.85, 'ground'], [0.1, 'restaurant'], [0.05, 'gym']], leave: [15.5 * 60, 25] },
+  friday: { line: "Friday: lunch out, and everyone's gone by four.", lunch: 0.75, lunchAt: [12.5 * 60, 30], lunchWhere: [[0.75, 'ground'], [0.15, 'restaurant'], [0.1, 'gym']], leave: [15.75 * 60, 40] },
   fair: { line: 'A trade fair in town: the helipad is busy all day.', modes: [[0.7, 'walk'], [0.18, 'drive'], [0.12, 'fly']], flights: 8 },
   launch: { line: "Launch day: they're all working late tonight.", leave: [18.6 * 60, 20], lunch: 0.4 },
   early: { line: 'An early start for a deadline -- and an early finish.', arrive: [7.75 * 60, 15], leave: [16.5 * 60, 25] },
@@ -221,9 +221,16 @@ export function dayPlan(buildings, { workers, residents, seed, play = PLAY, twis
     for (const [w, v] of ws) if ((x -= w) < 0) return v;
     return ws.at(-1)[1];
   };
-  const office = () => O.offices[0] + Math.floor(r() * (O.offices[1] - O.offices[0] + 1));
+  // Each day's building is its own: tenants of different sizes (some floors
+  // busy, some quiet, now and then one nearly empty), and one floor where
+  // most of the day's meetings are.
+  const floors = [];
+  for (let f = O.offices[0]; f <= O.offices[1]; f++) floors.push([r() < 0.12 ? 0.08 : 0.25 + r() * 1.5, f]);
+  const office = () => pick(floors);
+  const conference = floors[Math.floor(r() * floors.length)][1];
   const otherOffice = (f) => {
     if (O.offices[1] === O.offices[0]) return O.restaurant;
+    if (conference !== f && r() < 0.6) return conference;
     let g;
     do g = office(); while (g === f);
     return g;
