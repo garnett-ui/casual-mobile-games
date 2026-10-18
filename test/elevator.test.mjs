@@ -16,6 +16,11 @@ const TALL = levelSpec(13);
 const only = (people) => {
   const sim = new Sim(TALL);
   sim.arrivals = people.map((p, id) => ({ id, look: [1, 2, 3, 4], ...p }));
+  sim.pending = sim.arrivals.slice();
+  sim.byId = new Map(sim.arrivals.map((a) => [a.id, a]));
+  // They're on their floors to start with.
+  sim.occupancy = Array(sim.floors).fill(0);
+  for (const p of sim.arrivals) if (stays(sim.building, p.from)) sim.occupancy[p.from]++;
   // Lift B out of the way, doors shut, so only A is in play.
   Object.assign(sim.cars[1], { pos: 15, phase: 'idle', open: 0, settled: false });
   return sim;
@@ -249,48 +254,70 @@ test('the score: trip times, their average and median, and the sum of their squa
   assert.ok(clockAt(spec, people, people.at(-1).t + 25) === 570);
 });
 
-test('from level 17: an apartment tower and an office tower, side by side on one clock', async () => {
-  const { Day, TWINS } = await import('../games/elevator/engine.js');
-  const spec = levelSpec(TWINS);
-  assert.equal(spec.towers.length, 2);
-  const [homes, offices] = spec.towers;
-  assert.equal(homes.building.type, 'residential');
-  assert.equal(offices.building.type, 'office');
-  assert.ok(homes.building.kinds.filter((k) => k === 'home').length >= 8);
-  // Morning: the apartments are full (everyone's been asleep) and empty out;
-  // the offices start empty and fill.
-  const count = (tower) => {
-    const people = schedule(tower);
-    const occ = people.start.slice();
-    for (const p of people) {
-      if (stays(tower.building, p.from)) occ[p.from]--;
-      assert.ok(!stays(tower.building, p.from) || occ[p.from] >= 0);
-      if (stays(tower.building, p.to)) occ[p.to]++;
+test('from level 17: an apartment tower and an office tower, one day between them', async () => {
+  const { Day, TWINS, TRANSIT } = await import('../games/elevator/engine.js');
+  const run = (spec) => {
+    const best = par(spec);
+    const day = new Day(spec);
+    let over = null;
+    for (let t = 0; t < 3600 && !over; t += 1 / 20) {
+      day.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
+      const ev = day.step(1 / 20);
+      over = ev.find((e) => e.type === 'over');
+      // True occupancy: nobody ever leaves a floor nobody is on.
+      for (const s of day.sims) assert.ok(s.occupancy.every((n) => n >= 0));
     }
+    assert.ok(over, 'everyone got there');
+    assert.ok(Math.abs(over.squares - best.squares) < 1e-6, 'the same as par when flown the same way');
     const sum = (o) => o.reduce((a, b) => a + b, 0);
-    return [sum(people.start), sum(occ)];
+    return { start: day.sims.map((s) => sum(s.arrivals.start)), end: day.sims.map((s) => sum(s.occupancy)), day };
   };
-  const [h0, h1] = count(homes);
-  const [o0, o1] = count(offices);
-  assert.ok(h0 > 20 && h1 < h0 * 0.4, `apartments ${h0} -> ${h1}`);
-  assert.ok(o0 === 0 && o1 > 15, `offices ${o0} -> ${o1}`);
-  // Evening: the other way round.
+  const morning = levelSpec(TWINS);
+  assert.equal(morning.towers.length, 2);
+  assert.deepEqual(morning.towers.map((t) => t.building.type), ['residential', 'office']);
+  const m = run(morning);
+  // Everyone was asleep at home; by the end of the morning the apartments
+  // are empty and the offices full.
+  assert.ok(m.start[0] >= 30 && m.end[0] === 0, `apartments ${m.start[0]} -> ${m.end[0]}`);
+  assert.ok(m.start[1] === 0 && m.end[1] > 30, `offices ${m.start[1]} -> ${m.end[1]}`);
+  // Most residents went across the street: their trip to the office started
+  // after their trip down, plus the time to cross.
+  const [homes, work] = m.day.sims;
+  const linked = homes.arrivals.filter((a) => a.onward !== undefined);
+  assert.ok(linked.length > homes.arrivals.length / 2);
+  for (const a of linked) {
+    const b = work.byId.get(a.onward);
+    assert.ok(Object.values(TRANSIT).includes(b.transit));
+    assert.ok(b.t >= a.t + b.transit, 'set off after getting across');
+    assert.equal(b.look.join(), a.look.join(), 'the same person');
+  }
+  // Only the lobby, garage and roof lead outside.
+  for (const s of m.day.sims) {
+    for (const a of s.arrivals) {
+      const outside = (f) => !stays(s.building, f);
+      assert.ok(outside(a.from) || outside(a.to) || (stays(s.building, a.from) && stays(s.building, a.to)));
+      for (const f of [a.from, a.to]) if (outside(f)) assert.ok(f <= s.building.ground || f === s.building.roof);
+    }
+  }
+  // Evening: everyone goes home; the offices empty, the apartments fill.
   const evening = levelSpec(TWINS + 3);
   assert.equal(evening.pattern, 'evening');
-  const [eh0, eh1] = count(evening.towers[0]);
-  const [, eo1] = count(evening.towers[1]);
-  assert.ok(eh1 > eh0 * 1.5, `home in the evening ${eh0} -> ${eh1}`);
-  assert.equal(eo1, 0, 'offices empty at night');
-  // Both run on one clock; the level ends when both are done; par covers both.
-  const day = new Day(spec);
-  const best = par(spec);
-  assert.equal(best.optsList.length, 2);
-  let over = null;
-  for (let t = 0; t < 3600 && !over; t += 1 / 20) {
-    day.sims.forEach((s, k) => dispatch(s, best.optsList[k]));
-    over = day.step(1 / 20).find((e) => e.type === 'over');
-  }
-  assert.ok(over);
-  assert.equal(over.delivered, homes.people + offices.people);
-  assert.ok(Math.abs(over.squares - best.squares) < 1e-6, 'the same as par when flown the same way');
+  const e = run(evening);
+  assert.ok(e.start[0] === 0 && e.end[0] >= 30, `apartments ${e.start[0]} -> ${e.end[0]}: full at night`);
+  assert.ok(e.start[1] > 30 && e.end[1] === 0, `offices ${e.start[1]} -> ${e.end[1]}: empty`);
+});
+
+test('true occupancy: someone due to leave an empty floor waits until someone is there', () => {
+  const sim = only([{ t: 1, from: 3, to: 9 }, { t: 2, from: 9, to: 4 }]);
+  sim.occupancy[3] = 1;
+  sim.occupancy[9] = 0; // nobody on 9 yet: the second person can't set off until the first gets there
+  sim.send(0, 3);
+  run(sim, 10);
+  assert.equal(sim.waiting[9].length, 0, 'not yet');
+  sim.send(0, 9);
+  run(sim, 12);
+  assert.equal(sim.delivered, 1);
+  run(sim, 2);
+  assert.equal(sim.waiting[9].length + sim.cars[0].riders.length, 1, 'now they can go');
+  assert.equal(sim.occupancy[9], 0);
 });

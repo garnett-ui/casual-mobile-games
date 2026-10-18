@@ -79,7 +79,10 @@ export const HOURS = { morning: [450, 570], midday: [600, 720], lunch: [720, 840
 // level's span of the day, stretched over the time the people take to come.
 export function clockAt(spec, arrivals, t) {
   const [a, b] = HOURS[spec.pattern];
-  const length = arrivals.reduce((m, p) => Math.max(m, p.t), 60) + 25;
+  // (Trips still waiting on the leg before -- crossing from the other
+  // tower -- don't have a time yet: allow for them with a little extra.)
+  const linked = arrivals.some((p) => p.transit);
+  const length = arrivals.reduce((m, p) => (Number.isFinite(p.t) && !p.transit ? Math.max(m, p.t) : m), 60) + (linked ? 45 : 25);
   return a + ((b - a) * Math.min(t, length)) / length;
 }
 
@@ -109,12 +112,17 @@ export function levelSpec(n) {
     }];
   } else {
     const k = n - TWINS;
-    const each = Math.min(60, 30 + 4 * k);
+    const residents = Math.min(60, 30 + 4 * k);
     const gap = Math.max(2.5, 6 * 0.93 ** k);
     towers = [
-      { people: each, gap, pattern, building: building(10, 1, 'residential'), seed: seedFor(n * 2, BASE_SEED) },
-      { people: each, gap, pattern, building: building(10, 1), seed: seedFor(n * 2 + 1, BASE_SEED) },
+      { gap, pattern, building: building(10, 1, 'residential'), seed: seedFor(n * 2, BASE_SEED) },
+      { gap, pattern, building: building(10, 1), seed: seedFor(n * 2 + 1, BASE_SEED) },
     ];
+    const [home, work] = twinSchedules(towers, residents, pattern, seedFor(n * 3, BASE_SEED));
+    towers[0].arrivals = home;
+    towers[0].people = home.length;
+    towers[1].arrivals = work;
+    towers[1].people = work.length;
   }
   // (A one-tower level's details are also at the top.)
   return { ...towers[0], n, pattern, towers };
@@ -297,14 +305,121 @@ function homeSchedule(spec) {
   return people;
 }
 
+// A day for the two towers together: the residents are all at home asleep
+// first thing. In the morning every one of them leaves -- most across the
+// street to work in the office tower (walking from lobby to lobby, driving
+// from garage to garage, or now and then flying from roof to roof), the rest
+// off into the city -- while others arrive at the offices from elsewhere.
+// In the evening it all goes the other way, and the apartments end the day
+// full. In between, the offices are busy and the apartments nearly empty.
+// A commuter's two legs are linked: the second starts (in the other tower)
+// once the first is done, plus the time it takes to get across.
+export const TRANSIT = { walk: 14, drive: 12, fly: 16 };
+export function twinSchedules(towers, residents, pattern, seed) {
+  const r = rng(seed);
+  const [H, O] = towers.map((t) => t.building);
+  const gap = towers[0].gap;
+  const home = () => H.homes[0] + Math.floor(r() * (H.homes[1] - H.homes[0] + 1));
+  const office = () => O.offices[0] + Math.floor(r() * (O.offices[1] - O.offices[0] + 1));
+  const how = () => (r() < 0.7 ? 'walk' : r() < 0.93 ? 'drive' : 'fly');
+  const door = (B, via) => (via === 'walk' ? B.ground : via === 'drive' ? B.garage[Math.floor(r() * B.garage.length)] : B.roof);
+  const look = () => [r(), r(), r(), r()].map((v) => Math.floor(v * 1e6));
+  const homes = [];
+  const offices = [];
+  const hStart = Array(H.floors).fill(0);
+  const oStart = Array(O.floors).fill(0);
+  const commuters = Math.round(residents * 0.7);
+  const visitors = Math.round(residents * 0.5); // office workers from elsewhere
+  let t = WALK;
+  const next = () => (t += -Math.log(1 - r()) * gap);
+  if (pattern === 'morning' || pattern === 'evening') {
+    const morning = pattern === 'morning';
+    // Where everyone is first thing (home), or at the end of the day (work).
+    const flats = Array.from({ length: residents }, home);
+    const desks = Array.from({ length: commuters + visitors }, office);
+    if (morning) for (const f of flats) hStart[f]++;
+    else for (const f of desks) oStart[f]++;
+    // Leaving, in a random order, at random times.
+    const order = [];
+    for (let i = 0; i < residents; i++) order.push(['resident', i]);
+    for (let i = 0; i < visitors; i++) order.push(['visitor', i]);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(r() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    let desk = 0;
+    for (const [who, i] of order) {
+      const via = how();
+      const face = look();
+      next();
+      if (who === 'visitor') {
+        // From elsewhere to work, or home from work to elsewhere.
+        const f = desks[commuters + i];
+        (morning ? offices : offices).push(morning
+          ? { id: offices.length, t, from: door(O, via), to: f, look: face }
+          : { id: offices.length, t, from: f, to: door(O, via), look: face });
+        continue;
+      }
+      const flat = flats[i];
+      const across = i < commuters;
+      if (morning) {
+        // Out of the flat...
+        const leg = { id: homes.length, t, from: flat, to: door(H, via), look: face };
+        homes.push(leg);
+        if (across) {
+          // ...and over the street to the office.
+          leg.onward = offices.length;
+          offices.push({ id: offices.length, t: Infinity, from: door(O, via), to: desks[desk++], look: face, transit: TRANSIT[via] });
+        }
+      } else if (across) {
+        // Out of the office, over the street, and home.
+        const leg = { id: offices.length, t, from: desks[desk++], to: door(O, via), look: face };
+        offices.push(leg);
+        leg.onward = homes.length;
+        homes.push({ id: homes.length, t: Infinity, from: door(H, via), to: flat, look: face, transit: TRANSIT[via] });
+      } else {
+        // Home from the city.
+        homes.push({ id: homes.length, t, from: door(H, via), to: flat, look: face });
+      }
+    }
+  } else {
+    // The middle of the day: the offices are busy; a few residents come
+    // home for a while and go out again.
+    const busy = schedule({ ...towers[1], people: Math.round((commuters + visitors) * 0.6), building: O, pattern });
+    busy.forEach((p) => offices.push(p));
+    for (let f = 0; f < O.floors; f++) oStart[f] = busy.start[f];
+    const few = Math.max(4, Math.round(residents * 0.25));
+    const back = [];
+    for (let i = 0; i < few; i++) {
+      next();
+      const via = how();
+      if (i % 2 === 0 || !back.length) {
+        const f = home();
+        back.push(f);
+        homes.push({ id: homes.length, t, from: door(H, via), to: f, look: look() });
+      } else homes.push({ id: homes.length, t: t + 40, from: back.shift(), to: door(H, via), look: look() });
+    }
+    homes.sort((a, b) => a.t - b.t).forEach((p, k) => (p.id = k));
+  }
+  homes.start = hStart;
+  offices.start = oStart;
+  return [homes, offices];
+}
+
 export class Sim {
   constructor(spec) {
     this.spec = spec;
     this.building = spec.building;
     this.floors = spec.building.floors;
     this.t = 0;
-    this.arrivals = schedule(spec);
-    this.next = 0;
+    // The people (a copy: some trips' times are only known once an earlier
+    // leg is done -- the walk across the street from the other tower).
+    const people = spec.arrivals || schedule(spec);
+    this.arrivals = people.map((a) => ({ ...a }));
+    this.arrivals.start = people.start;
+    this.byId = new Map(this.arrivals.map((a) => [a.id, a]));
+    this.pending = this.arrivals.slice(); // not yet at the button
+    this.next = 0; // how many have been
     this.waiting = Array.from({ length: this.floors }, () => []);
     // How many people are on each floor (at their desks, eating, working
     // out): they leave it when they go for a lift, and add to it when they
@@ -351,12 +466,21 @@ export class Sim {
     const ev = [];
     if (this.over) return ev;
     this.t += dt;
-    // People turn up and wait for a lift.
-    while (this.next < this.arrivals.length && this.arrivals[this.next].t <= this.t) {
-      const a = this.arrivals[this.next++];
+    // People turn up and wait for a lift -- but nobody leaves a floor
+    // nobody is on: if they're due to set off from an empty floor (the one
+    // they'd be is still on their way there), they go once someone is.
+    for (let k = 0; k < this.pending.length; k++) {
+      const a = this.pending[k];
+      if (a.t > this.t) continue;
+      if (stays(this.building, a.from)) {
+        if (this.occupancy[a.from] <= 0) continue;
+        this.occupancy[a.from]--;
+      }
+      a.t = this.t; // (pressing the button now)
+      this.pending.splice(k--, 1);
+      this.next++;
       this.waiting[a.from].push({ ...a });
-      if (stays(this.building, a.from)) this.occupancy[a.from] = Math.max(0, this.occupancy[a.from] - 1);
-      ev.push({ type: 'arrive', floor: a.from, id: a.id });
+      ev.push({ type: 'arrive', floor: a.from, id: a.id, look: a.look });
     }
     for (const car of this.cars) this.stepCar(car, dt, ev);
     // Done when everyone has got where they were going.
@@ -426,7 +550,7 @@ export class Sim {
             this.delivered++;
             if (stays(this.building, here)) this.occupancy[here]++;
             this.trips.push({ wait: p.boarded - p.t, ride: this.t - p.boarded });
-            ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look });
+            ev.push({ type: 'deliver', car: car.i, floor: here, id: p.id, look: p.look, onward: p.onward });
             car.timer += EXIT_TIME;
           } else if (this.waiting[here].length && car.riders.length < CAPACITY) {
             const p = this.waiting[here].shift();
@@ -498,7 +622,8 @@ export class Sim {
     const sorted = [...totals].sort((a, b) => a - b);
     const median = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : 0;
     const squares = totals.reduce((a, x) => a + x * x, 0);
-    return { delivered: this.delivered, wait, ride, trip: wait + ride, median, squares, totals, time: this.t };
+    const rms = Math.sqrt(squares / n);
+    return { delivered: this.delivered, wait, ride, trip: wait + ride, median, squares, rms, totals, time: this.t };
   }
 
   waitingCount() {
@@ -583,6 +708,7 @@ export function combine(list) {
     trip: weigh('trip'),
     median,
     squares: list.reduce((a, s) => a + s.squares, 0),
+    rms: Math.sqrt(list.reduce((a, s) => a + s.squares, 0) / n),
     totals,
     time: Math.max(...list.map((s) => s.time)),
   };
@@ -602,7 +728,16 @@ export class Day {
     if (this.over) return ev;
     this.t += dt;
     this.sims.forEach((sim, tower) => {
-      for (const e of sim.step(dt)) if (e.type !== 'over') ev.push({ ...e, tower });
+      for (const e of sim.step(dt)) {
+        if (e.type === 'over') continue;
+        // Out of one tower and off to the other: they reach its lobby,
+        // garage or roof after the walk, drive or flight across.
+        if (e.type === 'deliver' && e.onward !== undefined) {
+          const next = this.sims[1 - tower].byId.get(e.onward);
+          next.t = this.t + next.transit;
+        }
+        ev.push({ ...e, tower });
+      }
     });
     if (this.sims.every((s) => s.over)) {
       this.over = true;
@@ -620,6 +755,21 @@ export class Day {
 // smallest sum of squared trips (on the same people), all together.
 export const VARIANTS = [{}, { claim: false }, { park: false }, { ahead: false }];
 export function par(spec) {
+  if (spec.towers && spec.towers.length > 1) {
+    // Two towers (linked by the people going between them): each version of
+    // the dispatcher runs the whole day.
+    let best = null;
+    for (const opts of VARIANTS) {
+      const day = new Day(spec);
+      while (!day.over && day.t < 3600) {
+        day.sims.forEach((s) => dispatch(s, opts));
+        day.step(1 / 20);
+      }
+      const s = day.stats();
+      if (!best || s.squares < best.squares) best = { ...s, optsList: spec.towers.map(() => opts), opts };
+    }
+    return best;
+  }
   const each = (spec.towers || [spec]).map((tower) => {
     let best = null;
     for (const opts of VARIANTS) {

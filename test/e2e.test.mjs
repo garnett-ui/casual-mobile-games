@@ -941,7 +941,8 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     const text = await page.locator('.dialog').innerText();
     assert.match(text, /Average trip\s+\d+ s\s+\d+ s/);
     assert.match(text, /Median trip/);
-    assert.match(text, /you scored \d+% of the computer/);
+    assert.match(text, /RMS trip\s+\d+ s\s+\d+ s/);
+    assert.match(text, /RMS trip over yours: \d+%/);
     assert.ok(await page.locator('.dialog .el-hist rect').count(), 'a histogram of trip times');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:elevator:progress')));
     assert.equal(saved.unlocked, 2);

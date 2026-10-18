@@ -13,6 +13,12 @@ const PATTERN = {
   lunch: 'Lunchtime: out to the street, down to the restaurant on 2 or up to the health club, and back again.',
   evening: 'Going home: most people want the lobby or their car in the garage; a few are off to the gym.',
 };
+const TWIN = {
+  morning: 'everyone gets up and leaves the apartments -- most cross the street to work in the offices (walking, driving or flying), the rest go into town -- while others arrive at the offices from elsewhere.',
+  midday: 'the offices are busy; a few residents pop home and go out again.',
+  lunch: 'the offices are busy; a few residents pop home and go out again.',
+  evening: 'the offices empty and everyone comes home: most across the street from work, the rest from town. By night the apartments are full.',
+};
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 // How long everyone's trips took (from pressing the button to getting out):
@@ -217,7 +223,7 @@ export function mount(root, ctx, sub) {
       // Scored on the sum of the squares of the trips, against the
       // computer's (as a root-mean-square, so 50% means trips "twice as
       // long", with long waits counting extra).
-      const pct = Math.round(100 * Math.sqrt(p.squares / Math.max(1, res.squares)));
+      const pct = Math.round((100 * p.rms) / Math.max(0.1, res.rms));
       const stars = pct >= 100 ? 3 : pct >= 80 ? 2 : 1;
       progress.complete(level, stars);
       ctx.track('level_complete', { level, stars, pct, trip: Math.round(res.trip), par: Math.round(p.trip) });
@@ -231,9 +237,9 @@ export function mount(root, ctx, sub) {
             <tr><th></th><th>you</th><th>computer</th></tr>
             <tr><td>Average trip</td><td>${sec(res.trip)}</td><td>${sec(p.trip)}</td></tr>
             <tr><td>Median trip</td><td>${sec(res.median)}</td><td>${sec(p.median)}</td></tr>
-            <tr><td>Sum of squares</td><td>${k(res.squares)}</td><td>${k(p.squares)}</td></tr>
+            <tr><td>RMS trip</td><td>${sec(res.rms)}</td><td>${sec(p.rms)}</td></tr>
           </table>
-          Long waits count extra (trips are squared): you scored <b>${pct}%</b> of the computer.`,
+          The score is the computer’s RMS trip over yours: <b>${pct}%</b>. (RMS, root mean square: square every trip, average them, take the square root -- so long waits count extra.)`,
         buttons: [
           { label: 'Watch it', act: 'watch', run: () => start(true) },
           { label: 'Retry', act: 'retry', run: () => start() },
@@ -245,8 +251,8 @@ export function mount(root, ctx, sub) {
     showDialog(dialog, ctx, {
       title: `Level ${n}`,
       text: `${spec.towers.length > 1
-        ? `Two towers: apartments on the left (people sleep there at night) and offices on the right, two lifts each. ${spec.towers.reduce((a, t) => a + t.people, 0)} passengers.`
-        : `A ${spec.building.storeys}-storey building. ${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds.`} ${PATTERN[spec.pattern]}<br><br>
+        ? `Two towers, two lifts each: apartments on the left, where people sleep at night, and offices on the right. ${spec.towers.reduce((a, t) => a + t.people, 0)} trips: ${TWIN[spec.pattern]}`
+        : `A ${spec.building.storeys}-storey building. ${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds. ${PATTERN[spec.pattern]}`}<br><br>
         <b>Tap a floor in a lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most). The floors they want light up, with a figure for each of them.<br><br>
         You’re done when everyone has got where they’re going. The shorter their trips, the better, and a long wait counts extra.`,

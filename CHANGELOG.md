@@ -6,6 +6,20 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.36.0
+- Elevator Operator's two-tower levels share one day between them. At dawn
+  every resident is at home asleep; in the morning they all leave -- most
+  across the street to work in the office tower (walking lobby to lobby,
+  driving garage to garage, or flying roof to roof: the apartments have a
+  helipad too), the rest into town -- so the apartments empty completely. In
+  the evening everyone comes home and the apartments end the day full.
+- True occupancy everywhere: people only ever come in or go out through the
+  lobby, the garage or the roof, and nobody sets off from a floor with nobody
+  on it (they wait until someone gets there). Each floor's count is exact.
+- The end-of-level card shows the RMS (root mean square) trip -- square every
+  trip, average them, take the square root -- and the score is the
+  computer's RMS over yours.
+
 ## 1.35.0
 - Elevator Operator, from level 17: two towers side by side, two lifts each
   -- an apartment tower, where people sleep at night (full first thing,

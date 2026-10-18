@@ -84,7 +84,7 @@ class Tower {
     this.ctx = play.ctx;
     this.hooks = play.hooks;
     this.people = new Map(); // id -> what we see of them (walking, queueing...)
-    this.seen = 0; // arrivals already on their way in
+    this.seen = new Set(); // arrivals already on their way
     this.autos = []; // cars in the garage (driving in, parked, driving out)
     this.helis = []; // helicopters coming and going
     this.ripples = [];
@@ -185,6 +185,12 @@ class Tower {
     const h = this.hooks;
     if (e.type === 'stop') h.sfx?.('ding');
     else if (e.type === 'arrive') {
+      // Someone leaving a floor steps out of their office (or flat) now --
+      // the moment the floor's count goes down.
+      if (!this.seen.has(e.id)) {
+        this.seen.add(e.id);
+        this.people.set(e.id, { id: e.id, look: e.look, floor: e.floor, mode: 'in', dir: 1, x: this.doorX, target: this.doorX });
+      }
       const v = this.people.get(e.id);
       if (v) v.pressT = this.sim.t;
     } else if (e.type === 'board') {
@@ -242,10 +248,11 @@ class Tower {
   // in and out of the garage; helicopters land and take off.
   movePeople(dt) {
     const { sim, B } = this;
-    const pending = sim.arrivals.slice(this.seen).sort((a, b) => a.t - this.lead(a) - (b.t - this.lead(b)));
-    for (const a of pending) {
-      if (a.t - this.lead(a) > sim.t) break;
-      this.seen++;
+    // Those coming in from outside (the street, the garage, the sky) set off
+    // early, to reach the button about when they press it.
+    for (const a of sim.pending) {
+      if (this.seen.has(a.id) || stays(B, a.from) || a.t - this.lead(a) > sim.t) continue;
+      this.seen.add(a.id);
       const v = { id: a.id, look: a.look, floor: a.from, to: a.to, mode: 'in', dir: 1, x: this.doorX, target: this.doorX, t: a.t };
       if (a.from === B.ground) {
         v.x = -this.spriteW * 2; // along the street and in through the doors
@@ -258,7 +265,7 @@ class Tower {
         v.hidden = true; // still in the helicopter
         this.people.set(a.id, v);
         this.callHeli(a.id);
-      } else this.people.set(a.id, v);
+      }
     }
     // Queue places: those waiting first (in order), then those on their way.
     const slot = (k) => this.panelX - 3 - (k + 1) * (this.spriteW + 2);
@@ -403,10 +410,11 @@ class Tower {
     ctx.fillRect(this.x0, y + rowH - 3, this.x1 - this.x0, 3);
     ctx.fillRect(this.x0, y + rowH * 0.62, 3, rowH * 0.38);
     if (B.type === 'residential') {
-      // A roof garden: a lawn and a few trees.
+      // A roof garden (a lawn and a few trees), and a helipad.
       ctx.fillStyle = '#7cb342';
       ctx.fillRect(this.x0 + 3, y + rowH - 6, this.panelX - this.x0 - 6, 3);
-      for (let x = this.doorX + 8; x < this.panelX - 12; x += 26) {
+      this.drawPad(y);
+      for (let x = this.padCX + this.padR * 2 + 6; x < this.panelX - 12; x += 26) {
         ctx.fillStyle = '#6b4f2a';
         ctx.fillRect(x + 4, y + rowH * 0.62, 2, rowH * 0.3);
         ctx.fillStyle = '#4caf50';
@@ -555,7 +563,7 @@ class Tower {
       ctx.fillStyle = tint;
       ctx.fillRect(this.x0, y, this.panelX - this.x0, rowH);
     }
-    const name = f < GROUND ? 'PARKING' : f === GROUND ? 'LOBBY' : f === RESTAURANT ? 'RESTAURANT' : f === GYM ? 'HEALTH CLUB' : f === ROOF ? (B.type === 'residential' ? 'ROOF GARDEN' : 'HELIPAD') : '';
+    const name = f < GROUND ? 'PARKING' : f === GROUND ? 'LOBBY' : f === RESTAURANT ? 'RESTAURANT' : f === GYM ? 'HEALTH CLUB' : f === ROOF ? 'HELIPAD' : '';
     if (name) {
       ctx.font = `800 ${clamp(rowH * 0.32, 8, 13)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';

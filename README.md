@@ -144,9 +144,15 @@ tablet), to lift music.
   goes home. Nobody leaves a floor nobody is on. Each floor shows how many
   people are on it just now.
 - From level 17 there are two towers side by side to run, two lifts each:
-  apartments (people sleep there at night: full first thing, emptying as
-  they go to work, filling again in the evening) and offices (empty first
-  thing, full by day, empty again by night).
+  apartments and offices, sharing one day. At dawn the residents are all at
+  home asleep; in the morning every one of them leaves, most across the
+  street to work in the offices (walking from lobby to lobby, driving from
+  garage to garage, or now and then flying from roof to roof), the rest into
+  town, while others arrive at the offices from elsewhere. In the evening it
+  all goes the other way and the apartments end the day full.
+- True occupancy: the only ways in or out of a building are its lobby,
+  garage and roof; nobody ever sets off from a floor with nobody on it (if
+  they're due to, they wait until someone has arrived there).
 - People walk in off the street through the lobby's glass doors (and out
   again), drive down the ramp into the garage, park and walk to the lifts (or
   walk to their car and drive away), and now and then fly in or out by
@@ -176,9 +182,10 @@ tablet), to lift music.
   9:30, the middle of the day 10 to 12, lunch 12 to 2, the evening 5 to 7.
 - At the end: a histogram of everyone's trip times (from pressing the button
   to getting out), yours against the computer's, the average and median, and
-  the score: the sum of the squares of the trips (so a long wait counts for
-  much more than a short one), compared with the computer dispatcher's with
-  exactly the same people (arrivals are seeded). The truly
+  the score: the RMS (root mean square) trip -- square every trip, average,
+  take the square root, so a long wait counts for much more than a short
+  one -- the computer dispatcher's over yours, with exactly the same people
+  (arrivals are seeded). The truly
   optimal schedule can't be computed in any reasonable time, so the yardstick
   is the classic "collective control" used by real lift groups (keep going one
   way, stopping wherever someone wants to get on or off, then turn round;
