@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.48.0
+- Elevator Operator: new, more detailed people (16 by 32 pixels) in a
+  classic 8-bit style -- outlined, with shaded shirts, swinging arms and
+  big shoes -- walking side-on in five steps and facing you when they
+  stand. They're bigger on most buildings, too.
+
 ## 1.47.0
 - Elevator Operator: people walk side-on, facing the way they're going, and
   face you when they stand still. Half are women (narrower shoulders,

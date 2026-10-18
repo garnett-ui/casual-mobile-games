@@ -4,6 +4,7 @@
 // -- with 8-bit people walking from their offices, cars and helicopters to
 // the call buttons and queueing; a shaft for each lift on the right, where
 // you tap a floor to send that lift there.
+import { drawSprite, lookOf, WALK_FRAMES } from './sprites.js';
 import { Day, CAPACITY, WALK, floorName, stays, clockAt, dispatch, par } from './engine.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -44,112 +45,6 @@ const NOTES_TWIN = [
   [1035, 'Home time: back across the street'],
   [1170, 'Night falls: everyone home, lights out'],
 ];
-
-// ------------------------------------------------------------ 8-bit people
-
-// Half the people have lighter skin, half darker; half are women (narrower
-// shoulders, longer hair), and half of those wear dresses.
-const LIGHT = ['#ffdbac', '#f6d1b0', '#f1c27d'];
-const POC = ['#e0ac69', '#c68642', '#a0663a', '#8d5524', '#5c3a1e'];
-const HAIR = ['#2b1b0e', '#6a4e23', '#d6b370', '#1c1c1c', '#a33b20', '#c9c9c9', '#e8c07d', '#7b3f00'];
-const SHIRT = ['#e63946', '#457b9d', '#2a9d8f', '#f4a261', '#9b5de5', '#ffbe0b', '#06d6a0', '#ef476f', '#3a86ff', '#ffffff', '#8ecae6'];
-const PANTS = ['#264653', '#3d405b', '#22223b', '#6b705c', '#14213d', '#4a6fa5', '#8a6d3b', '#5c4033', '#7d7d7d'];
-
-// 8 x 16 pixels (twice as tall as wide): h hair, s skin, e eye, c shirt (or
-// dress), a arm, p trousers (or legs, under a dress), k shoes. Standing
-// still, people face you; walking, they're seen from the side (facing
-// right; flipped to walk left). Rows: 7 of head, 5 of body, 4 of legs.
-const FRONT = {
-  head: {
-    man: ['..hhhh..', '.hhhhhh.', '.hssssh.', '.sesses.', '.ssssss.', '..ssss..', '...ss...'],
-    woman: ['..hhhh..', '.hhhhhh.', 'hhsssshh', 'hsessesh', 'hssssssh', 'hhssssh.', 'h..ss..h'],
-  },
-  body: {
-    man: ['acccccca', 'acccccca', 'acccccca', 'acccccca', '.cccccc.'],
-    woman: ['.acccca.', '.acccca.', '.acccca.', '.acccca.', '.cccccc.'],
-  },
-  legs: ['.pppppp.', '.pp..pp.', '.pp..pp.', '.kk..kk.'],
-};
-const SIDE = {
-  head: {
-    man: ['..hhhh..', '.hhhhhh.', '.hhhsss.', '.hhssess', '..sssss.', '..ssss..', '...ss...'],
-    woman: ['..hhhh..', '.hhhhhh.', 'hhhhsss.', 'hhhsses.', 'hhhsssss', 'hh.sss..', 'h..ss...'],
-  },
-  // The near arm: forward, hanging, back -- or reaching up to a button.
-  body: {
-    fwd: ['..cccc..', '..ccca..', '..cccca.', '..cccc.a', '..cccc..'],
-    down: ['..cccc..', '..ccac..', '..ccac..', '..ccac..', '..cccc..'],
-    back: ['..cccc..', '..accc..', '.acccc..', 'a.cccc..', '..cccc..'],
-    reach: ['..cccaaa', '..ccca..', '..cccc..', '..cccc..', '..cccc..'],
-  },
-  // A five-step walk: heel down, weight on, legs passing, pushing off,
-  // reaching for the next step.
-  legs: [
-    ['..pppp..', '.pp..pp.', 'pp....pp', 'kk....kk'],
-    ['..pppp..', '.pp..pp.', '.pp...pp', '.kk...kk'],
-    ['..pppp..', '..ppp...', '...pp...', '...kkk..'],
-    ['..pppp..', '..pp.pp.', '.pp..pp.', 'kk...kk.'],
-    ['..pppp..', '.pp..ppp', 'pp......', 'kk......'],
-  ],
-  still: ['..pppp..', '...pp...', '...pp...', '...kkk..'],
-  arms: ['back', 'down', 'fwd', 'fwd', 'down'],
-};
-export const WALK_FRAMES = ['walk0', 'walk1', 'walk2', 'walk3', 'walk4'];
-
-export function lookOf(look) {
-  const [a, b, c, d] = look;
-  const woman = b % 2 === 1;
-  const skin = a % 2 ? POC : LIGHT;
-  return {
-    s: skin[(a >> 1) % skin.length],
-    h: HAIR[(b >> 1) % HAIR.length],
-    c: SHIRT[c % SHIRT.length],
-    p: PANTS[(d >> 1) % PANTS.length],
-    woman,
-    dress: woman && d % 2 === 0,
-  };
-}
-
-// To the nearest screen pixel (so sprites stay crisp at any size).
-const snap = (v) => {
-  const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
-  return Math.round(v * dpr) / dpr;
-};
-
-// Draws a person with their feet at (x, base), px screen pixels per sprite
-// pixel. pose: stand (facing you) | walk0..walk4 | press (reaching for the
-// button), side on; dir -1 faces left.
-export function drawSprite(ctx, look, x, base, px, pose = 'stand', dir = 1) {
-  const L = lookOf(look);
-  const who = L.woman ? 'woman' : 'man';
-  const walk = WALK_FRAMES.indexOf(pose);
-  let rows;
-  if (pose === 'stand') rows = [...FRONT.head[who], ...FRONT.body[who], ...FRONT.legs];
-  else {
-    const body = SIDE.body[walk >= 0 ? SIDE.arms[walk] : 'reach'];
-    rows = [...SIDE.head[who], ...body, ...(walk >= 0 ? SIDE.legs[walk] : SIDE.still)];
-  }
-  if (L.dress) {
-    // A dress to the knee, flaring a little, then legs.
-    rows = rows.slice();
-    rows[11] = rows[11].replace(/\./g, (m, i) => (i >= 1 && i <= 6 ? 'c' : m));
-    rows[12] = '.cccccc.';
-    rows[13] = 'cccccccc';
-  }
-  const y0 = base - rows.length * px;
-  const colour = { h: L.h, s: L.s, e: '#1b1b1b', c: L.c, a: L.s, p: L.dress ? L.s : L.p, k: '#222' };
-  const flip = pose !== 'stand' && dir < 0;
-  rows.forEach((row, r) => {
-    for (let i = 0; i < 8; i++) {
-      const ch = row[i];
-      if (ch === '.') continue;
-      ctx.fillStyle = colour[ch];
-      const col = flip ? 7 - i : i;
-      const [x0, x1, y1, y2] = [x + col * px, x + (col + 1) * px, y0 + r * px, y0 + (r + 1) * px].map(snap);
-      ctx.fillRect(x0, y1, x1 - x0, y2 - y1);
-    }
-  });
-}
 
 // ------------------------------------------------------------------ Tower
 
@@ -217,10 +112,13 @@ class Tower {
     // People are the same size everywhere -- on the floors and in the lifts
     // -- as big as they can be with the lifts wide enough for a full load
     // side by side and room on the floors to queue.
-    // (In steps of a screen pixel, to stay crisp.)
+    // (Each sprite pixel is px / 2: in steps of whole screen pixels, to stay
+    // crisp.)
     const dpr = this.play.dpr || 1;
-    let px = Math.max(1, Math.floor((this.rowH * 0.8 * dpr) / 16) / dpr);
-    while (px > 1 && this.x1 - 4 - CARS * (liftWidth(px) + this.gap) - this.panelW - this.doorX < Math.max(W * 0.2, 4 * 8 * px + 30)) px = Math.max(1, px - 1 / dpr);
+    const step = 2 / dpr;
+    const least = Math.ceil(1 / step) * step;
+    let px = Math.max(least, Math.floor((this.rowH * 0.8) / 16 / step) * step);
+    while (px > least && this.x1 - 4 - CARS * (liftWidth(px) + this.gap) - this.panelW - this.doorX < Math.max(W * 0.2, 4 * 8 * px + 30)) px = Math.max(least, px - step);
     this.px = px; // sprite pixel size
     this.spriteW = px * 8;
     this.shaftW = liftWidth(px);
@@ -866,8 +764,7 @@ class Tower {
     ctx.fillStyle = '#fff3cf';
     ctx.fillRect(cx + 2, cy + 3, cw - 4, ch - 4);
     const mini = this.px;
-    const fw = mini * 8;
-    riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 + k * fw, cy + ch - 1, mini, 'stand'));
+    riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 - mini + k * mini * 6, cy + ch - 1, mini, 'stand'));
     const half = (cw - 4) / 2;
     const open = half * car.open;
     ctx.fillStyle = 'rgba(150,165,185,0.35)';
@@ -939,10 +836,11 @@ class Tower {
 
 }
 
-// How wide a lift is drawn for people px screen pixels per sprite pixel:
-// room for a full load side by side.
+// How wide a lift is drawn for people of size px: room for a full load
+// side by side (standing, facing you, each is 6 * px across, with a margin
+// either side within their 8 * px sprite).
 function liftWidth(px) {
-  return CAPACITY * 8 * px + 14;
+  return CAPACITY * 6 * px + 14;
 }
 
 // ------------------------------------------------------------------- Play
