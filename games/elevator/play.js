@@ -121,7 +121,6 @@ class Tower {
     this.ctx = play.ctx;
     this.hooks = play.hooks;
     this.people = new Map(); // id -> what we see of them (walking, queueing...)
-    this.seen = new Set(); // arrivals already on their way
     this.autos = []; // cars in the garage (driving in, parked, driving out)
     this.helis = []; // helicopters coming and going
     this.ripples = [];
@@ -217,19 +216,33 @@ class Tower {
   handle(e) {
     const h = this.hooks;
     if (e.type === 'stop') h.sfx?.('ding');
-    else if (e.type === 'arrive') {
-      // Someone leaving a floor steps out of their office (or flat) now --
-      // the moment the floor's count goes down.
-      if (!this.seen.has(e.id)) {
-        this.seen.add(e.id);
-        this.people.set(e.id, { id: e.id, look: e.look, floor: e.floor, mode: 'in', dir: 1, x: this.doorX, target: this.doorX });
+    else if (e.type === 'leave') {
+      // Off to the lifts, to press the button at e.at: out of their office
+      // (or flat), along the street and in through the doors, from a car
+      // driving into the garage, or from a helicopter landing on the roof.
+      const B = this.B;
+      const v = { id: e.id, look: e.look, floor: e.floor, to: e.to, mode: 'in', dir: 1, x: this.doorX, target: this.doorX, due: e.at };
+      if (e.floor === B.ground) v.x = -this.spriteW * 2;
+      else if (e.floor < B.ground) {
+        v.hidden = true; // still in their car
+        this.parkCar(e.floor, false, e.id);
+      } else if (e.floor === B.roof) {
+        v.hidden = true; // still in the helicopter
+        this.callHeli(e.id);
       }
+      this.people.set(e.id, v);
+    } else if (e.type === 'arrive') {
+      // At the button (if the walk ran late, they're there now).
       const v = this.people.get(e.id);
-      if (v) v.pressT = this.sim.t;
+      if (v) {
+        v.pressT = this.sim.t;
+        v.hidden = false;
+      }
     } else if (e.type === 'board') {
       const v = this.people.get(e.id);
       if (v) {
         v.mode = 'board';
+        v.lift = e.car;
         v.target = this.shaftX[e.car] + this.shaftW / 2 - this.spriteW / 2;
       }
     } else if (e.type === 'deliver') {
@@ -265,44 +278,12 @@ class Tower {
     return heli;
   }
 
-  // How long before pressing the button someone sets off (so they reach it
-  // about then): from their office, the street, their car or a helicopter.
-  lead(a) {
-    const B = this.B;
-    const walk = WALK;
-    if (a.from === B.ground) return walk + 1.5;
-    if (a.from < B.ground) return walk + 2.5;
-    if (a.from === B.roof) return walk + 3.5;
-    return walk;
-  }
-
-  // Walking: people set off a little before they reach the button; the
-  // queue shuffles forward; riders step in and out of the lifts; cars drive
-  // in and out of the garage; helicopters land and take off.
+  // Walking: people make their way to the button (reaching it as they
+  // press it); the queue shuffles forward; riders step in and out of the
+  // lifts; cars drive in and out of the garage; helicopters land and take
+  // off.
   movePeople(dt) {
     const { sim, B } = this;
-    // Those coming in from outside (the street, the garage, the sky) set off
-    // early, to reach the button about when they press it.
-    for (const a of sim.pending) {
-      if (this.seen.has(a.id) || stays(B, a.from)) continue;
-      // (Not while they're still on the way out, though.)
-      const off = sim.setsOff(a);
-      if (off === Infinity || off - this.lead(a) > sim.t || sim.t < (sim.doneAt.get(a.prev) ?? -Infinity) + 1) continue;
-      this.seen.add(a.id);
-      const v = { id: a.id, look: a.look, floor: a.from, to: a.to, mode: 'in', dir: 1, x: this.doorX, target: this.doorX, t: a.t };
-      if (a.from === B.ground) {
-        v.x = -this.spriteW * 2; // along the street and in through the doors
-        this.people.set(a.id, v);
-      } else if (a.from < B.ground) {
-        v.hidden = true; // still in their car
-        this.people.set(a.id, v);
-        this.parkCar(a.from, false, a.id);
-      } else if (a.from === B.roof) {
-        v.hidden = true; // still in the helicopter
-        this.people.set(a.id, v);
-        this.callHeli(a.id);
-      }
-    }
     // Queue places: those waiting first (in order), then those on their way.
     const slot = (k) => this.panelX - 3 - (k + 1) * (this.spriteW + 2);
     for (let f = 0; f < B.floors; f++) {
@@ -326,7 +307,23 @@ class Tower {
     };
     for (const v of [...this.people.values()]) {
       if (v.hidden) continue;
-      const dx = step(v, speed * (v.mode === 'board' ? 2.5 : 1));
+      let sp = speed;
+      if (v.mode === 'in') {
+        // In time to press the button when they're due to.
+        const left = v.due - sim.t - 0.1;
+        sp = left > 0 ? Math.max(speed, Math.abs(v.target - v.x) / left) : speed * 4;
+      } else if (v.mode === 'wait') sp = speed * 3; // (catching up)
+      else if (v.mode === 'board') {
+        // In once the lift's on its way; first, a moment at the button.
+        const car = sim.cars[v.lift];
+        if (car.phase === 'moving' || car.phase === 'closing') {
+          this.people.delete(v.id);
+          continue;
+        }
+        if (sim.t - (v.pressT ?? -1) < 0.4) continue;
+        sp = speed * 2.5;
+      }
+      const dx = step(v, sp);
       v.moving = Math.abs(dx) > 0.01;
       if (v.moving) v.dir = Math.sign(dx);
       if (v.moving) continue;
@@ -659,8 +656,9 @@ class Tower {
       ctx.textBaseline = 'middle';
       ctx.fillText(String(n), bx + s2 * 2.6, by);
     }
-    // The call buttons: lit for anyone waiting to go up, or down.
-    const w = sim.waiting[f];
+    // The call buttons: lit for anyone waiting to go up, or down (or just
+    // pressed by someone stepping into a lift that's here).
+    const w = [...sim.waiting[f], ...[...this.people.values()].filter((v) => v.mode === 'board' && v.floor === f)];
     const up = w.some((p) => p.to > f);
     const down = w.some((p) => p.to < f);
     const px = this.panelX;
@@ -694,7 +692,7 @@ class Tower {
     const base = y + rowH - 2;
     for (const v of this.people.values()) {
       if (v.floor !== f || v.hidden) continue;
-      const pressing = v.pressT !== undefined && sim.t - v.pressT < 0.5 && v.mode === 'wait';
+      const pressing = v.pressT !== undefined && sim.t - v.pressT < 0.5 && (v.mode === 'wait' || v.mode === 'board');
       const pose = pressing ? 'press' : v.moving ? (Math.floor(time * 8 + v.id) % 2 ? 'walk1' : 'walk2') : 'stand';
       drawSprite(this.ctx, v.look, v.x, base, this.px, pose, v.mode === 'wait' && !v.moving ? 1 : v.dir);
       // Getting impatient.
@@ -774,9 +772,11 @@ class Tower {
     const car = sim.cars[i];
     ctx.fillStyle = '#3b3f4a';
     ctx.fillRect(x, this.top - 2, w, rowH * this.B.floors + 2);
-    // Who in this lift wants which floor.
+    // Who's in this lift (once they've stepped in), and which floors they
+    // want.
+    const riders = car.riders.filter((p) => this.people.get(p.id)?.mode !== 'board');
     const wanted = new Map();
-    for (const p of car.riders) {
+    for (const p of riders) {
       if (!wanted.has(p.to)) wanted.set(p.to, []);
       wanted.get(p.to).push(p);
     }
@@ -816,7 +816,7 @@ class Tower {
     const mini = Math.max(0.5, Math.floor(2 * Math.min((ch - 5) / 12, (cw - 6) / (CAPACITY * 8))) / 2);
     const fw = mini * 8;
     const stepX = Math.min(fw, (cw - 6 - fw) / (CAPACITY - 1));
-    car.riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 + k * stepX, cy + ch - 1, mini, 'stand'));
+    riders.forEach((p, k) => drawSprite(ctx, p.look, cx + 3 + k * stepX, cy + ch - 1, mini, 'stand'));
     const half = (cw - 4) / 2;
     const open = half * car.open;
     ctx.fillStyle = 'rgba(150,165,185,0.35)';

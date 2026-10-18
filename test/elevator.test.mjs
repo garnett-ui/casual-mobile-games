@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Sim, Day, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
+import { Sim, Day, approach, levelSpec, building, dispatch, playDispatcher, par, floorName, stays, clockAt, toPlay, CAPACITY, DOOR, MIX, PLAY, MAX_PLAY, TWINS, TRANSIT } from '../games/elevator/engine.js';
 
 const run = (sim, seconds, each = () => {}) => {
   const events = [];
@@ -86,8 +86,23 @@ test('a lift not sent anywhere waits with its doors open; they shut only when it
 test('a lift standing shut at a floor opens for someone who presses the button there', () => {
   const sim = only([{ t: 5, from: TALL.building.ground, to: 9 }, { t: 400, from: 1, to: 2 }]);
   Object.assign(sim.cars[0], { phase: 'idle', open: 0, settled: false });
-  run(sim, 9);
+  run(sim, 5 + approach(sim.building, sim.building.ground) + 2);
   assert.equal(sim.cars[0].riders.length, 1, 'the doors opened and they got on');
+});
+
+test('nobody gets on before they reach the button, even with the lift standing open there', () => {
+  const B = TALL.building;
+  for (const from of [B.ground + 4, B.ground, 0, B.roof]) {
+    const sim = only([{ t: 1, from, to: from === B.ground + 4 ? B.ground : B.ground + 4 }, { t: 400, from: 1, to: 2 }]);
+    sim.send(0, from);
+    const ev = run(sim, 20);
+    const leave = ev.find((e) => e.type === 'leave' && e.id === 0);
+    const board = ev.find((e) => e.type === 'board' && e.id === 0);
+    assert.ok(Math.abs(leave.at - (1 + approach(B, from))) < 0.05, `sets off at 1 s, due at the button ${approach(B, from)} s later`);
+    assert.ok(sim.cars[0].phase === 'loading' && board, `floor ${from}: the lift waited, and they got on`);
+    assert.ok(sim.arrivals[0].t >= leave.at - 1e-9, `floor ${from}: pressed the button on getting there`);
+    assert.ok(sim.arrivals[0].boarded >= leave.at - 1e-9, `floor ${from}: and only then got on`);
+  }
 });
 
 test('everyone getting off goes before anyone gets on; sent off early, the rest stay aboard', () => {
@@ -97,7 +112,7 @@ test('everyone getting off goes before anyone gets on; sent off early, the rest 
     { t: 400, from: 1, to: 2 },
   ]);
   sim.send(0, 0);
-  run(sim, 6);
+  run(sim, approach(sim.building, 0) + 3);
   assert.equal(sim.cars[0].riders.length, 4);
   sim.send(0, 6);
   const ev = [];

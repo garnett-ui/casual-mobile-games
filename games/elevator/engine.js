@@ -54,6 +54,16 @@ export const DWELL = 0.8; // the doors stay open at least this long
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export const WALK = 3; // seconds a new arrival takes to walk up and press the button
+
+// Seconds from setting off to pressing the button: from a floor (out of the
+// office, the restaurant, the gym, home), in off the street, from a car
+// parking in the garage, from a helicopter landing on the roof.
+export function approach(B, f) {
+  if (f === B.ground) return WALK + 1.5;
+  if (f < B.ground) return WALK + 2.5;
+  if (f === B.roof) return WALK + 3.5;
+  return WALK;
+}
 export const SETTLE = 3; // seconds at least between someone's trips
 export const BASE_SEED = 20261018;
 
@@ -300,7 +310,7 @@ export class Sim {
     this.byId = new Map(this.arrivals.map((a) => [a.id, a]));
     this.pending = this.arrivals.slice(); // not yet at the button
     this.doneAt = new Map(); // id -> when they got where they were going
-    this.next = 0; // how many have been
+    this.walking = []; // on their way to the button
     this.waiting = Array.from({ length: this.floors }, () => []);
     // How many people are on each floor (at their desks, eating, working
     // out): they leave it when they go for a lift, and add to it when they
@@ -366,11 +376,20 @@ export class Sim {
         if (this.occupancy[a.from] <= 0) continue;
         this.occupancy[a.from]--;
       }
-      a.t = this.t; // (pressing the button now)
+      // Off to the lifts: they press the button when they get there (and
+      // only then can they get on).
       this.pending.splice(k--, 1);
-      this.next++;
-      this.waiting[a.from].push({ ...a });
-      ev.push({ type: 'arrive', floor: a.from, id: a.id, look: a.look });
+      a.at = this.t + approach(this.building, a.from);
+      this.walking.push(a);
+      ev.push({ type: 'leave', floor: a.from, to: a.to, id: a.id, look: a.look, at: a.at });
+    }
+    for (let k = 0; k < this.walking.length; k++) {
+      const a = this.walking[k];
+      if (a.at > this.t) continue;
+      this.walking.splice(k--, 1);
+      a.t = this.t; // (pressing the button now)
+      this.waiting[a.from].push(a);
+      ev.push({ type: 'arrive', floor: a.from, to: a.to, id: a.id, look: a.look });
     }
     for (const car of this.cars) this.stepCar(car, dt, ev);
     // Done when everyone has got where they were going.

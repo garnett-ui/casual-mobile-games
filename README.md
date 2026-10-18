@@ -152,7 +152,9 @@ music.
   one next stop; tap another floor and it changes course at once. A lift you
   haven't sent anywhere waits with its doors open.
 - When a lift stops, anyone for that floor walks out (one at a time), then
-  everyone waiting walks in, up to 6. The floors the riders want light up in
+  everyone waiting walks in, up to 6. People get on only once they've
+  walked up to the lifts and pressed the button, even if one is standing
+  open for them. The floors the riders want light up in
   that lift's shaft, with a dot for each of them in the colour of their
   shirt. The call buttons light green for up, red for down.
 - The day is made of people, each with their own day: an office worker

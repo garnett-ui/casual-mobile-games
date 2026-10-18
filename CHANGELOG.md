@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.42.0
+- Elevator Operator: people get on a lift only once they've walked up to
+  it. Even with a lift standing open on their floor, they walk to the
+  button, press it (it lights green or red), and step in -- and only then
+  appear in the lift and as a dot on the floor they want.
+
 ## 1.41.0
 - Elevator Operator: a smarter computer to beat. A lift no longer carries on
   to a floor the other lift has already emptied -- it turns to its next job.
