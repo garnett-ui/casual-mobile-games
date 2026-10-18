@@ -7,18 +7,6 @@ import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/
 import { lockOrientation, unlockOrientation, currentOrientation } from '../../js/lib/orientation.js';
 
 const NOTE = '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="17.5" cy="16" r="2.6"/></svg>';
-const PATTERN = {
-  morning: 'The morning rush: nearly everyone is arriving for work, from the street or the garage, and a few are off to the gym or breakfast first.',
-  midday: 'The middle of the day: people going floor to floor -- meetings, coffee in the restaurant, the gym -- as well as coming and going.',
-  lunch: 'Lunchtime: out to the street, down to the restaurant on 2 or up to the health club, and back again.',
-  evening: 'Going home: most people want the lobby or their car in the garage; a few are off to the gym.',
-};
-const TWIN = {
-  morning: 'everyone gets up and leaves the apartments -- most cross the street to work in the offices (walking, driving or flying), the rest go into town -- while others arrive at the offices from elsewhere.',
-  midday: 'the offices are busy; a few residents pop home and go out again.',
-  lunch: 'the offices are busy; a few residents pop home and go out again.',
-  evening: 'the offices empty and everyone comes home: most across the street from work, the rest from town. By night the apartments are full.',
-};
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 // How long everyone's trips took (from pressing the button to getting out):
@@ -86,7 +74,7 @@ export function mount(root, ctx, sub) {
       id: 'elevator',
       title: 'Elevator Operator',
       intro: 'Run the two lifts in an office building, from the garage to the helipad. Tap a floor in a lift’s shaft to send it there, and get everyone where they’re going.',
-      outro: 'Each level is a time of day, with more people, closer together; every four, a taller building: 6 storeys, then 10, 15 and 20 -- and from level 17, an apartment tower and an office tower side by side, four lifts in all.',
+      outro: 'Each level is a whole working day, with more people; every three levels a taller building (6 storeys, then 10, 15 and 20) and from level 13, an apartment tower and an office tower side by side, four lifts in all.',
       progress,
     });
   }
@@ -251,8 +239,8 @@ export function mount(root, ctx, sub) {
     showDialog(dialog, ctx, {
       title: `Level ${n}`,
       text: `${spec.towers.length > 1
-        ? `Two towers, two lifts each: apartments on the left, where people sleep at night, and offices on the right. ${spec.towers.reduce((a, t) => a + t.people, 0)} trips: ${TWIN[spec.pattern]}`
-        : `A ${spec.building.storeys}-storey building. ${spec.people} passengers, about one every ${Math.round(spec.gap)} seconds. ${PATTERN[spec.pattern]}`}<br><br>
+        ? `A whole day, 7 AM to 7:30 PM, in about five minutes. Two towers, two lifts each: apartments on the left, where ${spec.residents} people sleep, and offices on the right. In the morning the residents all leave -- most cross the street to work in the offices (walking, driving or flying), the rest go into town -- while ${spec.workers} more come to the offices from elsewhere. Lunch, meetings, and in the evening everyone goes home.`
+        : `A whole working day, 7 AM to 7:30 PM, in about five minutes. ${spec.workers} people work in this ${spec.building.storeys}-storey building: they arrive in the morning rush, go to meetings on other floors, out to lunch (or down to the restaurant, or up to the gym), and home in the evening.`}<br><br>
         <b>Tap a floor in a lift’s shaft</b> to send it there: that’s its one next stop (tap another and it changes course).
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most). The floors they want light up, with a figure for each of them.<br><br>
         You’re done when everyone has got where they’re going. The shorter their trips, the better, and a long wait counts extra.`,

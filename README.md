@@ -131,66 +131,50 @@ tells you what he needs and reacts as you go.
 
 ### Elevator Operator
 
-You run the two lifts in an office building: parking below the street, the
-lobby at street level, a restaurant on the 2nd floor, offices, a health club
-on the top storey and a helipad on the roof. It starts at 6 storeys and grows
-every four levels (10, then 15 with two parking levels, then 20, crowned like
-the Empire State Building). Played upright on a phone (either way on a
-tablet), to lift music.
-
-- The building is empty first thing and empty again at the end of the day:
-  in the morning everyone arrives, through the middle of the day the working
-  population is at its desks, and in the evening everyone in the building
-  goes home. Nobody leaves a floor nobody is on. Each floor shows how many
-  people are on it just now.
-- From level 17 there are two towers side by side to run, two lifts each:
-  apartments and offices, sharing one day. At dawn the residents are all at
-  home asleep; in the morning every one of them leaves, most across the
-  street to work in the offices (walking from lobby to lobby, driving from
-  garage to garage, or now and then flying from roof to roof), the rest into
-  town, while others arrive at the offices from elsewhere. In the evening it
-  all goes the other way and the apartments end the day full.
-- True occupancy: the only ways in or out of a building are its lobby,
-  garage and roof; nobody ever sets off from a floor with nobody on it (if
-  they're due to, they wait until someone has arrived there).
-- People walk in off the street through the lobby's glass doors (and out
-  again), drive down the ramp into the garage, park and walk to the lifts (or
-  walk to their car and drive away), and now and then fly in or out by
-  helicopter from the roof.
+You run the lifts for a whole working day -- 7 AM to 7:30 PM, played in about
+five minutes, with an analog clock -- in an office building: parking below
+the street, the lobby at street level, a restaurant on the 2nd floor,
+offices, a health club on the top storey and a helipad on the roof. It
+starts at 6 storeys with 10 people working there and grows every three
+levels (10 storeys, then 15 with two parking levels, then 20, crowned like
+the Empire State Building), with more people each level. From level 13
+there are two towers to run, two lifts each: apartments and offices.
+Played upright on a phone (either way on a tablet), to lift music.
 
 - **Tap a floor in a lift's shaft** to send it there. Each lift has exactly
-  one next stop; tap another floor and it changes course at once (braking and
-  turning round if it has to).
-- People are little 8-bit figures: they walk out of their office, press the
-  call button by the lifts (it lights up, ▲ or ▼) and queue. A "…" bubble
+  one next stop; tap another floor and it changes course at once. A lift you
+  haven't sent anywhere waits with its doors open.
+- When a lift stops, anyone for that floor walks out (one at a time), then
+  everyone waiting walks in, up to 8. The floors the riders want light up in
+  that lift's shaft, with a little figure for each of them.
+- The day is made of people, each with their own day: an office worker
+  arrives in the morning rush (around 8:30) -- walking in off the street,
+  driving down into the garage, or now and then by helicopter -- may go to a
+  meeting on another floor, goes to lunch around 12:30 (out to the street,
+  down to the restaurant or up to the gym, back half an hour or so later),
+  and leaves around 5:30, some by way of the gym. Each keeps their looks all
+  day, and nobody starts a trip before finishing the last. The peaks come
+  out like the surveys of modern office buildings (Peters Research): the
+  morning rush nearly all arrivals (surveys: about 85%), lunch in and out.
+- Two towers: at dawn every resident is asleep in the apartments; around 8
+  they all leave -- most across the street to work in the offices (walking
+  lobby to lobby, driving garage to garage, or flying roof to roof), the rest
+  into town -- and come home in the evening, so the apartments end the day
+  full.
+- True occupancy: the only ways in or out of a building are its lobby,
+  garage and roof; nobody ever sets off from a floor with nobody on it, and
+  each floor shows how many people are on it.
+- People are little 8-bit figures who walk out of their offices, press the
+  call button by the lifts (it lights up, ▲ or ▼) and queue; a "…" bubble
   means they've waited 20 s, a red "!" 40 s.
-- When a lift stops, anyone for that floor walks out and away, and everyone
-  waiting walks in, up to 8. The floors the riders want light up in that
-  lift's shaft, with a little figure for each of them.
-- A lift you haven't sent anywhere waits with its doors open (anyone who
-  comes along walks in); the doors close when you send it.
-- Levels: a set number of passengers arriving as a Poisson process, starting
-  with 20 about 10 s apart; each level brings more, closer together. Each is
-  a time of the working day, with that time's mix of trips in, out and floor
-  to floor. The peaks follow surveys of modern office buildings (Peters
-  Research): mornings about 85% in, 10% out, 5% floor to floor; the busiest
-  part of lunch 45% in, 45% out, 10% floor to floor (out to the street, the
-  restaurant or the gym, and back). Between the peaks (half floor to floor)
-  is an estimate; in the evening everyone goes home. About a fifth of people use the
-  garage. The level ends when everyone has got where they're going.
-- An analog clock shows the time of day: the morning level runs 7:30 to
-  9:30, the middle of the day 10 to 12, lunch 12 to 2, the evening 5 to 7.
 - At the end: a histogram of everyone's trip times (from pressing the button
   to getting out), yours against the computer's, the average and median, and
   the score: the RMS (root mean square) trip -- square every trip, average,
   take the square root, so a long wait counts for much more than a short
-  one -- the computer dispatcher's over yours, with exactly the same people
-  (arrivals are seeded). The truly
-  optimal schedule can't be computed in any reasonable time, so the yardstick
-  is the classic "collective control" used by real lift groups (keep going one
-  way, stopping wherever someone wants to get on or off, then turn round;
-  don't send both lifts to the same call), tried a few ways with the best
-  taken. 100% or better earns three stars. You can watch it run your level.
+  one -- the computer dispatcher's over yours, with exactly the same people.
+  The best possible schedule can't be computed in any reasonable time, so the
+  yardstick is the classic "collective control" used by real lift groups,
+  tried a few ways with the best taken. You can watch it run your day.
 - The music is synthesised, like all the sound: a bossa nova in C on electric
   piano, bass, vibraphone and shaker (the ♪ button turns it off).
 

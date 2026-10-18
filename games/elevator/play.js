@@ -983,7 +983,7 @@ export class Play {
   // An analog clock: the time of day in the building.
   drawClock() {
     const { ctx } = this;
-    const mins = clockAt(this.spec, this.day.sims.flatMap((s) => s.arrivals), this.day.t);
+    const mins = clockAt(this.day.t);
     const r = 21;
     const cx = 8 + r;
     const cy = this.hud + 6 + r;

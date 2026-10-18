@@ -6,6 +6,17 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.37.0
+- Elevator Operator: every level is a whole working day, 7 AM to 7:30 PM, in
+  about five minutes. The day is made of people, each with their own day:
+  arriving in the morning rush, a meeting on another floor, lunch (out, the
+  restaurant or the gym, and back), home in the evening (some via the gym) --
+  keeping their looks all day, and never starting a trip before finishing the
+  last. Levels bring more people and, every three, a taller building: 6
+  storeys, then 10, 15 and 20; from level 13, the apartment and office
+  towers, where the residents leave for work in the morning and come home at
+  night.
+
 ## 1.36.0
 - Elevator Operator's two-tower levels share one day between them. At dawn
   every resident is at home asleep; in the morning they all leave -- most
