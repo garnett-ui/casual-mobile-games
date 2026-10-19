@@ -1,6 +1,5 @@
-// Card illustration for the arcade hub: Scrabble-like tiles raining down on
-// green felt -- one face down and sounding -- with their codes.
-import { CODE } from './code.js';
+// Card illustration for the arcade hub: a cloud of Scrabble-like letter
+// tiles drifting on green felt, and the code for one of them sounding.
 
 export function paint(canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -11,67 +10,47 @@ export function paint(canvas) {
   ctx.scale(dpr, dpr);
   const W = rect.width;
   const H = rect.height;
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#14513c');
+  const g = ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W * 0.7);
+  g.addColorStop(0, '#16553f');
   g.addColorStop(1, '#0a2a20');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
-  const s = Math.min(H * 0.3, W / 9);
-  const tile = (x, y, ch, back = false) => {
-    ctx.fillStyle = back ? '#6e4a24' : '#b8955c';
+  const s = Math.min(H * 0.26, W / 8);
+  // Listening: rings round the middle.
+  ctx.strokeStyle = 'rgba(255,214,90,0.25)';
+  ctx.lineWidth = 3;
+  for (let k = 1; k <= 3; k++) {
     ctx.beginPath();
-    ctx.roundRect(x, y + 3, s, s, s * 0.12);
-    ctx.fill();
-    ctx.fillStyle = back ? '#a8743f' : '#f4e4c1';
-    ctx.beginPath();
-    ctx.roundRect(x, y, s, s - 2, s * 0.12);
-    ctx.fill();
-    if (back) return;
-    ctx.fillStyle = '#3b2a1a';
-    ctx.font = `900 ${Math.round(s * 0.5)}px system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(ch, x + s / 2, y + s * 0.42);
-    const u = s / 22;
-    const code = CODE[ch];
-    let w = -u;
-    for (const c of code) w += (c === '.' ? u : 3 * u) + u;
-    let cx = x + s / 2 - w / 2;
-    ctx.fillStyle = '#7a5a3a';
-    for (const c of code) {
-      const d = c === '.' ? u : 3 * u;
-      ctx.beginPath();
-      ctx.roundRect(cx, y + s * 0.78, d, u, u / 2);
-      ctx.fill();
-      cx += d + u;
-    }
-  };
-  // The stacks along the bottom.
-  const cols = Math.floor(W / (s * 1.06));
-  const x0 = (W - cols * s * 1.06) / 2;
-  const piles = [2, 1, 0, 2, 1, 2, 1, 2, 0, 1, 2];
-  const word = 'SOSMORSECODEPARISETAN';
-  let k = 0;
-  for (let c = 0; c < cols; c++) {
-    for (let j = 0; j < piles[c % piles.length]; j++) tile(x0 + c * s * 1.06, H - (j + 1) * s - 4, word[k++ % word.length]);
-  }
-  // Falling: one face down, sounding (rings round it), one face up.
-  const fx = x0 + 2 * s * 1.06;
-  const fy = H * 0.16;
-  ctx.strokeStyle = 'rgba(255,214,90,0.8)';
-  ctx.lineWidth = 2;
-  for (let r = 1; r <= 3; r++) {
-    ctx.globalAlpha = 1 - r * 0.25;
-    ctx.beginPath();
-    ctx.roundRect(fx - r * 5, fy - r * 5, s + r * 10, s + r * 10, s * 0.2 + r * 3);
+    ctx.arc(W / 2, H / 2, s * 0.6 * k, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.globalAlpha = 1;
-  tile(fx, fy, '', true);
   ctx.fillStyle = '#ffe9b0';
   ctx.font = `900 ${Math.round(s * 0.42)}px system-ui, sans-serif`;
-  ctx.textAlign = 'left';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('· · ·  − − −  · · ·', fx + s * 1.5, fy + s / 2);
+  ctx.fillText('·  −', W / 2, H / 2);
+  const tile = (x, y, ch, tilt) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(tilt);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.roundRect(-s / 2 + 2, -s / 2 + 5, s, s, s * 0.14);
+    ctx.fill();
+    ctx.fillStyle = '#b8955c';
+    ctx.beginPath();
+    ctx.roundRect(-s / 2, -s / 2 + 3, s, s, s * 0.14);
+    ctx.fill();
+    ctx.fillStyle = '#f4e4c1';
+    ctx.beginPath();
+    ctx.roundRect(-s / 2, -s / 2, s, s - 2, s * 0.14);
+    ctx.fill();
+    ctx.fillStyle = '#3b2a1a';
+    ctx.font = `900 ${Math.round(s * 0.56)}px system-ui, sans-serif`;
+    ctx.fillText(ch, 0, 1);
+    ctx.restore();
+  };
+  const cloud = [[0.1, 0.25, 'E', -0.1], [0.24, 0.7, 'N', 0.08], [0.33, 0.28, 'T', 0.05], [0.67, 0.25, 'I', -0.06], [0.78, 0.68, 'A', 0.1], [0.9, 0.3, 'N', -0.08], [0.55, 0.78, 'E', 0.04], [0.42, 0.8, 'A', -0.12], [0.06, 0.72, 'I', 0.06], [0.95, 0.75, 'T', -0.05]];
+  for (const [fx, fy, ch, tilt] of cloud) tile(fx * W, fy * H, ch, tilt);
   return rect;
 }

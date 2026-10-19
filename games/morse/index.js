@@ -25,8 +25,8 @@ export function mount(root, ctx, sub) {
     renderLevelSelect(root, ctx, {
       id: 'morse',
       title: 'Morse Rain',
-      intro: 'Letters fall face down, each sounding its Morse code as it comes into view. Tap a tile on the board with the letter you heard to clear it.',
-      outro: 'A couple of new characters each level: the short letters first, then the longer ones, numbers and punctuation. Then faster, up to 20 words a minute.',
+      intro: 'A cloud of letters drifts about. Listen to the Morse code for one of them, and tap it. Clear the screen!',
+      outro: 'E I A N T to start, then a couple of new characters each level -- the rest of the letters, numbers and punctuation. Then faster, up to 20 words a minute.',
       progress,
     });
   }
@@ -39,7 +39,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
           <h2>Level ${n}</h2>
-          <span class="pill"><b data-left>${spec.letters.length}</b>&nbsp;to go · ${spec.wpm} wpm</span>
+          <span class="pill"><b data-left>${spec.letters.length}</b>&nbsp;left · ${spec.wpm} wpm</span>
           <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas>
@@ -60,7 +60,7 @@ export function mount(root, ctx, sub) {
     window.__morse = play;
     const tick = setInterval(() => {
       if (!play) return clearInterval(tick);
-      leftEl.textContent = spec.letters.length - play.next + play.falling.filter((f) => !f.penalty).length;
+      leftEl.textContent = play.tiles.length;
     }, 200);
     onResize = () => play?.resize();
     window.addEventListener('resize', onResize);
@@ -92,7 +92,7 @@ export function mount(root, ctx, sub) {
       .join('');
     const text = list.length
       ? `New ${list.length === 1 ? 'character' : 'characters'}: tap to listen.<div class="mr-keys">${keys}</div>
-        ${n === 1 ? 'Each letter falls face down, sounding its code. Tap a tile <b>on the board</b> with the letter you heard: it’s cleared, and so is the falling one. One nobody answers lands face up. Tap a falling tile to hear it again.' : `With all ${spec.alphabet.length} so far, at ${spec.wpm} words a minute.`}`
+        ${n === 1 ? 'You’ll hear the code for one of the letters on the screen: tap a tile with that letter and it’s gone. Clear them all! Tap anywhere else to hear it again. The wrong letter (or too long) and a copy of the right one floats in.' : `With all ${spec.alphabet.length} so far, at ${spec.wpm} words a minute.`}`
       : `A review: all ${spec.alphabet.length} characters so far, at ${spec.wpm} words a minute.`;
     ctx.track('level_start', { level: n });
     showDialog(dialog, ctx, {
@@ -115,8 +115,8 @@ export function mount(root, ctx, sub) {
       ctx.track('level_fail', { level: n });
       ctx.sfx('lose');
       showDialog(dialog, ctx, {
-        title: 'Piled up to the top',
-        text: `You got <b>${res.right}</b> of the ${res.chances} letters you could have. Tap a falling tile to hear it again -- and replay earlier levels to practise.`,
+        title: 'Too many letters!',
+        text: `The cloud grew to twice its size. You cleared <b>${res.right}</b>. Tap the background to hear a letter again -- and replay earlier levels to practise.`,
         buttons: [
           { label: 'Levels', act: 'levels', run: () => ctx.back('#/morse') },
           { label: 'Try again', act: 'retry', primary: true, run: () => showPlay(n) },
@@ -124,15 +124,15 @@ export function mount(root, ctx, sub) {
       });
       return;
     }
-    const stars = starsFor(res.right - res.wrong / 2, res.chances);
+    const stars = starsFor(res.total - res.wrong - res.missed, res.total);
     progress.complete(n, stars);
     ctx.track('level_complete', { level: n, stars });
     ctx.sfx('win');
-    const clear = res.left === 0 ? ' And the board’s clear!' : '';
+
     showDialog(dialog, ctx, {
       title: stars === 3 ? 'Loud and clear!' : stars === 2 ? 'Good copy' : 'Made it through',
       stars,
-      text: `You got <b>${res.right}</b> of the ${res.chances} letters you could have (their letter was on the board as they fell)${res.wrong ? `, with ${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}` : ''}.${clear}`,
+      text: `All ${res.right} cleared${res.wrong || res.missed ? `, with ${[res.wrong && `${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}`, res.missed && `${res.missed} too slow`].filter(Boolean).join(' and ')}` : ' -- not a single slip'}.`,
       buttons: [
         { label: 'Replay', act: 'replay', run: () => showPlay(n) },
         { label: 'Next level', act: 'next', primary: true, run: () => ctx.navigate(`#/morse/${n + 1}`, { replace: true }) },

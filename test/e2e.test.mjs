@@ -894,7 +894,7 @@ test('water lab: drag a beaker onto another to pour, and measure the amount aske
   }
 });
 
-test('morse rain: letters fall face down, sounding; tap the one heard on the board to clear it', { skip: !chromium, timeout: 90000 }, async () => {
+test('morse rain: a cloud of letters; tap the one whose code you hear, and clear the screen', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -905,46 +905,32 @@ test('morse rain: letters fall face down, sounding; tap the one heard on the boa
     await page.locator('[data-game=morse]').click();
     await page.locator('.lvl[data-n="1"]').click();
     await page.waitForFunction(() => window.__morse);
-    // The lesson's new letters, to hear.
-    assert.equal(await page.locator('.mr-key').count(), 2);
+    // The lesson's letters, to hear.
+    assert.equal(await page.locator('.mr-key').count(), 5);
     await page.locator('[data-act=start]').click();
-    await page.evaluate(() => (window.__morse.timeScale = 4));
-    // Wait for a tile on the board and one falling with the same letter, then
-    // really tap the board tile.
-    const at = await page.evaluateHandle(() => new Promise((resolve) => {
-      const w = setInterval(() => {
-        const p = window.__morse;
-        const f = p.falling.find((q) => !q.penalty);
-        if (!f) return;
-        for (let c = 0; c < p.cols; c++) {
-          const k = p.stacks[c].findIndex((t) => t.ch === f.ch);
-          if (k < 0) continue;
-          clearInterval(w);
-          p.timeScale = 0.001;
-          const r = p.canvas.getBoundingClientRect();
-          resolve({ x: r.left + p.colX(c) + p.size / 2, y: r.top + p.restY(k) + p.size / 2 });
-          return;
-        }
-      }, 30);
-    }));
-    const { x, y } = await at.jsonValue();
-    await page.touchscreen.tap(x, y);
+    await page.waitForFunction(() => window.__morse.target);
+    // Really tap a tile with the letter played (holding the cloud still).
+    const at = await page.evaluate(() => {
+      const p = window.__morse;
+      p.timeScale = 0;
+      const tile = p.tiles.find((t) => t.ch === p.target);
+      const r = p.canvas.getBoundingClientRect();
+      return { x: r.left + tile.x, y: r.top + tile.y, n: p.tiles.length };
+    });
+    await page.touchscreen.tap(at.x, at.y);
     assert.equal(await page.evaluate(() => window.__morse.right), 1);
-    // The rest of the lesson, answered.
+    assert.equal(await page.evaluate(() => window.__morse.tiles.length), at.n - 1);
+    // The rest, answered.
     await page.evaluate(() => {
       const p = window.__morse;
       p.timeScale = 6;
       setInterval(() => {
-        const f = p.falling.find((q) => !q.penalty);
-        if (!f) return;
-        for (let c = 0; c < p.cols; c++) {
-          const k = p.stacks[c].findIndex((t) => t.ch === f.ch);
-          if (k >= 0) return p.answer(c, k);
-        }
+        const tile = p.target && p.tiles.find((t) => t.ch === p.target);
+        if (tile) p.answer(tile);
       }, 50);
     });
     await page.locator('.dialog:not([hidden]) .stars').waitFor({ timeout: 60000 });
-    assert.match(await page.locator('.dialog p').textContent(), /You got \d+ of the \d+ letters/);
+    assert.match(await page.locator('.dialog p').textContent(), /All \d+ cleared/);
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:progress')));
     assert.equal(saved.unlocked, 2);
     assert.deepEqual(errors, []);

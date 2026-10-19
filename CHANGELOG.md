@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.56.0
+- Morse Rain is now a cloud: the letter tiles drift about the screen, face
+  up, and you hear the code for one of them. Tap a tile with that letter
+  to clear it, then the next -- clear the screen to win. The wrong letter
+  (or too slow) brings in a copy of the right one. The first lesson is E I
+  A N T.
+
 ## 1.55.0
 - New game: Morse Rain. Learn Morse code by ear: letters fall like
   Scrabble tiles, face down, each sounding its code (600 Hz, keyed at 20

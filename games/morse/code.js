@@ -30,13 +30,12 @@ export function duration(code, unit = UNIT) {
 // minute (a word being five characters).
 export const interval = (wpm) => 12 / wpm;
 
-// The lessons, by how many symbols the characters have: the one and two
-// symbol letters first, then three, then four; numbers; punctuation. Each
-// lesson brings in a couple more (and plays them more often); then a review
-// of all so far. After everything, the speed goes up to 20 words a minute.
+// The lessons: E I A N T to start, then a couple more characters each
+// level, by how long their codes are -- the rest of the short letters, the
+// four-symbol ones, numbers, punctuation -- with a review now and then.
+// After everything, the speed goes up to 20 words a minute.
 const ADD = [
-  ['E', 'T'], ['I', 'M'], ['A', 'N'],
-  ['S', 'O'], ['U', 'D'], ['R', 'K'], ['W', 'G'], [],
+  ['E', 'I', 'A', 'N', 'T'], ['M', 'S'], ['O', 'U'], ['R', 'D'], ['K', 'W'], ['G'], [],
   ['H', 'V'], ['F', 'L'], ['P', 'J'], ['B', 'X'], ['C', 'Y'], ['Z', 'Q'], [],
   ['1', '2', '3', '4', '5'], ['6', '7', '8', '9', '0'], ['.', ',', '?', '/'],
 ];
@@ -49,12 +48,13 @@ export function levelSpec(n) {
   // The overall rate: 5 words a minute while learning the letters (a little
   // quicker for the longer ones, numbers and punctuation); then up to 20.
   const wpm = n <= ADD.length ? (n <= 7 ? 5 : n <= 14 ? 6 : 7) : RAMP[Math.min(RAMP.length - 1, n - ADD.length - 1)];
-  const count = Math.min(60, 20 + 2 * (n - 1));
-  // The letters, the same every time for level n: the new ones half the time.
+  // The cloud: the same letters every time for level n, the new ones half
+  // the time.
+  const count = Math.min(30, 10 + 2 * (n - 1));
   const r = rng(seedFor(n, 0x5eed));
   const letters = [];
   for (let i = 0; i < count; i++) {
-    const pool = fresh.length && r() < 0.5 ? fresh : alphabet;
+    const pool = fresh.length && fresh.length < alphabet.length && r() < 0.5 ? fresh : alphabet;
     letters.push(pool[Math.floor(r() * pool.length)]);
   }
   return {
@@ -63,13 +63,16 @@ export function levelSpec(n) {
     fresh,
     wpm,
     letters,
-    gap: interval(wpm), // seconds between letters
-    fall: Math.max(2.5, Math.min(8, 40 / wpm)), // seconds for a tile to fall the height of the board
+    seed: seedFor(n, 0xc10d),
+    // How long you have to find it before a copy floats in: plenty while
+    // learning, less as the speed goes up.
+    wait: Math.max(2, 5 * interval(wpm)),
+    drift: 14 + 2.5 * wpm, // how fast the tiles drift (points a second)
   };
 }
 
-// Stars, by how many of the letters you got (of those you could have, with
-// half a letter off for each wrong tap).
+// Stars, by how many of the letters you got first time (no wrong tap, not
+// too slow).
 export function starsFor(right, total) {
   const p = right / Math.max(1, total);
   return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1;

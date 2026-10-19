@@ -19,6 +19,7 @@ const run = (p, s) => {
   for (let t = 0; t < s && !p.over; t += 1 / 30) p.update(1 / 30);
 };
 
+
 test('the code: every letter, number and the punctuation, all different', () => {
   const chars = Object.keys(CODE);
   assert.equal(chars.length, 26 + 10 + 4);
@@ -27,7 +28,7 @@ test('the code: every letter, number and the punctuation, all different', () => 
   assert.equal(CODE.Q, '--.-');
 });
 
-test('timing: sent at 20 words a minute (a dit is 60 ms), the gaps stretched to 5 to start', () => {
+test('timing: sent at 20 words a minute (a dit is 60 ms), 5 overall to start, up to 20', () => {
   assert.equal(UNIT, 0.06);
   assert.ok(Math.abs(duration('.') - 0.06) < 1e-9);
   assert.ok(Math.abs(duration('-----') - 19 * 0.06) < 1e-9, 'five dahs and four gaps');
@@ -36,66 +37,69 @@ test('timing: sent at 20 words a minute (a dit is 60 ms), the gaps stretched to 
   assert.equal(levelSpec(40).wpm, 20);
   const rates = Array.from({ length: 30 }, (_, k) => levelSpec(k + 1).wpm);
   assert.deepEqual([...rates].sort((a, b) => a - b), rates, 'never slower than the level before');
+  assert.ok(levelSpec(30).wait < levelSpec(1).wait, 'less time to find it as the speed goes up');
 });
 
-test('lessons: the short letters first, then longer ones, numbers and punctuation; the same letters every time', () => {
-  assert.deepEqual(levelSpec(1).alphabet, ['E', 'T']);
-  assert.deepEqual(levelSpec(3).alphabet.sort(), ['A', 'E', 'I', 'M', 'N', 'T']);
-  const symbols = (n) => Math.max(...levelSpec(n).fresh.map((c) => CODE[c].length));
-  for (let n = 1; n < 18; n++) if (levelSpec(n).fresh.length && levelSpec(n + 1).fresh.length) assert.ok(symbols(n + 1) >= symbols(n), `level ${n + 1}`);
-  assert.ok(levelSpec(16).fresh.every((c) => /\d/.test(c)));
-  assert.ok(levelSpec(18).fresh.every((c) => /[.,?/]/.test(c)));
-  assert.deepEqual(levelSpec(7).letters, levelSpec(7).letters);
-  const s = levelSpec(5);
+test('lessons: E I A N T to start, then a couple more each level -- longer codes, numbers, punctuation', () => {
+  assert.deepEqual(levelSpec(1).alphabet, ['E', 'I', 'A', 'N', 'T']);
+  assert.ok(levelSpec(1).letters.length >= 10);
+  const longest = (n) => Math.max(...levelSpec(n).fresh.map((c) => CODE[c].length));
+  for (let n = 2; n < 14; n++) if (levelSpec(n).fresh.length && levelSpec(n + 1).fresh.length) assert.ok(longest(n + 1) >= longest(n), `level ${n + 1}`);
+  assert.ok(levelSpec(15).fresh.every((c) => /\d/.test(c)));
+  assert.ok(levelSpec(17).fresh.every((c) => /[.,?/]/.test(c)));
+  assert.deepEqual(levelSpec(7).letters, levelSpec(7).letters, 'the same every time');
+  const s = levelSpec(4);
   assert.ok(s.letters.filter((c) => s.fresh.includes(c)).length > s.letters.length / 3, 'the new ones often');
   assert.ok(s.letters.every((c) => s.alphabet.includes(c)));
 });
 
-test('play: each letter sounds as it drops in, face down; unanswered, it lands face up', () => {
-  const { p, sounds } = game({ ...levelSpec(1), letters: ['E', 'T'], gap: 1, fall: 2 });
-  run(p, 0.7);
-  assert.deepEqual(sounds, ['.']);
-  assert.equal(p.falling.length, 1);
-  run(p, 6);
-  assert.deepEqual(sounds, ['.', '-']);
-  assert.deepEqual(p.stacks.flat().map((t) => t.ch).sort(), ['E', 'T']);
-  assert.equal(p.over.won, true, 'through the lesson');
+test('play: a cloud of letters; you hear one that is on the screen', () => {
+  const { p, sounds } = game(levelSpec(1));
+  assert.equal(p.tiles.length, levelSpec(1).letters.length);
+  run(p, 1);
+  assert.equal(sounds.length, 1);
+  assert.ok(p.tiles.some((t) => t.ch === p.target) && CODE[p.target] === sounds[0]);
+  // Drifting, and staying on the screen.
+  const at = p.tiles.map((t) => [t.x, t.y]);
+  run(p, 2);
+  assert.ok(p.tiles.some((t, k) => t.x !== at[k][0] || t.y !== at[k][1]), 'drifting');
+  assert.ok(p.tiles.every((t) => t.x >= 0 && t.x <= p.W && t.y >= p.top && t.y <= p.H), 'on the screen');
 });
 
-test('play: tap a board tile with the letter heard -- both go, and the tiles above drop', () => {
-  const { p } = game({ ...levelSpec(1), letters: ['E', 'T', 'E', 'E'], gap: 1, fall: 1.5 });
-  run(p, 4.5); // E and T land; the next E is falling
-  const col = p.stacks.findIndex((s) => s.some((t) => t.ch === 'E'));
-  // Pile a tile on top of the E, to see it drop.
-  p.stacks[col].push({ id: 99, ch: 'T', dy: 0 });
-  const before = p.stacks.flat().length;
-  assert.ok(p.falling.some((f) => f.ch === 'E'));
-  assert.equal(p.answer(col, p.stacks[col].findIndex((t) => t.ch === 'E')), true);
-  assert.equal(p.stacks.flat().length, before - 1, 'the board E gone');
-  assert.ok(!p.falling.some((f) => f.ch === 'E'), 'and the falling one');
-  assert.ok(p.stacks[col].at(-1).dy > 0, 'the T above dropping');
-  assert.equal(p.right, 1);
+test('play: tap a tile with the letter heard and it goes; the next one plays; clear them all to win', () => {
+  const { p, sounds } = game(levelSpec(1));
+  while (!p.over) {
+    run(p, 1);
+    const tile = p.tiles.find((t) => t.ch === p.target);
+    if (tile) assert.equal(p.answer(tile), true);
+  }
+  assert.equal(p.over.won, true);
+  assert.equal(p.right, levelSpec(1).letters.length);
+  assert.equal(sounds.length, levelSpec(1).letters.length, 'one each');
 });
 
-test('play: tap the wrong letter, and a copy of the right one drops in (and sounds again)', () => {
-  const { p, sounds } = game({ ...levelSpec(1), letters: ['T', 'E'], gap: 1.2, fall: 1.5 });
-  // T lands; E is falling.
-  while (!(p.stacks.flat().length && p.falling.length)) p.update(1 / 30);
-  const col = p.stacks.findIndex((s) => s.length);
-  assert.equal(p.answer(col, 0), false);
+test('play: the wrong letter (or too slow) -- a copy of the right one floats in, sounding again', () => {
+  const { p, sounds } = game({ ...levelSpec(1), letters: ['E', 'T'] });
+  run(p, 1);
+  const want = p.target;
+  const wrong = p.tiles.find((t) => t.ch !== want);
+  assert.equal(p.answer(wrong), false);
   assert.equal(p.wrong, 1);
-  assert.deepEqual(sounds.slice(-1), ['.'], 'E again');
-  assert.ok(p.falling.some((f) => f.penalty && f.ch === 'E'), 'an E drops in');
+  assert.equal(p.tiles.length, 3);
+  assert.ok(p.tiles.at(-1).ch === want && p.tiles.at(-1).copy, 'a copy of the right one');
+  assert.equal(sounds.at(-1), CODE[want], 'heard again');
+  run(p, levelSpec(1).wait + 0.5);
+  assert.equal(p.missed, 1);
+  assert.equal(p.tiles.length, 4, 'too slow: another');
 });
 
-test('play: a column up to the top, and it is over', () => {
-  const spec = { ...levelSpec(1), letters: Array(200).fill('E'), gap: 0.2, fall: 0.5 };
-  const { p } = game(spec);
-  run(p, 60);
+test('play: let the cloud grow to twice its size, and it is over', () => {
+  const { p } = game({ ...levelSpec(1), letters: ['E', 'T'], wait: 0.5 });
+  run(p, 30);
   assert.equal(p.over.won, false);
 });
 
-test('stars: by the letters you could have got', () => {
+test('stars: by the letters got first time', () => {
   assert.equal(starsFor(20, 20), 3);
   assert.equal(starsFor(15, 20), 2);
   assert.equal(starsFor(5, 20), 1);
