@@ -25,7 +25,7 @@ export function mount(root, ctx, sub) {
       id: 'morse',
       title: 'Morse Rain',
       intro: 'A cloud of letters drifts about. Listen to the Morse code for one of them, and tap it. Clear the screen!',
-      outro: 'E I A N T to start, then a couple of new characters each level -- the rest of the letters, numbers and punctuation. Then faster, up to 20 words a minute.',
+      outro: 'E I A N T to start, then a couple of new characters each level -- the rest of the letters, numbers and punctuation -- then bigger reviews of the lot. Always sent at 20 words a minute, as real Morse sounds; each one repeats until you find it.',
       progress,
     });
   }
@@ -38,7 +38,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
           <h2>Level ${n}</h2>
-          <span class="pill"><b data-left>${spec.letters.length}</b>&nbsp;left · ${spec.wpm} wpm</span>
+          <span class="pill"><b data-left>${spec.letters.length}</b>&nbsp;left</span>
           <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas>
@@ -94,8 +94,8 @@ export function mount(root, ctx, sub) {
     const quiet = !ctx.getSetting('sound');
     const text = (quiet ? '<b>Sound is off -- and this game is all sound. Start turns it on.</b><br><br>' : '') + (list.length
       ? `New ${list.length === 1 ? 'character' : 'characters'}: tap to listen.<div class="mr-keys">${keys}</div>
-        ${n === 1 ? 'You’ll hear the code for one of the letters on the screen: tap a tile with that letter and it’s gone. Clear them all! Tap anywhere else to hear it again. The wrong letter (or too long) and a copy of the right one floats in.' : `With all ${spec.alphabet.length} so far, at ${spec.wpm} words a minute.`}`
-      : `A review: all ${spec.alphabet.length} characters so far, at ${spec.wpm} words a minute.`);
+        ${n === 1 ? 'You’ll hear the code for one of the letters on the screen, again and again till you find it: tap a tile with that letter and it’s gone. Clear them all! Tap the wrong letter and a copy of the right one floats in.' : `With all ${spec.alphabet.length} so far.`}`
+      : `A review: all ${spec.alphabet.length} characters so far.`);
     ctx.track('level_start', { level: n });
     showDialog(dialog, ctx, {
       title: list.length ? `Level ${n}` : `Level ${n}: review`,
@@ -130,7 +130,7 @@ export function mount(root, ctx, sub) {
       });
       return;
     }
-    const stars = starsFor(res.total - res.wrong - res.missed, res.total);
+    const stars = starsFor(res.total - res.wrong, res.total);
     progress.complete(n, stars);
     ctx.track('level_complete', { level: n, stars });
     ctx.sfx('win');
@@ -138,7 +138,7 @@ export function mount(root, ctx, sub) {
     showDialog(dialog, ctx, {
       title: stars === 3 ? 'Loud and clear!' : stars === 2 ? 'Good copy' : 'Made it through',
       stars,
-      text: `All ${res.right} cleared${res.wrong || res.missed ? `, with ${[res.wrong && `${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}`, res.missed && `${res.missed} too slow`].filter(Boolean).join(' and ')}` : ' -- not a single slip'}.`,
+      text: `All ${res.right} cleared${res.wrong ? `, with ${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}` : ' -- not a single wrong tap'}.`,
       buttons: [
         { label: 'Replay', act: 'replay', run: () => showPlay(n) },
         { label: 'Next level', act: 'next', primary: true, run: () => ctx.navigate(`#/morse/${n + 1}`, { replace: true }) },

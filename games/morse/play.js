@@ -1,9 +1,9 @@
 // Morse Rain: a cloud of letter tiles drifting about the screen. You hear
-// the Morse code for one of them; tap a tile with that letter and it's gone
-// -- then the next. Tap the wrong letter (or take too long) and a copy of
-// the right one floats in, sounding again. Clear the screen to win; let
-// the cloud grow to twice its size and it's over.
-import { CODE, UNIT, duration } from './code.js';
+// the Morse code for one of them -- again and again, till you find it; tap
+// a tile with that letter and it's gone, then the next. Tap the wrong
+// letter and a copy of the right one floats in, sounding again. Clear the
+// screen to win; let the cloud grow to twice its size and it's over.
+import { CODE, UNIT, REPEAT, duration } from './code.js';
 import { rng } from '../../js/lib/random.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -44,7 +44,6 @@ export class Play {
     this.bursts = [];
     this.right = 0;
     this.wrong = 0;
-    this.missed = 0;
     this.over = null;
     this.target = null; // the letter you're listening for
     this.askAt = 0.8; // when the next one's played
@@ -103,35 +102,21 @@ export class Play {
     const tile = this.tiles[Math.floor(this.r() * this.tiles.length)];
     this.target = tile.ch;
     this.askedAt = this.t;
-    this.repeated = false;
     this.sound(tile.ch);
   }
 
-  // Got it wrong, or too slow: a copy of the right one floats in, and you
-  // hear it again.
+  // Got it wrong: a copy of the right one floats in, and you hear it again.
   penalty() {
     this.add(this.target, true);
     this.sound(this.target);
-    this.askedAt = this.t;
-    this.repeated = false;
     if (this.tiles.length > this.most) this.lose();
   }
 
   update(dt) {
     this.t += dt;
     if (!this.target && this.t >= this.askAt && this.tiles.length) this.ask();
-    if (this.target) {
-      const waited = this.t - this.askedAt;
-      // Once more, halfway through the wait; then a copy floats in.
-      if (!this.repeated && waited > this.spec.wait / 2) {
-        this.repeated = true;
-        this.sound(this.target);
-      }
-      if (waited > this.spec.wait) {
-        this.missed++;
-        this.penalty();
-      }
-    }
+    // Again and again, till you find it.
+    if (this.target && this.t >= this.sounding + REPEAT) this.sound(this.target);
     this.drift(dt);
     for (const b of this.bursts) b.t += dt;
     this.bursts = this.bursts.filter((b) => b.t < 0.5);
@@ -218,7 +203,7 @@ export class Play {
   }
 
   result(won) {
-    return { won, right: this.right, wrong: this.wrong, missed: this.missed, total: this.spec.letters.length, left: this.tiles.length };
+    return { won, right: this.right, wrong: this.wrong, total: this.spec.letters.length, left: this.tiles.length };
   }
 
   // The tile at (x, y), if any (the one on top).

@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.57.0
+- Morse Rain: no hurry -- the code repeats every few seconds until you find
+  the letter, and only a wrong tap brings in a copy. The "words a minute"
+  label is gone (the characters are always sent at 20 words a minute);
+  after the alphabet, the levels are reviews with bigger clouds. Stars for
+  letters found without a wrong tap.
+
 ## 1.56.1
 - Morse Rain is all by ear: the printed dots and dashes are gone (from the
   top of the screen, the lesson card and the picture), and Start turns the

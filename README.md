@@ -225,20 +225,19 @@ behind a lit window now and then.
 
 Learn Morse code by ear. A cloud of Scrabble-like letter tiles drifts about
 the screen; you hear the code for one of them -- a 600 Hz tone, always keyed
-at 20 words a minute (Farnsworth timing: the speed goes up level by level,
-from 5 words a minute overall to 20).
+at 20 words a minute, so you learn each character as a sound -- again and
+again, every few seconds, until you find it. No hurry.
 
 - **Tap a tile with the letter you heard** and it's gone; then you hear the
-  next. Clear the screen to win. Tap anywhere else to hear it again.
-- The wrong letter -- or too long finding it -- and a copy of the right one
-  floats in, sounding again. If the cloud grows to twice its size, the
-  level's over. Stars for how many you got first time.
+  next. Clear the screen to win.
+- Tap the wrong letter and a copy of the right one floats in, sounding
+  again. If the cloud grows to twice its size, the level's over. Stars for
+  how many you found without a wrong tap.
 - The lessons: E I A N T to start, then a couple of new characters each
   level by how long their codes are (the rest of the short letters, the
-  four-symbol ones), with reviews, then numbers and punctuation (. , ? /).
-  The new ones are played half the time; before each lesson, tap one to
-  hear it. After that the speed goes up to 20 words a minute (with less
-  time to find each one).
+  four-symbol ones), with reviews, then numbers and punctuation (. , ? /);
+  after that, reviews of the lot with bigger, livelier clouds. The new ones
+  are played half the time; before each lesson, tap one to hear it.
 - All by ear: the dots and dashes are never shown (learning them printed
   only gets in the way of hearing them), so it needs the sound on.
 

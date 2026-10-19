@@ -12,8 +12,8 @@ export const CODE = {
 };
 
 // The characters are always sent at 20 words a minute ("PARIS": a dit is
-// 1.2 / 20 s); the gaps between them are stretched to make the overall
-// rate slower (Farnsworth timing) -- 5 words a minute to start.
+// 1.2 / 20 s) -- learnt at full speed, as sounds, with all the time you
+// need between them (each one repeats until you find it).
 export const CHAR_WPM = 20;
 export const TONE = 600; // Hz
 export const UNIT = 1.2 / CHAR_WPM; // seconds per dit
@@ -26,31 +26,26 @@ export function duration(code, unit = UNIT) {
   return t - unit;
 }
 
-// Seconds from one character to the next at an overall rate of wpm words a
-// minute (a word being five characters).
-export const interval = (wpm) => 12 / wpm;
+// Seconds between a character and its repeat (until you find it).
+export const REPEAT = 2.5;
 
 // The lessons: E I A N T to start, then a couple more characters each
 // level, by how long their codes are -- the rest of the short letters, the
 // four-symbol ones, numbers, punctuation -- with a review now and then.
-// After everything, the speed goes up to 20 words a minute.
+// After everything, reviews of the lot, the clouds bigger and livelier.
 const ADD = [
   ['E', 'I', 'A', 'N', 'T'], ['M', 'S'], ['O', 'U'], ['R', 'D'], ['K', 'W'], ['G'], [],
   ['H', 'V'], ['F', 'L'], ['P', 'J'], ['B', 'X'], ['C', 'Y'], ['Z', 'Q'], [],
   ['1', '2', '3', '4', '5'], ['6', '7', '8', '9', '0'], ['.', ',', '?', '/'],
 ];
-const RAMP = [8, 10, 12, 14, 16, 18, 20];
 
 export function levelSpec(n) {
   const k = Math.min(n, ADD.length);
   const alphabet = ADD.slice(0, k).flat();
   const fresh = n <= ADD.length ? ADD[n - 1] : [];
-  // The overall rate: 5 words a minute while learning the letters (a little
-  // quicker for the longer ones, numbers and punctuation); then up to 20.
-  const wpm = n <= ADD.length ? (n <= 7 ? 5 : n <= 14 ? 6 : 7) : RAMP[Math.min(RAMP.length - 1, n - ADD.length - 1)];
   // The cloud: the same letters every time for level n, the new ones half
   // the time.
-  const count = Math.min(30, 10 + 2 * (n - 1));
+  const count = Math.min(36, 10 + 2 * (n - 1));
   const r = rng(seedFor(n, 0x5eed));
   const letters = [];
   for (let i = 0; i < count; i++) {
@@ -61,18 +56,13 @@ export function levelSpec(n) {
     n,
     alphabet,
     fresh,
-    wpm,
     letters,
     seed: seedFor(n, 0xc10d),
-    // How long you have to find it before a copy floats in: plenty while
-    // learning, less as the speed goes up.
-    wait: Math.max(2, 5 * interval(wpm)),
-    drift: 14 + 2.5 * wpm, // how fast the tiles drift (points a second)
+    drift: Math.min(70, 26 + 1.5 * (n - 1)), // how fast the tiles drift (points a second)
   };
 }
 
-// Stars, by how many of the letters you got first time (no wrong tap, not
-// too slow).
+// Stars, by how many of the letters you found without a wrong tap.
 export function starsFor(right, total) {
   const p = right / Math.max(1, total);
   return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CODE, UNIT, duration, interval, levelSpec, starsFor } from '../games/morse/code.js';
+import { CODE, UNIT, REPEAT, duration, levelSpec, starsFor } from '../games/morse/code.js';
 
 // The game, headless: a canvas that draws nothing.
 globalThis.requestAnimationFrame ??= () => 0;
@@ -28,16 +28,10 @@ test('the code: every letter, number and the punctuation, all different', () => 
   assert.equal(CODE.Q, '--.-');
 });
 
-test('timing: sent at 20 words a minute (a dit is 60 ms), 5 overall to start, up to 20', () => {
+test('timing: sent at 20 words a minute (a dit is 60 ms)', () => {
   assert.equal(UNIT, 0.06);
   assert.ok(Math.abs(duration('.') - 0.06) < 1e-9);
   assert.ok(Math.abs(duration('-----') - 19 * 0.06) < 1e-9, 'five dahs and four gaps');
-  assert.equal(interval(5), 2.4);
-  assert.equal(levelSpec(1).wpm, 5);
-  assert.equal(levelSpec(40).wpm, 20);
-  const rates = Array.from({ length: 30 }, (_, k) => levelSpec(k + 1).wpm);
-  assert.deepEqual([...rates].sort((a, b) => a - b), rates, 'never slower than the level before');
-  assert.ok(levelSpec(30).wait < levelSpec(1).wait, 'less time to find it as the speed goes up');
 });
 
 test('lessons: E I A N T to start, then a couple more each level -- longer codes, numbers, punctuation', () => {
@@ -78,24 +72,25 @@ test('play: tap a tile with the letter heard and it goes; the next one plays; cl
   assert.equal(sounds.length, levelSpec(1).letters.length, 'one each');
 });
 
-test('play: the wrong letter (or too slow) -- a copy of the right one floats in, sounding again', () => {
+test('play: it repeats till you find it -- no hurry; the wrong letter brings a copy of the right one', () => {
   const { p, sounds } = game({ ...levelSpec(1), letters: ['E', 'T'] });
   run(p, 1);
   const want = p.target;
+  run(p, 3 * (REPEAT + 0.3));
+  assert.ok(sounds.length >= 3 && sounds.every((c) => c === CODE[want]), 'again and again');
+  assert.equal(p.tiles.length, 2, 'no copies for taking your time');
   const wrong = p.tiles.find((t) => t.ch !== want);
   assert.equal(p.answer(wrong), false);
   assert.equal(p.wrong, 1);
   assert.equal(p.tiles.length, 3);
   assert.ok(p.tiles.at(-1).ch === want && p.tiles.at(-1).copy, 'a copy of the right one');
   assert.equal(sounds.at(-1), CODE[want], 'heard again');
-  run(p, levelSpec(1).wait + 0.5);
-  assert.equal(p.missed, 1);
-  assert.equal(p.tiles.length, 4, 'too slow: another');
 });
 
-test('play: let the cloud grow to twice its size, and it is over', () => {
-  const { p } = game({ ...levelSpec(1), letters: ['E', 'T'], wait: 0.5 });
-  run(p, 30);
+test('play: let the cloud grow to twice its size (wrong, wrong, wrong...), and it is over', () => {
+  const { p } = game({ ...levelSpec(1), letters: ['E', 'T'] });
+  run(p, 1);
+  while (!p.over) p.answer(p.tiles.find((t) => t.ch !== p.target));
   assert.equal(p.over.won, false);
 });
 
