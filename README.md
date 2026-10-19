@@ -236,9 +236,11 @@ from 5 words a minute overall to 20).
 - The lessons: E I A N T to start, then a couple of new characters each
   level by how long their codes are (the rest of the short letters, the
   four-symbol ones), with reviews, then numbers and punctuation (. , ? /).
-  The new ones are played half the time and shown with their codes across
-  the top. After that the speed goes up to 20 words a minute (with less
+  The new ones are played half the time; before each lesson, tap one to
+  hear it. After that the speed goes up to 20 words a minute (with less
   time to find each one).
+- All by ear: the dots and dashes are never shown (learning them printed
+  only gets in the way of hearing them), so it needs the sound on.
 
 ### Jigsaw
 

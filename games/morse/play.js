@@ -7,7 +7,7 @@ import { CODE, UNIT, duration } from './code.js';
 import { rng } from '../../js/lib/random.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const LEGEND = 30; // height of the strip of the lesson's new letters, at the top
+const TOP = 8; // a margin at the top
 
 export class Play {
   constructor(canvas, spec, hooks) {
@@ -62,8 +62,8 @@ export class Play {
     this.dpr = dpr;
     this.canvas.width = Math.round(this.W * dpr);
     this.canvas.height = Math.round(this.H * dpr);
-    this.size = clamp(Math.min(this.W, this.H - LEGEND) / 6.5, 44, 76);
-    this.top = LEGEND;
+    this.size = clamp(Math.min(this.W, this.H - TOP) / 6.5, 44, 76);
+    this.top = TOP;
     for (const tile of this.tiles || []) this.keepIn(tile);
   }
 
@@ -264,7 +264,7 @@ export class Play {
         ctx.strokeStyle = `rgba(255,214,90,${0.18 * (1 - u)})`;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(W / 2, (H + LEGEND) / 2, size * (0.6 + u * 3), 0, Math.PI * 2);
+        ctx.arc(W / 2, (H + TOP) / 2, size * (0.6 + u * 3), 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -279,7 +279,6 @@ export class Play {
       const r = size * (0.5 + u * 0.6);
       ctx.strokeRect(b.x - r, b.y - r, r * 2, r * 2);
     }
-    this.drawLegend();
     if (this.noSound) {
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.fillRect(0, H / 2 - 30, W, 60);
@@ -288,44 +287,6 @@ export class Play {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('Turn the sound on to hear the code', W / 2, H / 2);
-    }
-  }
-
-  // The lesson's new characters across the top, with their codes.
-  drawLegend() {
-    const { ctx, W, spec } = this;
-    const list = spec.fresh;
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(0, 0, W, LEGEND - 2);
-    ctx.textBaseline = 'middle';
-    if (!list.length) {
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.font = '700 13px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`All ${spec.alphabet.length} so far · ${spec.wpm} words a minute`, W / 2, LEGEND / 2);
-      return;
-    }
-    const each = Math.min(110, W / list.length);
-    list.forEach((ch, k) => {
-      const cx = (W - each * list.length) / 2 + each * k + each / 2;
-      ctx.fillStyle = '#ffe9b0';
-      ctx.font = '900 15px system-ui, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(ch, cx - 6, LEGEND / 2);
-      this.drawCode(cx - 2, LEGEND / 2, CODE[ch], 3, '#ffe9b0');
-    });
-  }
-
-  // Dots and dashes, left-aligned at x, centred on y, each dit u wide.
-  drawCode(x, y, code, u, colour) {
-    const { ctx } = this;
-    ctx.fillStyle = colour;
-    for (const s of code) {
-      const w = s === '.' ? u : u * 3;
-      ctx.beginPath();
-      ctx.roundRect(x, y - u / 2, w, u, u / 2);
-      ctx.fill();
-      x += w + u;
     }
   }
 

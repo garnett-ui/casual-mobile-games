@@ -1,5 +1,6 @@
 // Card illustration for the arcade hub: a cloud of Scrabble-like letter
-// tiles drifting on green felt, and the code for one of them sounding.
+// tiles drifting on green felt, and the code for one of them sounding
+// (heard, never shown).
 
 export function paint(canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -24,11 +25,8 @@ export function paint(canvas) {
     ctx.arc(W / 2, H / 2, s * 0.6 * k, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.fillStyle = '#ffe9b0';
-  ctx.font = `900 ${Math.round(s * 0.42)}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('·  −', W / 2, H / 2);
   const tile = (x, y, ch, tilt) => {
     ctx.save();
     ctx.translate(x, y);

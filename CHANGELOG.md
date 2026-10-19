@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.56.1
+- Morse Rain is all by ear: the printed dots and dashes are gone (from the
+  top of the screen, the lesson card and the picture), and Start turns the
+  sound on if it's off.
+
 ## 1.56.0
 - Morse Rain is now a cloud: the letter tiles drift about the screen, face
   up, and you hear the code for one of them. Tap a tile with that letter

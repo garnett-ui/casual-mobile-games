@@ -4,7 +4,6 @@ import { Play } from './play.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 import { playMorse } from '../../js/lib/audio.js';
 
-const pattern = (code) => [...code].map((s) => (s === '.' ? '·' : '−')).join(' ');
 
 export function mount(root, ctx, sub) {
   const progress = loadProgress(ctx);
@@ -88,23 +87,30 @@ export function mount(root, ctx, sub) {
     const dialog = root.querySelector('.dialog');
     const list = spec.fresh.length ? spec.fresh : [];
     const keys = list
-      .map((ch) => `<button class="btn mr-key" data-ch="${ch}"><b>${ch}</b><span>${pattern(CODE[ch])}</span></button>`)
+      .map((ch) => `<button class="btn mr-key" data-ch="${ch}"><b>${ch}</b></button>`)
       .join('');
-    const text = list.length
+    // Audio only: Morse is learnt by ear, never from the printed dots and
+    // dashes.
+    const quiet = !ctx.getSetting('sound');
+    const text = (quiet ? '<b>Sound is off -- and this game is all sound. Start turns it on.</b><br><br>' : '') + (list.length
       ? `New ${list.length === 1 ? 'character' : 'characters'}: tap to listen.<div class="mr-keys">${keys}</div>
         ${n === 1 ? 'You’ll hear the code for one of the letters on the screen: tap a tile with that letter and it’s gone. Clear them all! Tap anywhere else to hear it again. The wrong letter (or too long) and a copy of the right one floats in.' : `With all ${spec.alphabet.length} so far, at ${spec.wpm} words a minute.`}`
-      : `A review: all ${spec.alphabet.length} characters so far, at ${spec.wpm} words a minute.`;
+      : `A review: all ${spec.alphabet.length} characters so far, at ${spec.wpm} words a minute.`);
     ctx.track('level_start', { level: n });
     showDialog(dialog, ctx, {
       title: list.length ? `Level ${n}` : `Level ${n}: review`,
       text,
       buttons: [{ label: 'Start', act: 'start', primary: true, run: () => {
+        if (!ctx.getSetting('sound')) ctx.setSetting('sound', true);
         dialog.hidden = true;
         play.paused = false;
       } }],
     });
     dialog.querySelectorAll('.mr-key').forEach((b) => {
-      b.onclick = () => playMorse(CODE[b.dataset.ch]);
+      b.onclick = () => {
+        if (!ctx.getSetting('sound')) ctx.setSetting('sound', true);
+        playMorse(CODE[b.dataset.ch]);
+      };
     });
   }
 
