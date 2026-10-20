@@ -35,7 +35,9 @@ Progress is saved on the device.
 ## Development
 
 There is no build step: the app is plain HTML, CSS and ES modules, drawn on a
-canvas with no image or sound assets.
+canvas, with most sound synthesised; recorded audio and images are welcome
+where they make a game better (Lunar Lander has both), cached for offline
+play like everything else.
 
 ```sh
 npm install           # dev dependency: Playwright for the browser tests

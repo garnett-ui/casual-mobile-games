@@ -5,10 +5,13 @@ README says what the games are; this says how they're meant to play.
 
 ## Principles shared by every game
 
-- **Offline first, no accounts, no ads.** Everything is drawn on a canvas
-  and every sound is synthesised (Web Audio), so the app ships no image or
-  audio assets (the one exception is Lunar Lander's NASA landing clip) and
-  works with no network after the first visit.
+- **Offline first, no accounts, no ads.** Everything the app needs is
+  cached on the first visit, so it plays with no network after that.
+  Graphics are mostly drawn on a canvas and most sound is synthesised (Web
+  Audio), which keeps the download small -- but recorded audio and images
+  are fine where they make a game better (Lunar Lander's "The Eagle has
+  landed" clip and its Earthrise scenery), as long as they're cached for
+  offline play.
 - **Phone first.** Every game plays with one thumb on a phone, upright
   unless the game needs the width (Breakout plays either way); tablets get
   the extra room used well, not just stretched.
@@ -239,7 +242,7 @@ behind a lit window now and then.
   tried a few ways (with and without the staging, or assigning each call to
   whichever lift would get there soonest) and the best taken. You can watch
   it run your day.
-- The music is synthesised, like all the sound: a bossa nova in C on electric
+- The music is synthesised: a bossa nova in C on electric
   piano, bass, vibraphone and shaker (the ♪ button turns it off).
 
 ## Morse Rain
