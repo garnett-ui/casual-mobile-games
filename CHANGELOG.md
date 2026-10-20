@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.60.0
+- Share a game: a link to one game (like games.mckoss.com/#/morse) now
+  downloads just that game, not the whole arcade, and still works offline.
+  Every level page has a link to the rest of Pocket Arcade. (Browse the
+  arcade's home screen, or install it, and it keeps everything.)
+- Morse Rain, sending: key a letter with excellent timing -- dahs three
+  dits, pauses one -- and "Excellent timing!" shoots down two of that
+  letter. A KEY pad under the cannon (though anywhere on the board keys).
+
 ## 1.59.0
 - Morse Rain: sending lessons, with their own levels (pick Listen or Send
   on the level page). Letters rain down; tap anywhere to key one -- you hear

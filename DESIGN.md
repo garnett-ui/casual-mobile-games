@@ -5,8 +5,12 @@ README says what the games are; this says how they're meant to play.
 
 ## Principles shared by every game
 
-- **Offline first, no accounts, no ads.** Everything the app needs is
-  cached on the first visit, so it plays with no network after that.
+- **Offline first, no accounts, no ads.** What you play is cached as you
+  play it, so it works with no network after that: the app shell on the
+  first visit, a game when it's opened, the whole arcade once you're on its
+  home screen or have installed it. A link to one game (`#/morse`) is
+  shareable and downloads just that game; every level page has a link to
+  the arcade.
   Graphics are mostly drawn on a canvas and most sound is synthesised (Web
   Audio), which keeps the download small -- but recorded audio and images
   are fine where they make a game better (Lunar Lander's "The Eagle has
@@ -280,6 +284,11 @@ again, every few seconds, until you find it. No hurry.
   letter you sent floating up by the cannon; key something that isn't a
   letter and a ? floats up. A tile reaching the ground costs one of three
   lives. Stars by lives left (and not too much keyed at nothing).
+- Key a letter (of two or more parts) with excellent timing -- every dah
+  within about 15% of three dits and every pause of one, at your own speed
+  -- and "Excellent timing!" fires two shots, at the two lowest tiles of
+  that letter. The board keys anywhere (the header's buttons and the cards
+  don't), with a KEY pad under the cannon to aim for.
 - The keyer reads you by your own rhythm, not a fixed speed: it learns your
   dit and dah from your presses and the pauses inside a letter, starting
   from about 15 words a minute, and remembers your speed between levels. The

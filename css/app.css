@@ -272,6 +272,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .lvl:active { transform: translateY(2px); box-shadow: 0 3px 0 rgba(0, 0, 0, .2); }
 .lvl-n { font-size: 22px; font-weight: 800; }
 .lvl { position: relative; }
+.arcade-link { display: block; margin: 18px auto 8px; padding: 10px 16px; border: 0; border-radius: 14px; background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .85); font: inherit; font-size: 14px; }
 .lvl-badge {
   position: absolute;
   top: 5px;

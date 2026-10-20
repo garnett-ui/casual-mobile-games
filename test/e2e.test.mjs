@@ -138,13 +138,15 @@ test('after the first visit the app works fully offline', { skip: !chromium, tim
     page.on('pageerror', (e) => errors.push(e.message));
     const url = `http://localhost:${server.address().port}/`;
     await page.goto(url);
-    // Wait for the service worker to finish precaching and take control.
+    // Wait for the service worker to finish precaching and take control --
+    // and, the arcade being browsed, to keep every game.
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) {
         await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
       }
     });
+    await page.waitForFunction(async () => !!(await caches.match('games/car-jam/play.js')) && !!(await caches.match('games/lander/audio/eagle-has-landed.mp3')), null, { timeout: 30000, polling: 200 });
     await context.setOffline(true);
     server.close();
     await page.reload();
@@ -152,6 +154,46 @@ test('after the first visit the app works fully offline', { skip: !chromium, tim
     await page.locator('.lvl[data-n="1"]').click();
     await page.waitForFunction(() => window.__carJamPlay && window.__carJamPlay.cars.length > 0);
     assert.equal(await page.locator('canvas.board').count(), 1);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('a link to one game: it plays, downloads just that game (offline too), and points to the arcade', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const url = `http://localhost:${server.address().port}/#/water`;
+    await page.goto(url);
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      }
+    });
+    await page.waitForFunction(async () => !!(await caches.match('games/water/model.js')), null, { timeout: 30000, polling: 200 });
+    await page.waitForTimeout(500);
+    const cached = await page.evaluate(async () => ({
+      lander: !!(await caches.match('games/lander/audio/eagle-has-landed.mp3')),
+      carJam: !!(await caches.match('games/car-jam/play.js')),
+      art: !!(await caches.match('games/car-jam/art.js')),
+    }));
+    assert.deepEqual(cached, { lander: false, carJam: false, art: true }, 'just this game (and the home screen pictures)');
+    // Offline, it still plays.
+    await context.setOffline(true);
+    server.close();
+    await page.reload();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__water);
+    // And the arcade's there to find.
+    await page.locator('[data-act=levels]').click();
+    assert.match(await page.locator('.arcade-link').textContent(), /Pocket Arcade/);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

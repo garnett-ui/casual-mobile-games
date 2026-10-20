@@ -1,5 +1,6 @@
 // Shared screens for level-based games: icons, star rows, saved progress,
 // the level-select grid and the end-of-level dialog.
+import { GAMES } from '../games.js';
 
 export const ICON = {
   back: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -56,9 +57,12 @@ export function renderLevelSelect(root, ctx, { id, title, intro, outro, progress
         <p class="levels-intro">${intro}</p>
         <div class="lvl-grid">${tiles}</div>
         <p class="levels-intro">${outro}</p>
+        <button class="arcade-link" data-act="arcade">🕹️ Part of <b>Pocket Arcade</b> · ${GAMES.length - 1} more games</button>
       </div>
     </div>`;
   root.querySelector('[data-act=home]').onclick = () => ctx.back('#/');
+  // (For someone sent a link to just this game: there's more.)
+  root.querySelector('[data-act=arcade]').onclick = () => ctx.navigate('#/');
   root.querySelectorAll('.lvl:not(.locked)').forEach((b) => {
     b.onclick = () => {
       ctx.sfx('tap');

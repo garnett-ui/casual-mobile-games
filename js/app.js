@@ -32,6 +32,13 @@ export function back(parent) {
 
 let lastPage = null;
 
+// Ask the service worker to keep more of the app for offline: a game when
+// it's opened, everything once you're browsing the arcade (or it's
+// installed). (Someone sent a link to one game downloads just that one.)
+function keepOffline(games) {
+  navigator.serviceWorker?.ready.then((reg) => reg.active?.postMessage({ type: 'CACHE', games })).catch(() => {});
+}
+
 async function route() {
   const { id, sub } = parse();
   if (id !== lastPage) {
@@ -39,6 +46,7 @@ async function route() {
     trackPage(id);
   }
   const game = GAMES.find((g) => g.id === id);
+  keepOffline(!game || isStandalone() ? 'all' : [game.id]);
   if (!game) {
     unmount();
     // Back on the home screen after another window updated: load the new version now.

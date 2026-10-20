@@ -4,7 +4,11 @@ An installable, offline-first collection of casual games for phones and
 tablets. No accounts, no ads, no network needed after the first visit: open
 the site once, add it to your home screen, and play anywhere.
 
-Play at **https://games.mckoss.com/**.
+Play at **https://games.mckoss.com/**. Each game has its own link to share
+-- `https://games.mckoss.com/#/morse`, `#/lander`, `#/elevator` and so on --
+which opens straight into that game, no install needed, and downloads just
+that game (it's then playable offline too). Its level page links back to
+the whole arcade.
 
 ## Games
 

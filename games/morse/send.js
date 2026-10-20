@@ -4,8 +4,11 @@
 // tile with that letter. Key one that isn't there and it fires off at
 // nothing, the letter you sent floating up by the cannon ('?' if it wasn't
 // a letter at all). A tile that reaches the ground costs a life; three, and
-// it's over.
+// it's over. Key a letter with excellent timing -- every dah three dits,
+// every pause one -- and it fires twice, at the two lowest of that letter.
 import { Keyer } from './key.js';
+
+export const EXCELLENT = 0.9; // (precision: see Keyer.tick)
 import { rng } from '../../js/lib/random.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -57,6 +60,8 @@ export class SendPlay {
     this.lives = 3;
     this.hits = 0;
     this.wrong = 0;
+    this.excellent = 0;
+    this.praise = null; // "Excellent timing!", for a moment
     this.over = null;
     this.ids = 0;
     this.aim = -Math.PI / 2;
@@ -117,7 +122,8 @@ export class SendPlay {
     }
     // A letter keyed.
     const ch = this.keyer.tick(now);
-    if (ch) this.fire(ch);
+    if (ch) this.fire(ch, this.keyer.precision);
+    if (this.praise && (this.praise.t += dt) > 1.4) this.praise = null;
     // Shots, homing on their tiles.
     for (const s of [...this.shots]) {
       s.t += dt;
@@ -147,15 +153,23 @@ export class SendPlay {
     if (!this.queue.length && !this.tiles.length && !this.shots.length && !this.over) this.finish();
   }
 
-  // Fire at the lowest tile with that letter -- or, if there's none, off at
-  // nothing, the letter you sent floating up by the cannon.
-  fire(ch) {
+  // Fire at the lowest tile with that letter (keyed with excellent timing,
+  // the two lowest) -- or, if there's none, off at nothing, the letter you
+  // sent floating up by the cannon.
+  fire(ch, precision = null) {
     const { gun } = this;
-    const tile = this.tiles.filter((a) => a.ch === ch && !this.shots.some((s) => s.tile === a)).sort((a, b) => b.y - a.y)[0];
+    const targets = this.tiles.filter((a) => a.ch === ch && !this.shots.some((s) => s.tile === a)).sort((a, b) => b.y - a.y);
     const speed = Math.max(700, this.H * 1.4);
-    if (tile) {
-      const a = Math.atan2(tile.y - gun.y, tile.x - gun.x);
-      this.shots.push({ x: gun.x, y: gun.y - 18, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, speed, tile, t: 0, trail: [] });
+    const excellent = precision !== null && precision >= EXCELLENT;
+    if (excellent) {
+      this.excellent++;
+      this.praise = { t: 0, double: targets.length >= 2 };
+    }
+    if (targets.length) {
+      targets.slice(0, excellent ? 2 : 1).forEach((tile, k) => {
+        const a = Math.atan2(tile.y - gun.y, tile.x - gun.x);
+        this.shots.push({ x: gun.x, y: gun.y - 18, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, speed: speed * (1 - k * 0.12), tile, t: 0, trail: [] });
+      });
       return true;
     }
     this.wrong++;
@@ -190,7 +204,7 @@ export class SendPlay {
   }
 
   result(won) {
-    return { won, hits: this.hits, wrong: this.wrong, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit };
+    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit };
   }
 
   // ------------------------------------------------------------- input
@@ -313,11 +327,35 @@ export class SendPlay {
       ctx.bezierCurveTo(x + 6, y - 12, x + 12, y - 2, x, y + 6);
       ctx.fill();
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = '700 12px system-ui, sans-serif';
-    ctx.textAlign = 'right';
+    // The key pad under the cannon (though anywhere on the board keys).
+    const pw = Math.min(150, W * 0.36);
+    const ph = Math.min(30, (H - this.ground) * 0.5);
+    const py = this.ground + (H - this.ground - ph) / 2 + 4;
+    ctx.fillStyle = this.keying ? '#ffd25a' : 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.roundRect(W / 2 - pw / 2, py, pw, ph, ph / 2);
+    ctx.fill();
+    ctx.fillStyle = this.keying ? '#2b2f3a' : 'rgba(255,255,255,0.6)';
+    ctx.font = '800 12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('tap anywhere to key', W - 12, this.ground + (H - this.ground) / 2);
+    ctx.fillText('KEY · or tap anywhere', W / 2, py + ph / 2);
+    // Excellent timing!
+    if (this.praise) {
+      const u = this.praise.t / 1.4;
+      ctx.globalAlpha = Math.min(1, (1 - u) * 3);
+      ctx.fillStyle = '#ffd25a';
+      ctx.font = `900 ${Math.round(clamp(W * 0.065, 18, 30))}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const y = this.ground - 110 - u * 30;
+      ctx.fillText('Excellent timing!', W / 2, y);
+      if (this.praise.double) {
+        ctx.font = `900 ${Math.round(clamp(W * 0.05, 14, 22))}px system-ui, sans-serif`;
+        ctx.fillText('Two for one', W / 2, y + 28);
+      }
+      ctx.globalAlpha = 1;
+    }
   }
 
   drawTile(x, y, ch, tilt, low) {

@@ -203,3 +203,22 @@ test('sending: keying on the board -- your sidetone while the key is down, then 
   runSend(p, 1, 1.3);
   assert.equal(p.shots.length + p.hits, 1, 'T keyed and fired');
 });
+
+test('sending: excellent timing (every dah three dits, every pause one) shoots two of that letter', () => {
+  const k = new Keyer();
+  keyText(k, 'A', 0.1);
+  assert.ok(k.precision >= 0.9, `even keying (${k.precision})`);
+  let t = 10;
+  k.down(t); k.up((t += 0.1)); k.down((t += 0.25)); k.up((t += 0.12)); // (a ragged A: the pause long, the dah short)
+  for (let x = 0; x < 80 && !k.tick((t += 0.02)); x++);
+  assert.ok(k.precision < 0.9, `ragged keying (${k.precision})`);
+  const p = sendGame({ ...levelSpec(1), letters: ['A', 'A', 'A'] });
+  p.spec.every = 0.5;
+  runSend(p, 2);
+  p.fire('A', 0.97);
+  assert.equal(p.shots.length, 2, 'two for one');
+  assert.ok(p.praise?.double);
+  p.fire('A', 0.6);
+  assert.equal(p.shots.length, 3, 'the last one, just the one shot');
+  assert.equal(p.excellent, 1);
+});
