@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.58.0
+- Lunar Lander: missions landed with ASSIST on are marked with a little A
+  on the mission grid (and the score card says so). Land one with assist
+  off to clear its mark.
+
 ## 1.57.0
 - Morse Rain: no hurry -- the code repeats every few seconds until you find
   the letter, and only a wrong tap brings in a copy. The "words a minute"

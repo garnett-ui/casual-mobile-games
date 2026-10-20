@@ -31,13 +31,16 @@ export function loadProgress(ctx) {
   };
 }
 
-// Level grid: every unlocked level plus a few locked ones ahead.
-export function renderLevelSelect(root, ctx, { id, title, intro, outro, progress }) {
+// Level grid: every unlocked level plus a few locked ones ahead. badge(n),
+// if given, puts a little mark in a level's corner (explained in the outro).
+export function renderLevelSelect(root, ctx, { id, title, intro, outro, progress, badge }) {
   const { unlocked, stars } = progress.data;
   let tiles = '';
   for (let n = 1; n <= unlocked + 11; n++) {
     const locked = n > unlocked;
+    const mark = !locked && badge?.(n);
     tiles += `<button class="lvl ${locked ? 'locked' : ''}" data-n="${n}" ${locked ? 'disabled' : ''}>
+      ${mark ? `<span class="lvl-badge">${mark}</span>` : ''}
       <span class="lvl-n">${locked ? ICON.lock : n}</span>
       ${locked ? '' : starRow(stars[n] || 0, 'small')}
     </button>`;

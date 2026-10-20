@@ -99,6 +99,11 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   ball and a velocity box, with LOW FUEL / SINK RATE / DRIFT warnings.
 - Scored on touchdown speed, drift, tilt, centring and fuel left. Too hard,
   too fast sideways, too tilted, or a hull strike: fireball and wreckage.
+- **ASSIST** (on to start) springs the lander back upright when you let go
+  and damps sideways drift. A landing flown with it on at any point is
+  marked with a little **A** on the mission grid (and said so on the score
+  card) until the mission's been landed with it off: the stars count
+  either way, the A says how they were earned.
 - Scenery from Apollo 8's *Earthrise* photo: the Earth hangs over the far
   lunar horizon, and the ground you fly over is the photo's surface.
 - Endless missions: every one is test-flown by an autopilot when generated,

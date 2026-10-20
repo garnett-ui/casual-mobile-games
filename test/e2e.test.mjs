@@ -505,6 +505,10 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     assert.ok(await page.locator('.dialog .ll-score').count());
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:lander:progress')));
     assert.equal(saved.unlocked, 2);
+    // Flown with assist on (part of the way): noted on the card and saved,
+    // for the A on the level grid.
+    assert.ok(await page.locator('.dialog .ll-assisted').count());
+    assert.equal(saved.assisted?.['1'], true);
     // "The Eagle has landed" plays (it decodes), until you leave the score card.
     const clip = await page.evaluate(async () => {
       const a = await import('/js/lib/audio.js');
@@ -558,6 +562,10 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     await page.locator('[data-act=retry]').click();
     assert.equal(await page.evaluate(() => window.__lander.demo), false);
     assert.equal(await page.locator('.ll-demo:not([hidden])').count(), 0);
+    // The level grid: mission 1 marked A (landed with assist), explained.
+    await page.locator('[data-act=levels]').click();
+    assert.equal(await page.locator('.lvl[data-n="1"] .lvl-badge').textContent(), 'A');
+    assert.match(await page.locator('.levels-intro').last().textContent(), /landed with ASSIST on/);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

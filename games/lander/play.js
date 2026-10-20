@@ -73,6 +73,7 @@ export class Play {
     }
     this.L = newLander(this.level, this.level.fuel);
     this.outcome = null;
+    this.assisted = false; // flown with assist on at any point
     this.particles = [];
     this.debris = [];
     this.puffs = [];
@@ -158,6 +159,8 @@ export class Play {
       // Physics in fixed small steps for stability.
       let res = null;
       const n = Math.ceil(dt / (1 / 120));
+      // (Assist on at any time in the flight, it counts as an assisted landing.)
+      if (this.assist && !this.pilot && !L.landed) this.assisted = true;
       for (let k = 0; k < n && !res; k++) {
         // Tests can fly with an autopilot that steers every physics step.
         if (this.pilot) Object.assign(this.input, this.pilot(this.level, L));

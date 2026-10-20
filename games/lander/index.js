@@ -52,8 +52,9 @@ export function mount(root, ctx, sub) {
       id: 'lander',
       title: 'Lunar Lander',
       intro: 'Lift off, fly over the mountains and land gently on the base. Watch your fuel!',
-      outro: 'Every mission is a little higher, further and thirstier than the last. From mission 11: caves, tunnels and shafts.',
+      outro: 'Every mission is a little higher, further and thirstier than the last. From mission 11: caves, tunnels and shafts.<br><br><span class="lvl-badge">A</span> landed with ASSIST on. Land it with assist off to clear the mark.',
       progress,
+      badge: (n) => (progress.data.assisted?.[n] ? 'A' : ''),
     });
   }
 
@@ -232,6 +233,15 @@ export function mount(root, ctx, sub) {
   function landed(n, res) {
     if (!play) return;
     const { total, parts, stars } = res.score;
+    // Landed with assist (marked on the level grid) -- until it's landed
+    // without.
+    const data = progress.data;
+    data.assisted ??= {};
+    data.clean ??= {};
+    if (!play.assisted) {
+      data.clean[n] = true;
+      delete data.assisted[n];
+    } else if (!data.clean[n]) data.assisted[n] = true;
     progress.complete(n, stars);
     ctx.track('level_complete', { level: n, stars, score: total });
     ctx.haptic(40);
@@ -245,7 +255,7 @@ export function mount(root, ctx, sub) {
         ${row(`Tilt ${((res.tilt * 180) / Math.PI).toFixed(1)}°`, parts.level)}
         ${row('On target', parts.centre)}
         ${row('Fuel left', parts.fuel)}
-        <tr class="total"><td>Score</td><td>${total}</td></tr></table></div>`,
+        <tr class="total"><td>Score</td><td>${total}</td></tr></table></div>${play.assisted ? '<span class="ll-assisted">Landed with ASSIST on -- try it with assist off to clear the A on this mission.</span>' : ''}`,
       buttons: [
         { label: 'Fly again', act: 'replay', run: () => {
           quiet();
