@@ -269,6 +269,21 @@ again, every few seconds, until you find it. No hurry.
   are played half the time; before each lesson, tap one to hear it.
 - All by ear: the dots and dashes are never shown (learning them printed
   only gets in the way of hearing them), so it needs the sound on.
+- **Two sets of lessons, each with its own levels and stars, chosen by
+  tabs on the level page: Listen (above) and Send.**
+- **Sending**, Missile Command style: tiles drift down the screen (swaying
+  a little, faster as the levels go on). Tap anywhere to key -- a short tap
+  a dit, a long one a dah -- and you hear only your own sidetone. A pause
+  ends the letter, and the cannon at the bottom fires a homing shot at the
+  lowest tile with that letter, so the urgent ones come first (any can be
+  hit). Key a letter that isn't there and it fires off at nothing, the
+  letter you sent floating up by the cannon; key something that isn't a
+  letter and a ? floats up. A tile reaching the ground costs one of three
+  lives. Stars by lives left (and not too much keyed at nothing).
+- The keyer reads you by your own rhythm, not a fixed speed: it learns your
+  dit and dah from your presses and the pauses inside a letter, starting
+  from about 15 words a minute, and remembers your speed between levels. The
+  lessons are the same as listening's.
 
 ## Jigsaw
 

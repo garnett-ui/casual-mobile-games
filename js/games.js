@@ -61,7 +61,7 @@ export const GAMES = [
   {
     id: 'morse',
     title: 'Morse Rain',
-    blurb: 'Learn Morse code by ear: a cloud of letters drifts about. Hear the code for one, tap it, and clear the screen.',
+    blurb: 'Learn Morse code by ear: hear a letter’s code and tap it in the drifting cloud -- or key letters yourself and shoot them down.',
     color: '#2d6a4f',
     load: () => import('../games/morse/index.js'),
     art: () => import('../games/morse/art.js'),

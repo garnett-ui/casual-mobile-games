@@ -5,7 +5,7 @@ import { CODE, UNIT, REPEAT, duration, levelSpec, starsFor } from '../games/mors
 // The game, headless: a canvas that draws nothing.
 globalThis.requestAnimationFrame ??= () => 0;
 globalThis.cancelAnimationFrame ??= () => {};
-globalThis.window ??= { devicePixelRatio: 1 };
+globalThis.window ??= { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} };
 const stub = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => stub), set: () => true });
 const canvas = (w = 384, h = 700) => ({ getBoundingClientRect: () => ({ width: w, height: h, left: 0, top: 0 }), getContext: () => stub, addEventListener() {}, removeEventListener() {} });
 const { Play } = await import('../games/morse/play.js');
@@ -98,4 +98,108 @@ test('stars: by the letters got first time', () => {
   assert.equal(starsFor(20, 20), 3);
   assert.equal(starsFor(15, 20), 2);
   assert.equal(starsFor(5, 20), 1);
+});
+
+// ------------------------------------------------------------- sending
+
+const { Keyer, decode } = await import('../games/morse/key.js');
+const { SendPlay } = await import('../games/morse/send.js');
+
+// Key a string of letters on a keyer at a given dit length (with a little
+// human wobble), returning what it read.
+const keyText = (k, text, dit, start = 0) => {
+  let t = start;
+  const out = [];
+  for (const ch of text) {
+    for (const s of CODE[ch]) {
+      k.down(t);
+      t += (s === '.' ? 1 : 3) * dit * (0.9 + 0.2 * ((t * 977) % 1));
+      k.up(t);
+      t += dit * (0.9 + 0.3 * ((t * 613) % 1));
+    }
+    for (let x = 0; x < 100; x++) {
+      const c = k.tick(t);
+      if (c) {
+        out.push(c);
+        break;
+      }
+      t += 0.02;
+    }
+  }
+  return { text: out.join(''), t };
+};
+
+test('keying: decoded by your own rhythm -- quick, steady or slow', () => {
+  assert.equal(decode('.-'), 'A');
+  assert.equal(decode('.-.-.-.'), null);
+  for (const dit of [0.05, 0.08, 0.12]) assert.equal(keyText(new Keyer(), 'EIANTMSOQ5', dit).text, 'EIANTMSOQ5', `dit ${dit}`);
+  // A slow keyer: after a letter or two to learn, it reads them right.
+  const k = new Keyer();
+  keyText(k, 'EIA', 0.2);
+  assert.equal(keyText(k, 'NTMSO', 0.2, 100).text, 'NTMSO');
+  // Something that isn't a letter: '?'.
+  assert.equal(keyText(new Keyer(), 'E', 0.08).text, 'E');
+});
+
+const sendGame = (spec) => {
+  const p = new SendPlay(canvas(), spec, {});
+  p.paused = false;
+  return p;
+};
+const runSend = (p, s, now = 0) => {
+  for (let t = 0; t < s && !p.over; t += 1 / 30) p.update(1 / 30, now + t);
+};
+
+test('sending: the cannon shoots the lowest tile with the letter keyed', () => {
+  const p = sendGame({ ...levelSpec(1), letters: ['E', 'T', 'E'] });
+  p.spec.every = 0.5;
+  runSend(p, 2);
+  assert.equal(p.tiles.length, 3);
+  const lowest = p.tiles.filter((a) => a.ch === 'E').sort((a, b) => b.y - a.y)[0];
+  assert.equal(p.fire('E'), true);
+  assert.equal(p.shots[0].tile, lowest);
+  runSend(p, 1.5, 10);
+  assert.ok(!p.tiles.includes(lowest), 'shot down');
+  assert.equal(p.hits, 1);
+});
+
+test('sending: a letter that isn\'t there -- fired off at nothing, and it floats up by the cannon', () => {
+  const p = sendGame({ ...levelSpec(1), letters: ['E'] });
+  runSend(p, 1);
+  assert.equal(p.fire('T'), false);
+  assert.equal(p.wrong, 1);
+  assert.equal(p.notes[0].ch, 'T');
+  assert.equal(p.shots.length, 1);
+  assert.equal(p.shots[0].tile, null);
+  p.fire('?');
+  assert.equal(p.notes.length, 2, 'not a letter at all: a ?');
+});
+
+test('sending: tiles reaching the ground cost a life; three and it\'s over; shoot them all and you win', () => {
+  const p = sendGame({ ...levelSpec(1), letters: ['E', 'T', 'A', 'N'] });
+  p.spec.every = 0.5;
+  runSend(p, 60);
+  assert.equal(p.over.won, false);
+  assert.equal(p.lives, 0);
+  const q = sendGame({ ...levelSpec(1), letters: ['E', 'T'] });
+  q.spec.every = 0.5;
+  let now = 0;
+  while (!q.over && now < 60) {
+    for (const a of q.tiles) if (!q.shots.some((s) => s.tile === a)) q.fire(a.ch);
+    q.update(1 / 30, (now += 1 / 30));
+  }
+  assert.equal(q.over.won, true);
+  assert.equal(q.hits, 2);
+});
+
+test('sending: keying on the board -- your sidetone while the key is down, then the shot', () => {
+  const tones = [];
+  const p = new SendPlay(canvas(), { ...levelSpec(1), letters: ['T'] }, { tone: (on) => tones.push(on) });
+  p.paused = false;
+  runSend(p, 1);
+  p.press(1);
+  p.release(1.25);
+  assert.deepEqual(tones, [true, false]);
+  runSend(p, 1, 1.3);
+  assert.equal(p.shots.length + p.hits, 1, 'T keyed and fired');
 });

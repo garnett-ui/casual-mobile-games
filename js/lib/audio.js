@@ -434,6 +434,31 @@ export function playMorse(code, { at = 0, unit = 0.06, freq = 600, vol = 0.45 } 
   }
 }
 
+// A sidetone: the tone of your own key, on while you hold it down.
+let side = null;
+export function sidetone(on, { freq = 600, vol = 0.4 } = {}) {
+  if (!ac || (on && !getSetting('sound'))) return;
+  try {
+    if (!side) {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.value = 0;
+      o.connect(g);
+      g.connect(master);
+      o.start();
+      side = { o, g };
+    }
+    const t = ac.currentTime;
+    side.g.gain.cancelScheduledValues(t);
+    side.g.gain.setValueAtTime(side.g.gain.value, t);
+    side.g.gain.linearRampToValueAtTime(on ? vol : 0, t + 0.005);
+  } catch {
+    // Never let audio problems break the game.
+  }
+}
+
 export function sfx(name, arg) {
   if (!getSetting('sound') || !ac || !SFX[name]) return;
   try {

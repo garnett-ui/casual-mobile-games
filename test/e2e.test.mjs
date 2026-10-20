@@ -948,6 +948,60 @@ test('morse rain: a cloud of letters; tap the one whose code you hear, and clear
   }
 });
 
+test('morse rain, sending: key a letter by tapping, and the cannon shoots it down', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=morse]').click();
+    // The Send tab: its own levels.
+    await page.locator('.mr-tabs [data-mode=send]').click();
+    await page.waitForFunction(() => location.hash === '#/morse/send');
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__morseSend);
+    await page.locator('[data-act=start]').click();
+    await page.waitForFunction(() => window.__morseSend.tiles.length > 0);
+    // Key the lowest tile's letter with the mouse, held for real: a short
+    // press for a dit, a long one for a dah.
+    const { code, box } = await page.evaluate(async () => {
+      const { CODE } = await import('/games/morse/code.js');
+      const p = window.__morseSend;
+      p.timeScale = 0.2; // (slow the rain while we key)
+      const low = p.tiles.slice().sort((a, b) => b.y - a.y)[0];
+      const r = p.canvas.getBoundingClientRect();
+      return { code: CODE[low.ch], box: { x: r.left + r.width / 2, y: r.top + r.height / 2 } };
+    });
+    await page.mouse.move(box.x, box.y);
+    for (const s of code) {
+      await page.mouse.down();
+      await page.waitForTimeout(s === '.' ? 70 : 280);
+      await page.mouse.up();
+      await page.waitForTimeout(90);
+    }
+    await page.waitForFunction(() => window.__morseSend.hits === 1 || window.__morseSend.shots.length === 1, null, { timeout: 5000 });
+    // The rest, fired at for us.
+    await page.evaluate(() => {
+      const p = window.__morseSend;
+      p.timeScale = 4;
+      setInterval(() => {
+        for (const a of p.tiles) if (!p.shots.some((s) => s.tile === a)) p.fire(a.ch);
+      }, 100);
+    });
+    await page.locator('.dialog:not([hidden]) .stars').waitFor({ timeout: 60000 });
+    assert.match(await page.locator('.dialog p').textContent(), /shot down/);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:send-progress')));
+    assert.equal(saved.unlocked, 2);
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:morse:progress')), null, 'listening progress apart');
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('elevator operator: tap a shaft to send a lift, deliver everyone, scored against the dispatcher', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

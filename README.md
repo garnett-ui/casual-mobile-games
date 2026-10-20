@@ -16,8 +16,8 @@ Play at **https://games.mckoss.com/**.
 - **Water Lab** -- pour water between beakers to measure an exact amount.
 - **Elevator Operator** -- run the lifts through a working day, from a
   six-storey office block to twin towers, against the computer.
-- **Morse Rain** -- learn Morse code by ear: hear a letter, tap it in the
-  drifting cloud.
+- **Morse Rain** -- learn Morse code by ear: hear a letter and tap it in
+  the drifting cloud, or key letters yourself and shoot them down.
 - **Jigsaw** -- turn your own photos into jigsaw puzzles.
 
 How each one is meant to play, and the decisions behind it, are in

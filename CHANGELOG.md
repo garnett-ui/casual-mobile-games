@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.59.0
+- Morse Rain: sending lessons, with their own levels (pick Listen or Send
+  on the level page). Letters rain down; tap anywhere to key one -- you hear
+  your own sidetone -- and the cannon shoots down the lowest tile with that
+  letter. Key a letter that isn't there and it fires off at nothing, the
+  letter floating up by the cannon. Three tiles reaching the ground and
+  it's over. The keying follows your own speed.
+
 ## 1.58.0
 - Lunar Lander: missions landed with ASSIST on are marked with a little A
   on the mission grid (and the score card says so). Land one with assist
