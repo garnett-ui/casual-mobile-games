@@ -12,6 +12,10 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // The character for a pattern, or null.
 export const decode = (code) => LETTER[code] ?? null;
 
+// What tick gives for keying that isn't any character. (Not '?': that's a
+// character of its own.)
+export const UNKNOWN = '#';
+
 export class Keyer {
   constructor({ dit = 0.08 } = {}) {
     this.dit = dit; // your dit, as you key it (seconds)
@@ -65,7 +69,7 @@ export class Keyer {
   }
 
   // The letter just sent, once you've paused long enough -- its character,
-  // '?' if it isn't one -- or null. Also, in `precision`, how evenly it was
+  // UNKNOWN if it isn't one -- or null. Also, in `precision`, how evenly it was
   // keyed (for letters of two or more parts; otherwise null): 1 for
   // perfect -- every dah three dits, every pause one -- less the more each
   // part strays (at whatever speed you key).
@@ -81,6 +85,6 @@ export class Keyer {
       const off = parts.reduce((a, [d, k]) => a + Math.abs(d / (k * unit) - 1), 0) / parts.length;
       this.precision = Math.max(0, 1 - off);
     }
-    return code.length > 7 ? '?' : decode(code) ?? '?';
+    return code.length > 7 ? UNKNOWN : decode(code) ?? UNKNOWN;
   }
 }

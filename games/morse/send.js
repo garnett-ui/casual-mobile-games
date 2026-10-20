@@ -2,11 +2,12 @@
 // style. Key a letter's code by tapping anywhere (you hear your own
 // sidetone, nothing else), and the cannon at the bottom fires at the lowest
 // tile with that letter. Key one that isn't there and it fires off at
-// nothing, the letter you sent floating up by the cannon ('?' if it wasn't
-// a letter at all). A tile that reaches the ground costs a life; three, and
+// nothing, carrying the letter you sent off with it (and it floats up by
+// the cannon); key something that isn't a character at all and out pops a
+// dud, which drops to the ground -- splat -- and a red ? floats up. A tile that reaches the ground costs a life; three, and
 // it's over. Key a letter with excellent timing -- every dah three dits,
 // every pause one -- and it fires twice, at the two lowest of that letter.
-import { Keyer } from './key.js';
+import { Keyer, UNKNOWN } from './key.js';
 
 export const EXCELLENT = 0.9; // (precision: see Keyer.tick)
 import { rng } from '../../js/lib/random.js';
@@ -57,6 +58,8 @@ export class SendPlay {
     this.shots = [];
     this.booms = [];
     this.notes = []; // letters sent at nothing, floating up by the cannon
+    this.duds = []; // keyed nothing at all: out it pops, and down
+    this.splats = [];
     this.lives = 3;
     this.hits = 0;
     this.wrong = 0;
@@ -144,13 +147,25 @@ export class SendPlay {
         this.hooks.haptic?.(20);
       } else if (s.x < -40 || s.x > this.W + 40 || s.y < -40 || s.t > 3) this.shots.splice(this.shots.indexOf(s), 1);
     }
+    // Duds falling -- splat.
+    for (const d of [...this.duds]) {
+      d.vy += 1400 * dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      if (d.y >= this.ground - 3) {
+        this.duds.splice(this.duds.indexOf(d), 1);
+        this.splats.push({ x: d.x, t: 0, drops: Array.from({ length: 6 }, () => [(this.r() - 0.5) * 30, this.r() * 8]) });
+      }
+    }
+    for (const sp of this.splats) sp.t += dt;
+    this.splats = this.splats.filter((sp) => sp.t < 1.5);
     for (const b of this.booms) b.t += dt;
     this.booms = this.booms.filter((b) => b.t < 0.7);
     for (const n of this.notes) n.t += dt;
     this.notes = this.notes.filter((n) => n.t < 2);
     const want = this.shots.at(-1);
     if (want) this.aim += (Math.atan2(want.vy, want.vx) - this.aim) * Math.min(1, dt * 20);
-    if (!this.queue.length && !this.tiles.length && !this.shots.length && !this.over) this.finish();
+    if (!this.queue.length && !this.tiles.length && !this.shots.length && !this.duds.length && !this.over) this.finish();
   }
 
   // Fire at the lowest tile with that letter (keyed with excellent timing,
@@ -174,10 +189,15 @@ export class SendPlay {
     }
     this.wrong++;
     this.notes.push({ ch, t: 0, x: gun.x + (this.r() - 0.5) * 60 });
-    if (ch !== '?') {
-      const a = -Math.PI / 2 + (this.r() - 0.5) * 1.6;
-      this.shots.push({ x: gun.x, y: gun.y - 18, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, speed, tile: null, t: 0, trail: [] });
+    if (ch === UNKNOWN) {
+      // A dud: a feeble pop, and straight back down.
+      const side = this.r() < 0.5 ? -1 : 1;
+      this.duds.push({ x: gun.x, y: gun.y - 30, vx: side * (70 + this.r() * 60), vy: -Math.max(220, this.H * 0.3) });
+      return false;
     }
+    // Off at nothing, with the letter you sent.
+    const a = -Math.PI / 2 + (this.r() - 0.5) * 1.6;
+    this.shots.push({ x: gun.x, y: gun.y - 18, vx: Math.cos(a) * speed * 0.6, vy: Math.sin(a) * speed * 0.6, speed, tile: null, t: 0, trail: [], label: ch });
     return false;
   }
 
@@ -277,6 +297,38 @@ export class SendPlay {
       ctx.beginPath();
       ctx.arc(s.x, s.y, 3.5, 0, Math.PI * 2);
       ctx.fill();
+      // Fired at nothing: the letter you sent, riding along.
+      if (s.label) {
+        ctx.fillStyle = '#ffe9b0';
+        ctx.font = `900 ${Math.round(size * 0.36)}px system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(s.label, s.x + 8, s.y);
+      }
+    }
+    // Duds, and where they landed.
+    for (const d of this.duds) {
+      ctx.fillStyle = '#7d7f86';
+      ctx.strokeStyle = '#4a4c52';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    for (const sp of this.splats) {
+      ctx.globalAlpha = Math.min(1, (1.5 - sp.t) * 2);
+      const squash = Math.min(1, sp.t * 12);
+      ctx.fillStyle = '#7d7f86';
+      ctx.beginPath();
+      ctx.ellipse(sp.x, this.ground - 2, 6 + 10 * squash, 5 - 2.5 * squash, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (const [dx, dy] of sp.drops) {
+        ctx.beginPath();
+        ctx.arc(sp.x + dx * squash, this.ground - 3 - dy * squash, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     }
     for (const b of this.booms) {
       const u = b.t / 0.7;
@@ -306,14 +358,14 @@ export class SendPlay {
     ctx.arc(gun.x, gun.y, 18, Math.PI, 0);
     ctx.fill();
     ctx.fillRect(gun.x - 30, gun.y, 60, 8);
-    // Letters sent at nothing, floating up by the cannon.
+    // Letters sent at nothing (and duds' ?s), floating up by the cannon.
     for (const n of this.notes) {
       ctx.globalAlpha = 1 - n.t / 2;
-      ctx.fillStyle = n.ch === '?' ? '#ff8a8a' : '#ffe9b0';
+      ctx.fillStyle = n.ch === UNKNOWN ? '#ff8a8a' : '#ffe9b0';
       ctx.font = `900 ${Math.round(size * 0.5)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(n.ch === '?' ? '?' : `${n.ch}?`, n.x, gun.y - 50 - n.t * 40);
+      ctx.fillText(n.ch === UNKNOWN ? '?' : n.ch, n.x, gun.y - 50 - n.t * 40);
       ctx.globalAlpha = 1;
     }
     // Lives.

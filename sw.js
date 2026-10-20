@@ -21,7 +21,10 @@ const rel = (url) => {
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    // The shell, and whichever games the last version had cached.
+    // The shell, and whichever games the last version had cached. (Say
+    // which version's coming first: looking through the old cache takes a
+    // moment.)
+    await report(0, CORE.length);
     await precache([...CORE, ...filesOf(await cachedGames())]);
     // A first install takes over straight away. An update waits until the
     // player taps Update on the home screen -- never in the middle of a game.
@@ -45,17 +48,16 @@ async function cachedGames() {
 
 // Download files into the new cache a few at a time, telling open pages how
 // far along it is so they can show a progress bar for updates.
+async function report(done, total) {
+  const pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const page of pages) page.postMessage({ type: 'UPDATE_PROGRESS', version: self.PRECACHE.appVersion, done, total });
+}
+
 async function precache(list) {
   const cache = await caches.open(CACHE);
   const total = list.length;
   let done = 0;
-  const report = async () => {
-    const pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const page of pages) {
-      page.postMessage({ type: 'UPDATE_PROGRESS', version: self.PRECACHE.appVersion, done, total });
-    }
-  };
-  await report();
+  await report(done, total);
   const queue = list.slice();
   const fetchNext = async () => {
     while (queue.length) {
@@ -64,7 +66,7 @@ async function precache(list) {
       if (!res.ok) throw new Error(`precache ${file}: ${res.status}`);
       await cache.put(file, res);
       done++;
-      await report();
+      await report(done, total);
     }
   };
   await Promise.all(Array.from({ length: 6 }, fetchNext));

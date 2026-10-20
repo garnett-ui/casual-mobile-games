@@ -280,9 +280,10 @@ again, every few seconds, until you find it. No hurry.
   a dit, a long one a dah -- and you hear only your own sidetone. A pause
   ends the letter, and the cannon at the bottom fires a homing shot at the
   lowest tile with that letter, so the urgent ones come first (any can be
-  hit). Key a letter that isn't there and it fires off at nothing, the
-  letter you sent floating up by the cannon; key something that isn't a
-  letter and a ? floats up. A tile reaching the ground costs one of three
+  hit). Key a letter that isn't there and the shot flies off across the
+  screen carrying it (and it floats up by the cannon); key something that
+  isn't a character at all and out pops a dud, which drops straight to the
+  ground -- splat -- with a red ? by the cannon. A tile reaching the ground costs one of three
   lives. Stars by lives left (and not too much keyed at nothing).
 - Key a letter (of two or more parts) with excellent timing -- every dah
   within about 15% of three dits and every pause of one, at your own speed

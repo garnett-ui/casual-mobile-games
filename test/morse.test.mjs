@@ -102,7 +102,7 @@ test('stars: by the letters got first time', () => {
 
 // ------------------------------------------------------------- sending
 
-const { Keyer, decode } = await import('../games/morse/key.js');
+const { Keyer, decode, UNKNOWN } = await import('../games/morse/key.js');
 const { SendPlay } = await import('../games/morse/send.js');
 
 // Key a string of letters on a keyer at a given dit length (with a little
@@ -163,7 +163,7 @@ test('sending: the cannon shoots the lowest tile with the letter keyed', () => {
   assert.equal(p.hits, 1);
 });
 
-test('sending: a letter that isn\'t there -- fired off at nothing, and it floats up by the cannon', () => {
+test('sending: a letter that isn\'t there flies off carrying it; not a character at all, a dud -- splat', () => {
   const p = sendGame({ ...levelSpec(1), letters: ['E'] });
   runSend(p, 1);
   assert.equal(p.fire('T'), false);
@@ -171,8 +171,17 @@ test('sending: a letter that isn\'t there -- fired off at nothing, and it floats
   assert.equal(p.notes[0].ch, 'T');
   assert.equal(p.shots.length, 1);
   assert.equal(p.shots[0].tile, null);
-  p.fire('?');
-  assert.equal(p.notes.length, 2, 'not a letter at all: a ?');
+  assert.equal(p.shots[0].label, 'T', 'the letter sent, riding along');
+  p.fire(UNKNOWN);
+  assert.equal(p.notes.length, 2, 'a ? floats up');
+  assert.equal(p.duds.length, 1, 'out pops a dud');
+  let now = 5;
+  while (p.duds.length && now < 8) p.update(1 / 30, (now += 1 / 30));
+  assert.equal(p.duds.length, 0);
+  assert.equal(p.splats.length, 1, 'down it comes: splat');
+  // (A real question mark is a character, not a dud.)
+  assert.notEqual(UNKNOWN, '?');
+  assert.equal(decode('..--..'), '?');
 });
 
 test('sending: tiles reaching the ground cost a life; three and it\'s over; shoot them all and you win', () => {

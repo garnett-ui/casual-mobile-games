@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.60.1
+- Morse Rain, sending: key something that isn't a character and out pops a
+  dud, which drops to the ground with a splat (and a red ?). Key a letter
+  that isn't on the screen and the shot flies off carrying that letter.
+
 ## 1.60.0
 - Share a game: a link to one game (like games.mckoss.com/#/morse) now
   downloads just that game, not the whole arcade, and still works offline.
