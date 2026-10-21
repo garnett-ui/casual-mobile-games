@@ -1,0 +1,130 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Solver, goalOf, isSolvable, scramble, shuffle, apply, neighbours } from '../games/fifteen/solver.js';
+import { rng } from '../js/lib/random.js';
+
+const reaches = (solver, board, path) => {
+  let s = board;
+  const nb = neighbours(solver.w, solver.h);
+  for (const c of path) {
+    assert.ok(nb[s.indexOf(0)].includes(c), 'a legal move');
+    s = apply(s, c);
+  }
+  return s.join() === solver.goal.join();
+};
+
+test('small boards: a table of every position -- half of them reachable, the farthest as far as known', () => {
+  // (The farthest positions: 21 moves on 2x3, 36 on 2x4, 31 on 3x3.)
+  for (const [w, h, far] of [[3, 2, 21], [4, 2, 36], [3, 3, 31]]) {
+    const s = new Solver(w, h);
+    const t = s.table();
+    let reached = 0;
+    let most = 0;
+    for (const d of t) if (d !== 255) (reached++, (most = Math.max(most, d)));
+    assert.equal(reached, t.length / 2, `${w}x${h}: half`);
+    assert.equal(most, far, `${w}x${h}: farthest`);
+  }
+});
+
+test('solvable: the parity rule agrees with the table, for every 3x3 arrangement tried', () => {
+  const s = new Solver(3, 3);
+  const r = rng(1);
+  for (let k = 0; k < 2000; k++) {
+    const board = goalOf(3, 3);
+    for (let i = board.length - 1; i > 0; i--) {
+      const j = Math.floor(r() * (i + 1));
+      [board[i], board[j]] = [board[j], board[i]];
+    }
+    assert.equal(isSolvable(board, s.goal, 3), s.table()[s.rank(board)] !== 255);
+  }
+  // ...and for 4x4: the famous 14-15 swap can't be done.
+  const loyd = goalOf(4, 4);
+  [loyd[13], loyd[14]] = [loyd[14], loyd[13]];
+  assert.equal(isSolvable(loyd, goalOf(4, 4), 4), false);
+  assert.equal(isSolvable(goalOf(4, 4), goalOf(4, 4), 4), true);
+});
+
+test('scrambles and shuffles are always solvable', () => {
+  const r = rng(2);
+  for (const [w, h] of [[3, 3], [4, 3], [4, 4], [5, 5]]) {
+    const goal = goalOf(w, h);
+    for (let k = 0; k < 200; k++) {
+      assert.ok(isSolvable(scramble(goal, w, h, 1 + Math.floor(r() * 80), r), goal, w));
+      assert.ok(isSolvable(shuffle(goal, w, r), goal, w));
+    }
+  }
+});
+
+test('the search finds the same distances as the table (3x3, searched)', () => {
+  const s = new Solver(3, 3);
+  const r = rng(3);
+  // A searching solver for 3x3, as if it were too big for a table.
+  const searcher = new Solver(3, 3);
+  searcher.groups = () => [[1, 2, 3, 4], [5, 6, 7, 8]];
+  for (let k = 0; k < 150; k++) {
+    const board = shuffle(s.goal, 3, r);
+    const path = searcher.search(board, Infinity);
+    assert.equal(path.length, s.distance(board));
+    assert.ok(reaches(s, board, path));
+    assert.ok(searcher.estimate(board) <= path.length, 'never overestimates');
+  }
+});
+
+test('3x4: exact by search, the line it gives solves it, the estimate never over', () => {
+  const s = new Solver(4, 3);
+  const r = rng(4);
+  for (let k = 0; k < 30; k++) {
+    const board = shuffle(s.goal, 4, r);
+    const path = s.solve(board);
+    assert.ok(reaches(s, board, path));
+    assert.ok(s.estimate(board) <= path.length);
+    assert.equal(path.length % 2, s.estimate(board) % 2, 'same parity as the bound');
+  }
+});
+
+test('4x4: known optimal solutions (Korf\'s instances)', () => {
+  // (Korf 1985: goal with the gap top left; instances 1 and 2 -- 57 and 55
+  // moves -- plus easier ones made by scrambling.)
+  const korf = Array.from({ length: 16 }, (_, i) => i);
+  const s = new Solver(4, 4, korf);
+  for (const [board, d] of [
+    [[14, 13, 15, 7, 11, 12, 9, 5, 6, 0, 2, 1, 4, 8, 10, 3], 57],
+    [[13, 5, 4, 10, 9, 12, 8, 14, 2, 3, 7, 1, 0, 15, 11, 6], 55],
+  ]) {
+    const path = s.solve(board);
+    assert.equal(path.length, d);
+    assert.ok(reaches(s, board, path));
+  }
+});
+
+test('following a game: every move one more or one less; the moves are the distance plus two for every wrong way', () => {
+  const r = rng(5);
+  for (const [w, h, depth] of [[3, 3, 40], [4, 3, 30], [4, 4, 30]]) {
+    const s = new Solver(w, h);
+    const start = scramble(s.goal, w, h, depth, r);
+    // A wandering player: mostly the best move, sometimes a random one.
+    const moves = [];
+    let board = start;
+    const nb = neighbours(w, h);
+    for (let k = 0; k < 300 && board.join() !== s.goal.join(); k++) {
+      const m = r() < 0.75 ? s.hint(board) : nb[board.indexOf(0)][Math.floor(r() * nb[board.indexOf(0)].length)];
+      moves.push(m);
+      board = apply(board, m);
+    }
+    assert.equal(board.join(), s.goal.join(), `${w}x${h} solved`);
+    const ds = s.walk(start, moves);
+    assert.equal(ds.length, moves.length + 1);
+    assert.equal(ds.at(-1), 0);
+    let up = 0;
+    for (let i = 1; i < ds.length; i++) {
+      assert.equal(Math.abs(ds[i] - ds[i - 1]), 1, `${w}x${h} move ${i}`);
+      if (ds[i] > ds[i - 1]) up++;
+    }
+    assert.equal(moves.length, ds[0] + 2 * up);
+    // ...and each, exactly.
+    for (let i = 0, b = start; i < ds.length; i += 7) {
+      assert.equal(ds[i], s.distance(b), `${w}x${h} after ${i}`);
+      for (let j = i; j < i + 7 && j < moves.length; j++) b = apply(b, moves[j]);
+    }
+  }
+});
