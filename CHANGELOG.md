@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.61.0
+- Morse Rain, sending: shoot the letters down while they're still high and
+  the rain speeds up -- up to two and a half times as fast -- easing off
+  again if they get low or one reaches the ground. The speed shows in the
+  corner, and your top speed at the end. There are always at least three
+  letters on the screen to aim at.
+
 ## 1.60.2
 - Updates downloaded from the home screen now bring every game -- including
   any new ones, and any that hadn't finished downloading before -- so the

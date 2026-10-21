@@ -291,6 +291,13 @@ again, every few seconds, until you find it. No hurry.
   -- and "Excellent timing!" fires two shots, at the two lowest tiles of
   that letter. The board keys anywhere (the header's buttons and the cards
   don't), with a KEY pad under the cannon to aim for.
+- The rain keeps up with you: shoot a tile down in the top half and it
+  speeds up (10% a time, up to 2.5x, easing in); one shot low (the bottom
+  quarter) eases it back a little, and a life lost by a quarter. The speed
+  shows by the lives (with a rising arrow while it's climbing), and the top
+  speed on the score card. And there are always at least three tiles to aim
+  at while more are to come: clear them and the next drop in at once
+  (placed away from the others near the top).
 - The keyer reads you by your own rhythm, not a fixed speed: it learns your
   dit and dah from your presses and the pauses inside a letter, starting
   from about 15 words a minute, and remembers your speed between levels. The

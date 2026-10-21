@@ -103,7 +103,7 @@ test('stars: by the letters got first time', () => {
 // ------------------------------------------------------------- sending
 
 const { Keyer, decode, UNKNOWN } = await import('../games/morse/key.js');
-const { SendPlay } = await import('../games/morse/send.js');
+const { SendPlay, FASTEST, MIN_ON_SCREEN } = await import('../games/morse/send.js');
 
 // Key a string of letters on a keyer at a given dit length (with a little
 // human wobble), returning what it read.
@@ -230,4 +230,26 @@ test('sending: excellent timing (every dah three dits, every pause one) shoots t
   p.fire('A', 0.6);
   assert.equal(p.shots.length, 3, 'the last one, just the one shot');
   assert.equal(p.excellent, 1);
+});
+
+test('sending: always a few tiles to aim at; shoot them high and the rain speeds up, let them get low and it eases', () => {
+  const p = sendGame({ ...levelSpec(1), letters: Array(30).fill('E') });
+  p.spec.every = 100; // (only the minimum brings them in)
+  runSend(p, 4);
+  assert.equal(p.tiles.length, MIN_ON_SCREEN, 'three to aim at within a few seconds, even at the slowest');
+  // Clear each one as soon as it's in: more keep coming, and faster.
+  let now = 10;
+  for (let k = 0; k < 12; k++) {
+    for (const a of p.tiles) if (!p.shots.some((s) => s.tile === a) && a.y > 0) p.fire(a.ch);
+    for (let x = 0; x < 30; x++) p.update(1 / 30, (now += 1 / 30));
+    assert.ok(p.tiles.length + p.queue.length === 0 || p.tiles.length >= 1);
+  }
+  assert.ok(p.hits >= 12, `shot down ${p.hits}`);
+  assert.ok(p.tempo > 2 && p.tempo <= FASTEST, `faster: ${p.tempo}`);
+  assert.ok(p.speed > 1.5, `eased up to ${p.speed}`);
+  assert.ok(p.result(true).topSpeed > 1.5);
+  // Let them come down: a life lost, and it slows.
+  const was = p.tempo;
+  while (p.lives === 3 && now < 200) p.update(1 / 30, (now += 1 / 30));
+  assert.ok(p.tempo < was, `eased off: ${p.tempo}`);
 });

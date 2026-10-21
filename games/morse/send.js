@@ -7,9 +7,14 @@
 // dud, which drops to the ground -- splat -- and a red ? floats up. A tile that reaches the ground costs a life; three, and
 // it's over. Key a letter with excellent timing -- every dah three dits,
 // every pause one -- and it fires twice, at the two lowest of that letter.
+// Shoot them down while they're still high and the rain speeds up (up to
+// FASTEST); let them get low, or lose a life, and it eases off. There are
+// always a few on the screen to aim at (MIN_ON_SCREEN), however quick you are.
 import { Keyer, UNKNOWN } from './key.js';
 
 export const EXCELLENT = 0.9; // (precision: see Keyer.tick)
+export const FASTEST = 2.5; // the most the rain speeds up
+export const MIN_ON_SCREEN = 3; // tiles to aim at (while there are more to come)
 import { rng } from '../../js/lib/random.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -54,6 +59,7 @@ export class SendPlay {
     this.t = 0;
     this.queue = this.spec.letters.slice(); // still to come in
     this.nextAt = 0.5;
+    this.lastAt = 0;
     this.tiles = [];
     this.shots = [];
     this.booms = [];
@@ -67,6 +73,9 @@ export class SendPlay {
     this.praise = null; // "Excellent timing!", for a moment
     this.over = null;
     this.ids = 0;
+    this.tempo = 1; // how fast the rain's heading for (x the lesson's pace)...
+    this.speed = 1; // ...and how fast it is, easing there
+    this.topSpeed = 1;
     this.aim = -Math.PI / 2;
   }
 
@@ -88,15 +97,28 @@ export class SendPlay {
   update(dt, now) {
     this.t += dt;
     const { size } = this;
-    // The next tile, from somewhere along the top.
-    if (this.queue.length && this.t >= this.nextAt) {
+    this.speed += (this.tempo - this.speed) * Math.min(1, dt * 0.8);
+    this.topSpeed = Math.max(this.topSpeed, this.speed);
+    // The next tile, from somewhere along the top: on time, or sooner if
+    // there are too few left to aim at (a moment after the last).
+    const live = this.tiles.filter((a) => !this.shots.some((s) => s.tile === a)).length;
+    const short = live < MIN_ON_SCREEN && this.t >= this.lastAt + 0.35;
+    if (this.queue.length && (this.t >= this.nextAt || short)) {
       const ch = this.queue.shift();
-      const x = size / 2 + this.r() * (this.W - size);
+      // (Away from the others near the top.)
+      let x = 0;
+      let best = -1;
+      for (let k = 0; k < 6; k++) {
+        const c = size / 2 + this.r() * (this.W - size);
+        const room = Math.min(Infinity, ...this.tiles.filter((a) => a.y < size * 2).map((a) => Math.abs(a.x - c)));
+        if (room > best) [x, best] = [c, room];
+      }
+      this.lastAt = this.t;
       this.tiles.push({ id: this.ids++, ch, x, y: -size / 2, phase: this.r() * 6.3, sway: 12 + this.r() * 20, tilt: (this.r() - 0.5) * 0.25 });
-      this.nextAt = this.t + this.spec.every * (0.7 + 0.6 * this.r());
+      this.nextAt = this.t + (this.spec.every * (0.7 + 0.6 * this.r())) / this.speed;
     }
     // Drifting down (and a little from side to side), apart.
-    const fall = (this.ground - size / 2 + size / 2) / this.spec.fall;
+    const fall = (this.ground / this.spec.fall) * this.speed;
     for (const a of this.tiles) {
       a.y += fall * dt;
       a.x = clamp(a.x + Math.cos(this.t * 0.9 + a.phase) * a.sway * dt, size / 2, this.W - size / 2);
@@ -120,6 +142,7 @@ export class SendPlay {
       this.tiles.splice(this.tiles.indexOf(a), 1);
       this.boom(a.x, this.ground - 4, '#ff7a3d', 26);
       this.lives--;
+      this.tempo = Math.max(1, this.tempo * 0.75);
       this.hooks.haptic?.(60);
       if (this.lives <= 0) return this.lose();
     }
@@ -144,6 +167,7 @@ export class SendPlay {
         this.shots.splice(this.shots.indexOf(s), 1);
         this.boom(s.tile.x, s.tile.y, '#ffd25a', 34);
         this.hits++;
+        this.quicken(s.tile.y);
         this.hooks.haptic?.(20);
       } else if (s.x < -40 || s.x > this.W + 40 || s.y < -40 || s.t > 3) this.shots.splice(this.shots.indexOf(s), 1);
     }
@@ -201,6 +225,13 @@ export class SendPlay {
     return false;
   }
 
+  // A tile shot down at height y: high up (the top half), and the rain
+  // speeds up; low down (the bottom quarter), and it eases off a little.
+  quicken(y) {
+    if (y < this.ground * 0.5) this.tempo = Math.min(FASTEST, this.tempo * 1.1);
+    else if (y > this.ground * 0.75) this.tempo = Math.max(1, this.tempo * 0.95);
+  }
+
   boom(x, y, colour, n) {
     const parts = Array.from({ length: n }, () => {
       const a = this.r() * Math.PI * 2;
@@ -224,7 +255,7 @@ export class SendPlay {
   }
 
   result(won) {
-    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit };
+    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, topSpeed: this.topSpeed };
   }
 
   // ------------------------------------------------------------- input
@@ -378,6 +409,14 @@ export class SendPlay {
       ctx.bezierCurveTo(x - 12, y - 2, x - 6, y - 12, x, y - 5);
       ctx.bezierCurveTo(x + 6, y - 12, x + 12, y - 2, x, y + 6);
       ctx.fill();
+    }
+    // How fast the rain is coming (once it's picked up).
+    if (this.topSpeed > 1.05) {
+      ctx.fillStyle = this.speed > 1.05 ? '#ffd25a' : 'rgba(255,255,255,0.45)';
+      ctx.font = '800 13px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${this.tempo > this.speed + 0.02 ? '▲ ' : ''}×${this.speed.toFixed(1)}`, W - 14, this.ground + (H - this.ground) / 2);
     }
     // The key pad under the cannon (though anywhere on the board keys).
     const pw = Math.min(150, W * 0.36);
