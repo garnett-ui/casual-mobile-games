@@ -277,44 +277,48 @@ again, every few seconds, until you find it. No hurry.
 - **Two sets of lessons, each with its own levels and stars, chosen by
   tabs on the level page: Listen (above) and Send.**
 - **Sending**, Missile Command style: tiles drift down the screen (swaying
-  a little). Tap anywhere to key -- a short tap
-  a dit, a long one a dah -- and you hear only your own sidetone. A pause
-  ends the letter, and the cannon at the bottom fires a homing shot at the
-  lowest tile with that letter, so the urgent ones come first (any can be
-  hit). Key a letter that isn't there and the shot flies off across the
-  screen carrying it (and it floats up by the cannon); key something that
-  isn't a character at all and out pops a dud, which drops straight to the
-  ground -- splat -- with a red ? by the cannon. A tile reaching the ground costs one of three
-  lives. Stars by lives left (and not too much keyed at nothing).
-- Key a letter (of two or more parts) with excellent timing -- every dah
-  within about 15% of three dits and every pause of one, at your own speed
-  -- and "Excellent timing!" fires two shots, at the two lowest tiles of
-  that letter. The board keys anywhere (the header's buttons and the cards
-  don't), with a KEY pad under the cannon to aim for.
+  a little). Tap anywhere to key -- a short tap a dit, a long one a dah --
+  and you hear only your own sidetone. A pause ends the letter, and the
+  cannon at the bottom fires a homing shot at the lowest tile with that
+  letter, so the urgent ones come first (any can be hit). Key a letter
+  that isn't there and the shot flies off across the screen carrying it
+  (and it floats up by the cannon); key something that isn't a character
+  at all and out pops a dud, which drops straight to the ground -- splat
+  -- with a red ? by the cannon. A tile reaching the ground costs one of
+  three lives. Stars by lives left (and not too much keyed at nothing).
+- Timing is in units: a dit is one unit on, a dah three; one off between
+  the parts of a letter, three between letters.
+- Key a letter (of two or more parts) with excellent timing -- every dit
+  and every pause inside it within about 15% of one unit, every dah of
+  three, at your own speed -- and "Excellent timing!" fires two shots, at
+  the two lowest tiles of that letter. The board keys anywhere (the
+  header's buttons and the cards don't), with a KEY pad under the cannon
+  to aim for.
 - The rain comes at a sending speed, in words a minute (five letters a
   word, about five tiles on the screen at any speed): 5 wpm on the first
-  level, a little quicker each level after (to 12). It keeps up with you:
-  shoot a tile down in the top half and it speeds up (10% a time, easing
-  in, never past 20 wpm); one shot low (the bottom quarter) eases it back a
-  little, and a life lost by a quarter (never below 5). The speed shows by
-  the lives (with a rising arrow while it's climbing), and the top speed on
-  the score card.
+  level, a little quicker each level after (to 12). There are always at
+  least three tiles to aim at while more are to come: clear them and the
+  next drop in at once (placed away from the others near the top). It
+  speeds up only when you're well ahead: a shot that leaves fewer than
+  three (not counting those already shot at), all in the top half, makes
+  it 10% faster (easing in, never past 20 wpm). A shot low (the bottom
+  quarter) eases it back a little, and a life lost by a quarter (never
+  below 5). The speed shows by the lives (with a rising arrow while it's
+  climbing), and the top speed on the score card.
 - Each level's tile shows your best effective speed there: letters keyed
   right a minute (five to a word), from the first tile in to the last
   letter sent -- so misses and dawdling count against it. The score card
-  shows it too, and whether it's a new best. And there are always at least three tiles to aim
-  at while more are to come: clear them and the next drop in at once
-  (placed away from the others near the top).
+  shows it too, and whether it's a new best.
 - The keyer reads you by your own rhythm, not a fixed speed: it learns your
   dit and dah from your last 16 presses (where their lengths jump from
   short to long; or, all of a kind, whichever they're nearer), starting
   from about 15 words a minute, and remembers your speed between levels.
-  As it learns, it re-reads the letter so far. A pause of two dits ends a
-  letter -- halfway between the one-dit pause inside a letter and the
+  As it learns, it re-reads the letter so far. A pause of two units ends a
+  letter -- halfway between the one-unit pause inside a letter and the
   three between letters -- so letters keyed one straight after another,
   properly spaced, each fire on their own. (A letter's ended by the next
-  press too, if the screen hasn't caught up yet.) The
-  lessons are the same as listening's.
+  press too, if the screen hasn't caught up yet.) The lessons are the same
+  as listening's.
 
 ## Jigsaw
 

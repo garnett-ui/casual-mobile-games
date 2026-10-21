@@ -126,7 +126,7 @@ export function mount(root, ctx, sub) {
     const keys = list.map((ch) => `<button class="btn mr-key" data-ch="${ch}"><b>${ch}</b></button>`).join('');
     const quiet = !ctx.getSetting('sound');
     const how = mode === SEND
-      ? 'Tap anywhere to key -- a short tap for a dit, a longer one for a dah -- and pause: the cannon fires at the lowest tile with that letter. Three tiles reaching the ground and it’s over. They come at 5 words a minute to start; shoot them down while they’re high and they come faster, up to 20. The keying follows your speed; key a letter with excellent timing (every dah three dits, every pause one) and it shoots two.'
+      ? 'Tap anywhere to key -- a short tap for a dit, a longer one for a dah -- and pause: the cannon fires at the lowest tile with that letter. Three tiles reaching the ground and it’s over. They come at 5 words a minute to start; get them down to fewer than three, all high up, and they come faster, up to 20. The keying follows your speed; key a letter with excellent timing (a dah three units long, a dit one, the pause between them one, and three between letters) and it shoots two.'
       : 'You’ll hear the code for one of the letters on the screen, again and again till you find it: tap a tile with that letter and it’s gone. Clear them all! Tap the wrong letter and a copy of the right one floats in.';
     const text = (quiet ? '<b>Sound is off -- and this game is all sound. Start turns it on.</b><br><br>' : '') + (list.length
       ? `New ${list.length === 1 ? 'character' : 'characters'}: tap to listen.<div class="mr-keys">${keys}</div>

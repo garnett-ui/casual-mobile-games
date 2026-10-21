@@ -1,9 +1,10 @@
-// Morse from a finger: presses and pauses, read by your own rhythm. A press
-// shorter than the line between your dits and dahs is a dit, longer a dah;
-// both lengths are learnt from your recent presses (starting from about 15
-// words a minute), so it follows you whether you're quick or slow. A pause
-// of about two dits -- between the one inside a letter and the three
-// between letters -- ends the letter.
+// Morse from a finger: presses and pauses, read by your own rhythm. In
+// units: a dit is one on, a dah three; one off between them, three between
+// letters. A press shorter than the line between your dits and dahs is a
+// dit, longer a dah; both lengths are learnt from your recent presses
+// (starting from about 15 words a minute), so it follows you whether you're
+// quick or slow. A pause of two units -- between the one inside a letter
+// and the three between letters -- ends the letter.
 import { CODE } from './code.js';
 
 const LETTER = Object.fromEntries(Object.entries(CODE).map(([ch, code]) => [code, ch]));
@@ -24,7 +25,7 @@ export class Keyer {
     this.dah = dit * 3; // ...and your dah
     this.presses = []; // your recent presses (seconds)
     this.code = ''; // the letter so far
-    this.parts = []; // its presses and pauses, in turn: [seconds, how many dits it should be]
+    this.parts = []; // its presses and pauses, in turn: [seconds, how many units it should be]
     this.done = []; // letters finished, not yet collected by tick
     this.downAt = null;
     this.upAt = 0;
@@ -36,12 +37,12 @@ export class Keyer {
     return Math.sqrt(this.dit * this.dah);
   }
 
-  // Your dit, by both your dits and dahs.
+  // Your unit (a dit's length), by both your dits and dahs.
   get unit() {
     return (this.dit + this.dah / 3) / 2;
   }
 
-  // How long a pause ends a letter: two dits, halfway between the pause
+  // How long a pause ends a letter: two units, halfway between the pause
   // inside a letter (one) and the one between letters (three).
   get gap() {
     return clamp(2 * this.unit, 0.1, 1.2);
@@ -77,7 +78,7 @@ export class Keyer {
   }
 
   // Your dit and dah, from your recent presses: split where they jump (a
-  // dah's about three dits); or, all of a kind, they're the dits or the
+  // dah's about three units, a dit one); or, all of a kind, they're the dits or the
   // dahs, whichever they're nearer.
   learn(d) {
     this.presses.push(d);
@@ -106,8 +107,8 @@ export class Keyer {
 
   // The letter keyed so far is done: its character -- UNKNOWN if it isn't
   // one -- and how evenly it was keyed (for letters of two or more parts;
-  // otherwise null): 1 for perfect -- every dah three dits, every pause
-  // one -- less the more each part strays (at whatever speed you key).
+  // otherwise null): 1 for perfect -- every dah three units, every dit and
+  // every pause inside it one -- less the more each part strays (at whatever speed you key).
   end() {
     const { code, parts } = this;
     this.code = '';

@@ -5,12 +5,13 @@
 // nothing, carrying the letter you sent off with it (and it floats up by
 // the cannon); key something that isn't a character at all and out pops a
 // dud, which drops to the ground -- splat -- and a red ? floats up. A tile that reaches the ground costs a life; three, and
-// it's over. Key a letter with excellent timing -- every dah three dits,
-// every pause one -- and it fires twice, at the two lowest of that letter.
+// it's over. Key a letter with excellent timing -- every dah three units,
+// every dit and pause inside it one -- and it fires twice, at the two
+// lowest of that letter.
 // The rain comes at a sending speed, in words a minute (five letters a
 // word): each level starts a little quicker, from SLOWEST. Shoot them down
-// while they're still high and it speeds up (up to FASTEST); let them get
-// low, or lose a life, and it eases off. There are always a few on the
+// till there are fewer than three left, all in the top half, and it speeds
+// up (up to FASTEST); let them get low, or lose a life, and it eases off. There are always a few on the
 // screen to aim at (MIN_ON_SCREEN), however quick you are.
 import { Keyer, UNKNOWN } from './key.js';
 
@@ -238,10 +239,13 @@ export class SendPlay {
     return false;
   }
 
-  // A tile shot down at height y: high up (the top half), and the rain
-  // speeds up; low down (the bottom quarter), and it eases off a little.
+  // A tile shot down at height y. Keeping well ahead -- fewer than three
+  // left (not counting those already shot at), all in the top half -- and
+  // the rain speeds up; shot low down (the bottom quarter), and it eases off
+  // a little.
   quicken(y) {
-    if (y < this.ground * 0.5) this.tempo = Math.min(FASTEST, this.tempo * 1.1);
+    const left = this.tiles.filter((a) => !this.shots.some((s) => s.tile === a));
+    if (left.length < MIN_ON_SCREEN && left.every((a) => a.y < this.ground * 0.5)) this.tempo = Math.min(FASTEST, this.tempo * 1.1);
     else if (y > this.ground * 0.75) this.tempo = Math.max(SLOWEST, this.tempo * 0.95);
   }
 

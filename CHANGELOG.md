@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.62.2
+- Morse Rain, sending: the rain speeds up only when you're well ahead --
+  shoot it down to fewer than three letters, all in the top half of the
+  screen. The timing tips now count in units: a dit one, a dah three, one
+  between the parts of a letter and three between letters.
+
 ## 1.62.1
 - Morse Rain, sending: letters keyed one straight after another, with the
   proper space between them, now each fire a shot. Before, a steady stream

@@ -274,7 +274,7 @@ test('sending: excellent timing (every dah three dits, every pause one) shoots t
   assert.equal(p.excellent, 1);
 });
 
-test('sending: from 5 words a minute, faster as you shoot them high (up to 20), slower as they get low; always a few to aim at', () => {
+test('sending: from 5 words a minute, faster as you keep ahead -- fewer than three left, all high (up to 20) -- slower as they get low; always a few to aim at', () => {
   assert.equal(sendPace(1).wpm, SLOWEST);
   assert.ok(sendPace(40).wpm < FASTEST);
   const p = sendGame({ ...levelSpec(1), letters: Array(200).fill('E') });
@@ -351,4 +351,25 @@ test('sending: keying letter after letter, properly spaced, shoots every one -- 
   // two-for-one had already taken.)
   assert.ok(p.wrong <= p.excellent, `${p.wrong} keyed at nothing`);
   assert.equal(p.notes.filter((n) => n.ch === UNKNOWN).length, 0, 'no duds');
+});
+
+test('sending: a high shot with plenty still coming down doesn\'t speed it up', () => {
+  const p = sendGame({ ...levelSpec(1), letters: ['E', 'T', 'A', 'N', 'I'] });
+  for (let now = 0; now < 4; now += 1 / 30) p.update(1 / 30, now);
+  assert.ok(p.tiles.length >= 4);
+  const was = p.tempo;
+  const high = p.tiles.slice().sort((a, b) => a.y - b.y)[0];
+  p.tiles.splice(p.tiles.indexOf(high), 1);
+  p.quicken(high.y);
+  assert.equal(p.tempo, was, 'three or more left: no faster');
+  // Down to two, both high: faster.
+  for (const a of p.tiles.slice(2)) p.tiles.splice(p.tiles.indexOf(a), 1);
+  for (const a of p.tiles) a.y = p.ground * 0.3;
+  p.quicken(p.ground * 0.2);
+  assert.ok(p.tempo > was);
+  // Two, but one low: no faster.
+  const now = p.tempo;
+  p.tiles[0].y = p.ground * 0.6;
+  p.quicken(p.ground * 0.2);
+  assert.equal(p.tempo, now);
 });
