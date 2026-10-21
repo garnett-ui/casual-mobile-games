@@ -146,7 +146,12 @@ test('after the first visit the app works fully offline', { skip: !chromium, tim
         await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
       }
     });
-    await page.waitForFunction(async () => !!(await caches.match('games/car-jam/play.js')) && !!(await caches.match('games/lander/audio/eagle-has-landed.mp3')), null, { timeout: 30000, polling: 200 });
+    // (Every file the app has.)
+    const { files } = new Function('self', `${await readFile(new URL('../sw-manifest.js', import.meta.url), 'utf8')}; return self.PRECACHE;`)({});
+    await page.waitForFunction(async (list) => {
+      for (const f of list) if (!(await caches.match(f))) return false;
+      return true;
+    }, files, { timeout: 30000, polling: 200 });
     await context.setOffline(true);
     server.close();
     await page.reload();

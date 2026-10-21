@@ -373,3 +373,36 @@ test('sending: a high shot with plenty still coming down doesn\'t speed it up', 
   p.quicken(p.ground * 0.2);
   assert.equal(p.tempo, now);
 });
+
+test('sending: keying the next letter while a shot is still flying -- each goes on its own', () => {
+  const p = sendGame({ ...levelSpec(1), letters: ['E', 'T', 'A'] });
+  let now = 0;
+  const step = (s) => { for (const end = now + s; now < end; now += 1 / 60) p.update(1 / 60, now); };
+  step(2);
+  assert.equal(p.tiles.length, 3);
+  const key = (ch, unit = 0.08) => {
+    [...CODE[ch]].forEach((s, i) => {
+      if (i) step(unit);
+      p.press(now);
+      step((s === '.' ? 1 : 3) * unit);
+      p.release(now);
+    });
+  };
+  key('E');
+  step(0.2);
+  assert.equal(p.shots.length, 1, 'E fired');
+  const slow = p.shots[0];
+  slow.speed = 30; // (a long flight)
+  key('A');
+  step(0.2);
+  assert.equal(p.shots.length, 2, 'A fired too, the E shot still on its way');
+  assert.ok(p.shots.includes(slow));
+  assert.notEqual(p.shots[1].tile, slow.tile);
+  key('T');
+  step(0.2);
+  assert.equal(p.hits + p.shots.length, 3, 'and T');
+  slow.speed = 2000;
+  step(1.5);
+  assert.equal(p.hits, 3, 'all three down');
+  assert.equal(p.wrong, 0);
+});
