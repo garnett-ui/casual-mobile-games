@@ -194,7 +194,7 @@ export class Solver {
   unrank(r) {
     const n = this.n;
     const digits = [];
-    for (let i = n; i >= 1; i--) {
+    for (let i = 1; i <= n; i++) {
       digits.unshift(r % i);
       r = Math.floor(r / i);
     }
@@ -271,11 +271,29 @@ export class Solver {
   // from the goal over (the group's cells, the gap's cell), where moving
   // one of the group costs a move and moving any other tile is free.
   databases() {
-    const key = `${this.w}x${this.h}:${this.goal}:${this.groups().join('|')}`;
+    const key = this.databasesKey();
     if (PDBS.has(key)) return PDBS.get(key);
     const dbs = this.groups().map((g) => this.database(g));
     PDBS.set(key, dbs);
     return dbs;
+  }
+
+  databasesKey() {
+    return `${this.w}x${this.h}:${this.goal}:${this.groups().join('|')}`;
+  }
+
+  // Databases made earlier (by databases(), elsewhere) -- as one array, the
+  // groups' tables end to end -- instead of making them here.
+  useDatabases(all) {
+    const size = (g) => this.n ** g.length;
+    let at = 0;
+    const dbs = this.groups().map((g) => {
+      const db = all.subarray(at, at + size(g));
+      at += size(g);
+      return db;
+    });
+    if (at !== all.length) throw new Error('databases: wrong size');
+    PDBS.set(this.databasesKey(), dbs);
   }
 
   database(group) {

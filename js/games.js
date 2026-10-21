@@ -67,6 +67,14 @@ export const GAMES = [
     art: () => import('../games/morse/art.js'),
   },
   {
+    id: 'fifteen',
+    title: '15',
+    blurb: 'The sliding puzzle: put the tiles back in order -- numbers, pictures, clocks and moons. Then see a graph of every move you made against the best possible.',
+    color: '#b5835a',
+    load: () => import('../games/fifteen/index.js'),
+    art: () => import('../games/fifteen/art.js'),
+  },
+  {
     id: 'jigsaw',
     title: 'Jigsaw',
     blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',

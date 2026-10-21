@@ -135,3 +135,33 @@ test('following a game: every move one more or one less; the moves are the dista
     }
   }
 });
+
+// ------------------------------------------------------------- levels
+
+const { makeLevel, levelPlan, starsFor, review } = await import('../games/fifteen/levels.js');
+
+test('levels: the same every time, always solvable, small ones exactly as far as planned', () => {
+  for (let n = 1; n <= 40; n++) {
+    const a = makeLevel(n);
+    assert.deepEqual(makeLevel(n), a, `level ${n} the same`);
+    const [w, h, , how] = levelPlan(n);
+    assert.equal(a.w, w);
+    assert.equal(a.h, h);
+    assert.ok(isSolvable(a.board, goalOf(w, h), w), `level ${n} solvable`);
+    assert.notEqual(a.board.join(), goalOf(w, h).join(), `level ${n} not solved already`);
+    if (w * h <= 9) assert.equal(new Solver(w, h).distance(a.board), how, `level ${n} at distance ${how}`);
+  }
+});
+
+test('score: wrong-way moves and stars; the walk reviewed', () => {
+  assert.equal(starsFor(20, 0), 3);
+  assert.equal(starsFor(20, 4), 3);
+  assert.equal(starsFor(20, 5), 2);
+  assert.equal(starsFor(20, 20), 2);
+  assert.equal(starsFor(20, 21), 1);
+  assert.equal(starsFor(20, 0, true), 2, 'a hint takes the third');
+  // 5 to go; two wrong ways, back, then straight home.
+  const r = review([5, 4, 5, 6, 5, 4, 3, 2, 1, 0]);
+  assert.deepEqual(r, { best: 5, moves: 9, wrong: 2, climb: 2, climbAt: 2, finish: 6, top: 6 });
+  assert.equal(r.moves, r.best + 2 * r.wrong);
+});

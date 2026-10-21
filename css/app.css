@@ -820,3 +820,16 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   box-shadow: 0 4px 0 rgba(0, 0, 0, .2);
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* 15 */
+.ff-screen { background: radial-gradient(ellipse at 50% 40%, #6b4a30 0%, #3d2a1c 100%); }
+.ff-screen .stage.building { color: #fff; }
+.ff-board { touch-action: none; }
+.ff-graph { display: block; width: 100%; height: auto; margin: 4px 0 8px; }
+.ff-graph path { fill: none; stroke-linecap: round; }
+.ff-graph .ff-axis { stroke: rgba(0, 0, 0, .25); stroke-width: 1; }
+.ff-graph .ff-best { stroke: #9aa0a6; stroke-width: 1.5; stroke-dasharray: 4 4; }
+.ff-graph .ff-down { stroke: #2a9d5c; stroke-width: 2.5; }
+.ff-graph .ff-up { stroke: #e4572e; stroke-width: 2.5; }
+.ff-graph text { font-size: 11px; fill: #6b7280; }
+.ff-stats { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }

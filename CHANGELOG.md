@@ -6,6 +6,16 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.63.0
+- New game: **15**, the sliding puzzle. Tap a tile in line with the gap to
+  slide it -- and any between. Numbers first, then pictures (colour wheels,
+  spirals, stained glass, landscapes...) and sequences to put in order (a
+  filling glass, a clock, the moon's phases, the sun across the sky), on
+  boards from 2x3 to 4x4. Every puzzle has exactly one solution, and after
+  each one a graph shows how far from solved you were after every move,
+  against the best possible, with your wrong-way moves and your perfect
+  finish. Stuck? A hint shows a best next move.
+
 ## 1.62.3
 - Morse Rain, sending: fixed letters breaking apart -- a K read as T E T --
   when the pauses between taps are longer than the taps themselves (as

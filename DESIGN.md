@@ -324,6 +324,43 @@ again, every few seconds, until you find it. No hurry.
   press too, if the screen hasn't caught up yet.) The lessons are the same
   as listening's.
 
+## 15
+
+The sliding puzzle. Tap a tile in line with the gap and it slides in, with
+any tiles between; every tile moved counts as a move.
+
+- **Exactly one solution, always solvable.** Every level is made from a
+  seed. Small boards (up to 3x3) start an exact number of moves from
+  solved, picked from a table of every position; bigger ones a number of
+  random moves back from solved, or a full shuffle. Half of all
+  arrangements can't be solved (the parity rule), and none of these is one.
+  Tiles show numbers, a picture or a sequence (js/lib/patterns.js), and no
+  two tiles of a level look alike: pictures are checked for it by tests
+  (games/fifteen/solver.js, test/patterns.test.mjs).
+- **The levels.** Numbers on 2x3 and 3x3 first, then pictures (gradient,
+  colour wheel, spiral, stained glass, Truchet weave, topographic map,
+  marble, subtle, landscape) and sequences (a filling glass, a clock, the
+  moon -- northern hemisphere, unlabelled -- the sun across the sky) on
+  3x3, 3x4 and 4x4 boards, ending fully shuffled. After the first 24, 4x4
+  shuffles round all of them.
+- **The walk.** The game knows, after every move, exactly how far the board
+  is from solved: a table of every position for small boards; IDA* with
+  additive 5-5-5 pattern databases (and the board's mirror across the
+  diagonal) for 3x4 and 4x4. The 4x4 databases ship ready-made
+  (games/fifteen/tables-4x4.bin.gz, 544 KB; tools/build-fifteen-tables.mjs)
+  since building them on a phone takes about 20 seconds. Every move changes
+  the distance by exactly one, so the game keeps a best line as you play
+  and only searches (one search, no deeper than one less) when you leave
+  it; this runs in a worker, under a millisecond a move.
+- **The score card** draws the walk: distance from solved after every move,
+  down steps green and up (wrong-way) steps red, against a dashed best
+  line. Moves = best + 2 x wrong-way moves. It names your longest climb the
+  wrong way and your perfect finish. Stars: three for wrong-way moves at
+  most a fifth of the best, two for at most as many as the best; a hint
+  (the tile of a best next move glows) caps it at two.
+- Hold Peek to see the picture or sequence solved. Solving it fills the gap:
+  with the picture's missing corner, or a tile with a star.
+
 ## Jigsaw
 
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo

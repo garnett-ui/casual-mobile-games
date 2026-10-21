@@ -22,6 +22,9 @@ the whole arcade.
   six-storey office block to twin towers, against the computer.
 - **Morse Rain** -- learn Morse code by ear: hear a letter and tap it in
   the drifting cloud, or key letters yourself and shoot them down.
+- **15** -- the sliding puzzle, with numbers, pictures and sequences (a
+  clock, the moon, the sun across the sky), and a graph of every move
+  against the best possible.
 - **Jigsaw** -- turn your own photos into jigsaw puzzles.
 
 How each one is meant to play, and the decisions behind it, are in

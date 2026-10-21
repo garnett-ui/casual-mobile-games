@@ -1103,6 +1103,103 @@ test('morse rain, sending: key a letter by tapping, and the cannon shoots it dow
   }
 });
 
+test('15: tap tiles to slide them (several at once), solve with hints, and see the walk', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=fifteen]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__fifteen?.play);
+    const tap = async (cell) => {
+      const [x, y] = await page.evaluate((c) => {
+        const p = window.__fifteen.play;
+        const r = p.canvas.getBoundingClientRect();
+        const [cx, cy] = p.cellCenter(c);
+        return [r.left + cx, r.top + cy];
+      }, cell);
+      await page.mouse.click(x, y);
+    };
+    // A tile two along the gap's row: both slide.
+    const far = await page.evaluate(() => {
+      const p = window.__fifteen.play;
+      const g = p.board.indexOf(0);
+      const x = g % p.w;
+      return x <= p.w - 3 ? g + 2 : g - 2;
+    });
+    await tap(far);
+    assert.equal(await page.evaluate(() => window.__fifteen.play.moves.length), 2);
+    assert.equal(await page.locator('[data-moves]').textContent(), '2');
+    // The Hint button: the tile to move glows.
+    await page.locator('[data-act=hint]').click();
+    await page.waitForFunction(() => window.__fifteen.play.glow);
+    // Then the hints, home.
+    for (let k = 0; k < 40 && !(await page.evaluate(() => window.__fifteen.play.won)); k++) {
+      const c = await page.evaluate(() => window.__fifteen.coach().hint());
+      await tap(c);
+    }
+    assert.ok(await page.evaluate(() => window.__fifteen.play.won), 'solved');
+    await page.locator('.dialog:not([hidden]) .ff-graph').waitFor({ timeout: 10000 });
+    const text = await page.locator('.dialog .ff-stats').textContent();
+    assert.match(text, /\d+ moves, best possible \d+|the best possible/);
+    assert.match(text, /with a hint/);
+    assert.ok((await page.locator('.dialog .stars i.on').count()) <= 2, 'a hint: two stars at most');
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:fifteen:progress')));
+    assert.equal(saved.unlocked, 2);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('15: a 4x4 level gets its tables from the server, and follows every move exactly', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const tables = [];
+    page.on('request', (r) => r.url().includes('tables-4x4') && tables.push(r.url()));
+    const base = `http://localhost:${server.address().port}/`;
+    await page.goto(base);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:fifteen:progress', JSON.stringify({ unlocked: 15, stars: {} })));
+    await page.goto(`${base}#/fifteen/15`);
+    await page.waitForFunction(() => window.__fifteen?.play?.w === 4);
+    const t0 = Date.now();
+    const first = await page.evaluate(() => window.__fifteen.coach().hint());
+    assert.ok(Date.now() - t0 < 15000, 'the first hint in good time');
+    assert.equal(tables.length, 1, 'the ready-made tables, downloaded');
+    // Follow three hints: each one step nearer.
+    let c = first;
+    for (let k = 0; k < 3; k++) {
+      await page.evaluate((cell) => window.__fifteen.play.slide(cell), c);
+      c = await page.evaluate(() => window.__fifteen.coach().hint());
+    }
+    const ds = await page.evaluate(() => window.__fifteen.coach().ds);
+    assert.equal(ds.length, 4);
+    assert.deepEqual(ds.slice(1), [ds[0] - 1, ds[0] - 2, ds[0] - 3]);
+    // One the wrong way: one further.
+    const wrong = await page.evaluate((best) => {
+      const p = window.__fifteen.play;
+      const g = p.board.indexOf(0);
+      const near = [g - 1, g + 1, g - 4, g + 4].filter((x) => x >= 0 && x < 16 && (x === g - 4 || x === g + 4 || Math.floor(x / 4) === Math.floor(g / 4)));
+      return near.find((x) => x !== best);
+    }, c);
+    await page.evaluate((cell) => window.__fifteen.play.slide(cell), wrong);
+    const after = await page.evaluate(() => window.__fifteen.coach().done());
+    assert.equal(Math.abs(after[4] - after[3]), 1);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('elevator operator: tap a shaft to send a lift, deliver everyone, scored against the dispatcher', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
