@@ -1084,7 +1084,13 @@ test('morse rain, sending: key a letter by tapping, and the cannon shoots it dow
     assert.match(await page.locator('.dialog p').textContent(), /shot down/);
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:send-progress')));
     assert.equal(saved.unlocked, 2);
+    assert.match(await page.locator('.dialog p').textContent(), /Sent at \d+ wpm/);
+    assert.ok(saved.wpm[1] > 0, 'best effective speed kept');
     assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:morse:progress')), null, 'listening progress apart');
+    // ...and shown on the level's tile.
+    await page.evaluate(() => { location.hash = '#/morse/send'; });
+    assert.equal(await page.locator('.lvl[data-n="1"] .lvl-note').textContent(), `${saved.wpm[1]} wpm`);
+    assert.equal(await page.locator('.lvl[data-n="2"] .lvl-note').count(), 0);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

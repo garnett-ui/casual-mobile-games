@@ -250,3 +250,19 @@ test('sending: from 5 words a minute, faster as you shoot them high (up to 20), 
   while (!p.over && now < 600) p.update(1 / 30, (now += 1 / 30));
   assert.ok(p.tempo >= SLOWEST);
 });
+
+test('sending: effective speed -- letters keyed right a minute, five to a word', () => {
+  const p = sendGame({ ...levelSpec(1), letters: Array(20).fill('E') });
+  assert.equal(p.effectiveWpm, 0);
+  let now = 0;
+  // One letter keyed right every 1.2 s (50 a minute: 10 wpm), and some misses.
+  for (let k = 0; k < 10; k++) {
+    if (k === 0) while (!p.tiles.length) p.update(1 / 30, (now += 1 / 30));
+    p.fire('E');
+    p.fire('T');
+    for (let x = 0; x < 36; x++) p.update(1 / 30, (now += 1 / 30));
+  }
+  assert.equal(p.sent, 10);
+  assert.ok(Math.abs(p.effectiveWpm - 10 * (9 * 1.2) / (9 * 1.2 + 0.0)) < 1.2, `${p.effectiveWpm}`);
+  assert.equal(p.result(true).effectiveWpm, p.effectiveWpm);
+});

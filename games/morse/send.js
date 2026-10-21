@@ -75,6 +75,9 @@ export class SendPlay {
     this.splats = [];
     this.lives = 3;
     this.hits = 0;
+    this.sent = 0; // letters keyed right (an excellent one, still one)
+    this.firstAt = null; // when the first tile came in...
+    this.lastSentAt = null; // ...and the last letter keyed right
     this.wrong = 0;
     this.excellent = 0;
     this.praise = null; // "Excellent timing!", for a moment
@@ -121,6 +124,7 @@ export class SendPlay {
         if (room > best) [x, best] = [c, room];
       }
       this.lastAt = this.t;
+      this.firstAt ??= this.t;
       this.tiles.push({ id: this.ids++, ch, x, y: -size / 2, phase: this.r() * 6.3, sway: 12 + this.r() * 20, tilt: (this.r() - 0.5) * 0.25 });
       this.nextAt = this.t + every(this.wpm) * (0.7 + 0.6 * this.r());
     }
@@ -212,6 +216,8 @@ export class SendPlay {
       this.praise = { t: 0, double: targets.length >= 2 };
     }
     if (targets.length) {
+      this.sent++;
+      this.lastSentAt = this.t;
       targets.slice(0, excellent ? 2 : 1).forEach((tile, k) => {
         const a = Math.atan2(tile.y - gun.y, tile.x - gun.x);
         this.shots.push({ x: gun.x, y: gun.y - 18, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, speed: speed * (1 - k * 0.12), tile, t: 0, trail: [] });
@@ -261,8 +267,15 @@ export class SendPlay {
     this.hooks.onOver?.(this.result(true));
   }
 
+  // Your effective speed: letters keyed right a minute, five to a word, from
+  // the first tile in to the last letter you sent.
+  get effectiveWpm() {
+    if (!this.sent) return 0;
+    return (this.sent / 5) / (Math.max(1, this.lastSentAt - this.firstAt) / 60);
+  }
+
   result(won) {
-    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, wpm: this.spec.wpm, topWpm: this.topWpm };
+    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, wpm: this.spec.wpm, topWpm: this.topWpm, effectiveWpm: this.effectiveWpm };
   }
 
   // ------------------------------------------------------------- input

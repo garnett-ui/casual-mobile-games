@@ -298,7 +298,11 @@ again, every few seconds, until you find it. No hurry.
   in, never past 20 wpm); one shot low (the bottom quarter) eases it back a
   little, and a life lost by a quarter (never below 5). The speed shows by
   the lives (with a rising arrow while it's climbing), and the top speed on
-  the score card. And there are always at least three tiles to aim
+  the score card.
+- Each level's tile shows your best effective speed there: letters keyed
+  right a minute (five to a word), from the first tile in to the last
+  letter sent -- so misses and dawdling count against it. The score card
+  shows it too, and whether it's a new best. And there are always at least three tiles to aim
   at while more are to come: clear them and the next drop in at once
   (placed away from the others near the top).
 - The keyer reads you by your own rhythm, not a fixed speed: it learns your

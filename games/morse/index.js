@@ -36,8 +36,9 @@ export function mount(root, ctx, sub) {
         id: 'morse/send',
         title: 'Morse Rain',
         intro: 'Letters rain down. Key one’s code -- tap anywhere: short for a dit, long for a dah -- and the cannon shoots it down. Don’t let them reach the ground!',
-        outro: 'The same lessons as listening: E I A N T to start, then a couple of new characters each level. The keying follows your own speed.',
+        outro: 'The same lessons as listening: E I A N T to start, then a couple of new characters each level. The keying follows your own speed. Under each level: your best effective speed -- the letters you sent right each minute, in words a minute (five letters a word).',
         progress: progress[SEND],
+        note: (n) => (progress[SEND].data.wpm?.[n] ? `${progress[SEND].data.wpm[n]} wpm` : ''),
       }
       : {
         id: 'morse',
@@ -170,11 +171,15 @@ export function mount(root, ctx, sub) {
     const stars = mode === SEND
       ? res.lives === 3 && res.wrong <= Math.ceil(res.total * 0.2) ? 3 : res.lives >= 2 ? 2 : 1
       : starsFor(res.total - res.wrong, res.total);
+    // Sending: your best effective speed, for the level grid.
+    const wpm = Math.round(res.effectiveWpm || 0);
+    const best = mode === SEND && wpm > (progress[SEND].data.wpm?.[n] || 0);
+    if (best) (progress[SEND].data.wpm ??= {})[n] = wpm;
     progress[mode].complete(n, stars);
     ctx.track('level_complete', { level: n, stars, mode });
     ctx.sfx('win');
     const text = mode === SEND
-      ? `<b>${res.hits}</b> of ${res.total} shot down${res.total - res.hits ? `, ${res.total - res.hits} got through` : ''}${res.wrong ? `; ${res.wrong} keyed at nothing` : ''}.${res.excellent ? ` Excellent timing ${res.excellent} time${res.excellent === 1 ? '' : 's'}!` : ''}${res.topWpm >= res.wpm + 0.5 ? ` Up to ${Math.round(res.topWpm)} words a minute!` : ''}`
+      ? `<b>${res.hits}</b> of ${res.total} shot down${res.total - res.hits ? `, ${res.total - res.hits} got through` : ''}${res.wrong ? `; ${res.wrong} keyed at nothing` : ''}.${res.excellent ? ` Excellent timing ${res.excellent} time${res.excellent === 1 ? '' : 's'}!` : ''}<br>Sent at <b>${wpm} wpm</b>${best && wpm ? ' -- your best here' : ''}${res.topWpm >= res.wpm + 0.5 ? `; the rain got up to ${Math.round(res.topWpm)}` : ''}.`
       : `All ${res.right} cleared${res.wrong ? `, with ${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}` : ' -- not a single wrong tap'}.`;
     showDialog(dialog, ctx, {
       title: stars === 3 ? 'Loud and clear!' : stars === 2 ? 'Good copy' : 'Made it through',
