@@ -20,28 +20,28 @@ const LEVELS = [
   [3, 3, 'numbers', 12],
   [3, 3, 'seq:glass', 14],
   [3, 3, 'numbers', 16],
-  [3, 3, 'pic:corners', 18],
+  [3, 3, 'pic:wheel', 18],
   [3, 3, 'seq:clock', 20],
-  [3, 3, 'pic:wheel', 22],
+  [3, 3, 'seq:plant', 22],
   [3, 3, 'seq:moon', 24],
   [3, 4, 'numbers', 30],
   [3, 4, 'pic:spiral', 40],
   [3, 4, 'seq:sun', 50],
   [3, 4, 'pic:glass', 60],
   [4, 4, 'numbers', 30],
-  [4, 4, 'pic:weave', 40],
+  [4, 4, 'pic:topo', 40],
   [4, 4, 'seq:clock', 50],
   [4, 4, 'numbers', 60],
-  [4, 4, 'pic:topo', 80],
+  [4, 4, 'pic:wheel', 80],
   [4, 4, 'seq:moon', 100],
-  [4, 4, 'pic:marble', 120],
+  [4, 4, 'seq:plant', 120],
   [4, 4, 'numbers', 'shuffle'],
-  [4, 4, 'pic:subtle', 'shuffle'],
+  [4, 4, 'pic:glass', 'shuffle'],
   [4, 4, 'pic:landscape', 'shuffle'],
 ];
 
 // After those, 4x4s fully shuffled, round all the kinds of tiles.
-const AFTER = ['numbers', 'pic:wheel', 'seq:clock', 'pic:glass', 'pic:spiral', 'seq:moon', 'pic:weave', 'pic:topo', 'seq:sun', 'pic:marble', 'pic:corners', 'pic:subtle', 'pic:landscape', 'seq:glass'];
+const AFTER = ['numbers', 'pic:wheel', 'seq:clock', 'pic:glass', 'pic:spiral', 'seq:moon', 'pic:topo', 'seq:sun', 'seq:plant', 'pic:landscape', 'seq:glass'];
 
 export function levelPlan(n) {
   if (n <= LEVELS.length) return LEVELS[n - 1];

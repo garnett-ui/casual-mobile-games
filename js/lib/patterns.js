@@ -435,9 +435,13 @@ export const SEQUENCES = [
     id: 'moon',
     name: 'Moon',
     // New moon, waxing (lit on the right), full, waning -- stopping short
-    // of new again, so the ends can't be mixed up.
+    // of new again, so the ends can't be mixed up. The frames are evenly
+    // spaced by how much is lit, not by the day (which barely changes the
+    // moon near full): the shadow's edge moves the same each frame.
     draw(ctx, s, k, n) {
-      const p = k / n; // (0 new, 0.5 full)
+      const waxing = Math.ceil((n - 2) / 2); // frames between new and full
+      const steps = waxing + 1;
+      const lit = k <= steps ? k / steps : 1 - (k - steps) / steps; // (0 new, 1 full)
       const r = s * 0.36;
       ctx.save();
       ctx.fillStyle = '#141a33';
@@ -450,10 +454,9 @@ export const SEQUENCES = [
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, TAU);
       ctx.fill();
-      if (p > 0) {
-        if (p > 0.5) ctx.scale(-1, 1); // (waning: the same, lit on the left)
-        const q = p > 0.5 ? 1 - p : p;
-        const rx = r * Math.cos(q * TAU); // (+: a crescent; -: gibbous)
+      if (lit > 0) {
+        if (k > steps) ctx.scale(-1, 1); // (waning: the same, lit on the left)
+        const rx = r * (1 - 2 * lit); // (the shadow's edge: +, a crescent; -, gibbous)
         ctx.fillStyle = '#f3ecd2';
         ctx.beginPath();
         ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2);

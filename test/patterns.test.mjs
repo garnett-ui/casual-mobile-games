@@ -30,3 +30,28 @@ test('sequences: one of each, drawn without error', () => {
   for (const q of SEQUENCES) for (let k = 0; k < 15; k++) q.draw(ctx, 64, k, 15);
   assert.ok(calls.length > 0);
 });
+
+test('moon: frames evenly spaced by how much is lit -- none too alike, even near full', () => {
+  for (const n of [8, 15, 24]) {
+    const frames = [];
+    for (let k = 0; k < n; k++) {
+      const f = { rx: null, waning: false };
+      const ctx = new Proxy({}, {
+        get: (_, key) => (key in Object.prototype ? undefined : (...a) => {
+          if (key === 'ellipse') f.rx = a[2] * (a[7] ? 1 : -1); // (+ crescent, - gibbous)
+          if (key === 'scale' && a[0] < 0) f.waning = true;
+        }),
+        set: () => true,
+      });
+      SEQUENCES.find((q) => q.id === 'moon').draw(ctx, 100, k, n);
+      frames.push(f);
+    }
+    // The shadow's edge, from new (one side) across to full and back.
+    const r = 36;
+    const edge = frames.map((f, k) => (k === 0 ? r : f.rx === null ? r : f.rx));
+    for (let k = 1; k < n; k++) {
+      const same = frames[k].waning === frames[k - 1].waning;
+      if (same) assert.ok(Math.abs(edge[k] - edge[k - 1]) >= 0.15 * r, `n ${n}: frames ${k - 1} and ${k}`);
+    }
+  }
+});

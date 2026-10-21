@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.63.1
+- 15: the moon's phases are evenly spaced, so the ones near full are easy
+  to tell apart. The plain colour gradients are gone (too alike); a
+  growing plant joins the sequences.
+
 ## 1.63.0
 - New game: **15**, the sliding puzzle. Tap a tile in line with the gap to
   slide it -- and any between. Numbers first, then pictures (colour wheels,
