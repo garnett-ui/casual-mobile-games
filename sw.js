@@ -12,6 +12,9 @@ const gameOf = (f) => (f.startsWith('games/') ? f.split('/')[1] : null);
 // The shell: everything but the games -- except their little card pictures,
 // for the home screen.
 const CORE = files.filter((f) => !gameOf(f) || /^games\/[^/]+\/art\.js$/.test(f));
+// Kept in the cache once the whole arcade's wanted, so every update fetches
+// all of it -- new games too -- before it's ready.
+const ALL = '__arcade__';
 const filesOf = (games) => files.filter((f) => !CORE.includes(f) && (games === 'all' || games.includes(gameOf(f))));
 // A request's path relative to the app (as the manifest lists it).
 const rel = (url) => {
@@ -25,7 +28,9 @@ self.addEventListener('install', (event) => {
     // which version's coming first: looking through the old cache takes a
     // moment.)
     await report(0, CORE.length);
-    await precache([...CORE, ...filesOf(await cachedGames())]);
+    const games = await cachedGames();
+    await precache([...CORE, ...filesOf(games)]);
+    if (games === 'all') await (await caches.open(CACHE)).put(ALL, new Response('all'));
     // A first install takes over straight away. An update waits until the
     // player taps Update on the home screen -- never in the middle of a game.
     if (!self.registration.active) self.skipWaiting();
@@ -33,12 +38,14 @@ self.addEventListener('install', (event) => {
 });
 
 // The games cached by earlier versions (any of their files, not just the
-// card picture).
+// card picture) -- or 'all', if they kept the whole arcade.
 async function cachedGames() {
   const games = new Set();
   for (const key of await caches.keys()) {
     if (!key.startsWith('pocket-arcade-') || key === CACHE) continue;
-    for (const req of await (await caches.open(key)).keys()) {
+    const cache = await caches.open(key);
+    if (await cache.match(ALL)) return 'all';
+    for (const req of await cache.keys()) {
       const f = rel(req.url);
       if (gameOf(f) && !CORE.includes(f)) games.add(gameOf(f));
     }
@@ -76,6 +83,7 @@ async function precache(list) {
 // current cache -- just what isn't there already.
 async function cacheMore(games) {
   const cache = await caches.open(CACHE);
+  if (games === 'all') await cache.put(ALL, new Response('all'));
   const missing = [];
   for (const f of filesOf(games)) if (!(await cache.match(f))) missing.push(f);
   await Promise.all(missing.map(async (f) => {

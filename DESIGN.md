@@ -10,7 +10,8 @@ README says what the games are; this says how they're meant to play.
   first visit, a game when it's opened, the whole arcade once you're on its
   home screen or have installed it. A link to one game (`#/morse`) is
   shareable and downloads just that game; every level page has a link to
-  the arcade.
+  the arcade. Once you've had the whole arcade, every update downloads all
+  of it (new games too) before it offers to install.
   Graphics are mostly drawn on a canvas and most sound is synthesised (Web
   Audio), which keeps the download small -- but recorded audio and images
   are fine where they make a game better (Lunar Lander's "The Eagle has

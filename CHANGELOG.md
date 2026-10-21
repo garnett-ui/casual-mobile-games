@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.60.2
+- Updates downloaded from the home screen now bring every game -- including
+  any new ones, and any that hadn't finished downloading before -- so the
+  whole arcade is ready offline as soon as an update says it's ready.
+
 ## 1.60.1
 - Morse Rain, sending: key something that isn't a character and out pops a
   dud, which drops to the ground with a splat (and a red ?). Key a letter

@@ -411,6 +411,54 @@ test('updates: progress on the home screen only, Update installs the newest, not
   }
 });
 
+test('an update from the home screen downloads every game -- new ones too -- before it is ready', { skip: !chromium, timeout: 90000 }, async () => {
+  const { readFile: rf } = await import('node:fs/promises');
+  const manifest = await rf(new URL('../sw-manifest.js', import.meta.url), 'utf8');
+  const swSource = await rf(new URL('../sw.js', import.meta.url), 'utf8');
+  const overrides = new Map();
+  const server = await serve(overrides);
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      }
+    });
+    await page.waitForFunction(async () => !!(await caches.match('__arcade__')), null, { timeout: 30000, polling: 200 });
+    // As if the arcade's download was cut short: a whole game missing.
+    await page.evaluate(async () => {
+      for (const key of await caches.keys()) {
+        const cache = await caches.open(key);
+        for (const req of await cache.keys()) if (req.url.includes('/games/car-jam/')) await cache.delete(req);
+      }
+    });
+    // A new version, with a new game in it.
+    const next = manifest
+      .replace(/"appVersion": "[^"]+"/, '"appVersion": "99.0.0"')
+      .replace(/"version": "[^"]+"/, '"version": "deploy-99"')
+      .replace('"files": [', '"files": [\n    "games/zzz-new/play.js",');
+    overrides.set('/sw-manifest.js', next);
+    overrides.set('/sw.js', `${swSource}\n// deploy 99\n`);
+    overrides.set('/games/zzz-new/play.js', 'export {};');
+    const { files } = new Function('self', `${next}; return self.PRECACHE;`)({});
+    await page.locator('.hub-foot .version').click();
+    await page.locator('.update-bar[data-state=ready]').waitFor({ timeout: 30000 });
+    const missing = await page.evaluate(async (list) => {
+      const cache = await caches.open('pocket-arcade-deploy-99');
+      const out = [];
+      for (const f of list) if (!(await cache.match(f))) out.push(f);
+      return out;
+    }, files);
+    assert.deepEqual(missing, [], 'every file of the new version, before Update');
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('breakout: locks orientation where possible, pauses on rotation where not', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
