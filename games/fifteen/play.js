@@ -54,7 +54,7 @@ export class Play {
     this.canvas.height = Math.round(this.H * dpr);
     const pad = 14;
     this.gap = 4;
-    this.tile = Math.floor(Math.min((this.W - pad * 2 - this.gap * (this.w - 1)) / this.w, (this.H - pad * 2 - this.gap * (this.h - 1)) / this.h, 140));
+    this.tile = Math.max(1, Math.floor(Math.min((this.W - pad * 2 - this.gap * (this.w - 1)) / this.w, (this.H - pad * 2 - this.gap * (this.h - 1)) / this.h, 140)));
     this.bw = this.tile * this.w + this.gap * (this.w - 1);
     this.bh = this.tile * this.h + this.gap * (this.h - 1);
     this.ox = Math.round((this.W - this.bw) / 2);

@@ -18,6 +18,7 @@ export function paint(canvas) {
   // The tray, and the tiles: 1 to 14 home, the gap, then 15.
   const gap = 3;
   const s = Math.min((H * 0.84 - gap * 3) / 4, (W * 0.6 - gap * 3) / 4);
+  if (s <= 0) return rect; // (not laid out yet)
   const bw = s * 4 + gap * 3;
   const ox = (W - bw) / 2;
   const oy = (H - bw) / 2;
