@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.62.3
+- Morse Rain, sending: fixed letters breaking apart -- a K read as T E T --
+  when the pauses between taps are longer than the taps themselves (as
+  they often are on a touch screen). The keying now learns your pauses as
+  well as your taps.
+
 ## 1.62.2
 - Morse Rain, sending: the rain speeds up only when you're well ahead --
   shoot it down to fewer than three letters, all in the top half of the

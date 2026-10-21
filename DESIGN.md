@@ -313,10 +313,14 @@ again, every few seconds, until you find it. No hurry.
   dit and dah from your last 16 presses (where their lengths jump from
   short to long; or, all of a kind, whichever they're nearer), starting
   from about 15 words a minute, and remembers your speed between levels.
-  As it learns, it re-reads the letter so far. A pause of two units ends a
-  letter -- halfway between the one-unit pause inside a letter and the
-  three between letters -- so letters keyed one straight after another,
-  properly spaced, each fire on their own. (A letter's ended by the next
+  As it learns, it re-reads the letter so far. It learns your pauses
+  inside a letter too (only those short enough to be one -- under two and
+  a half units by your presses): tapping on glass they're often longer
+  than your dits. A pause twice that ends a letter -- halfway, keyed
+  perfectly, between the one unit inside a letter and the three between
+  letters -- so letters keyed one straight after another, properly spaced,
+  each fire on their own. It starts generous (a letter ends after 0.24 s),
+  for a beginner's pauses, and remembers both between levels. (A letter's ended by the next
   press too, if the screen hasn't caught up yet.) The lessons are the same
   as listening's.
 

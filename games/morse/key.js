@@ -3,8 +3,9 @@
 // letters. A press shorter than the line between your dits and dahs is a
 // dit, longer a dah; both lengths are learnt from your recent presses
 // (starting from about 15 words a minute), so it follows you whether you're
-// quick or slow. A pause of two units -- between the one inside a letter
-// and the three between letters -- ends the letter.
+// quick or slow. A pause twice as long as your pauses inside a letter (one
+// unit, keyed perfectly; often longer, tapping on glass) ends the letter --
+// short of the three units between letters.
 import { CODE } from './code.js';
 
 const LETTER = Object.fromEntries(Object.entries(CODE).map(([ch, code]) => [code, ch]));
@@ -20,9 +21,10 @@ export const UNKNOWN = '#';
 const RECENT = 16; // presses remembered, to learn your dit and dah from
 
 export class Keyer {
-  constructor({ dit = 0.08 } = {}) {
+  constructor({ dit = 0.08, pause = 0.12 } = {}) {
     this.dit = dit; // your dit, as you key it (seconds)
     this.dah = dit * 3; // ...and your dah
+    this.pause = pause; // ...and the pause between them, inside a letter
     this.presses = []; // your recent presses (seconds)
     this.code = ''; // the letter so far
     this.parts = []; // its presses and pauses, in turn: [seconds, how many units it should be]
@@ -42,10 +44,11 @@ export class Keyer {
     return (this.dit + this.dah / 3) / 2;
   }
 
-  // How long a pause ends a letter: two units, halfway between the pause
-  // inside a letter (one) and the one between letters (three).
+  // How long a pause ends a letter: twice your pause inside a letter (or
+  // two units, if that's longer) -- halfway, keyed perfectly, between the
+  // one unit inside a letter and the three between letters.
   get gap() {
-    return clamp(2 * this.unit, 0.1, 1.2);
+    return clamp(2 * Math.max(this.pause, this.unit), 0.12, 1.5);
   }
 
   down(t) {
@@ -54,7 +57,12 @@ export class Keyer {
     if (this.code) {
       // Paused long enough: that letter's done (even if nobody's looked yet).
       if (g >= this.gap) this.end();
-      else this.parts.push([g, 1]);
+      else {
+        this.parts.push([g, 1]);
+        // (Learnt only from pauses short enough to be inside a letter -- not
+        // letters run together, three units apart, before it's learnt you.)
+        if (g < 2.5 * this.unit) this.pause = clamp(0.6 * this.pause + 0.4 * g, 0.03, 0.6);
+      }
     }
     this.downAt = t;
   }

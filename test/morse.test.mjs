@@ -173,7 +173,12 @@ const keyStream = (k, text, dit, { letterGap = 3, wobble = 0.15, frame = 1 / 60,
 test('keying: letters sent one straight after another, properly spaced, each read on its own', () => {
   for (const dit of [0.06, 0.08, 0.1, 0.15]) {
     const text = 'EIANTMSOUEDKRWGTAINE';
-    assert.equal(keyStream(new Keyer(), text, dit), text, `dit ${dit}`);
+    // (A new keyer starts out generous, for a beginner's pauses: someone
+    // quick runs a few letters together till it's learnt them.)
+    if (dit >= 0.1) assert.equal(keyStream(new Keyer(), text, dit), text, `dit ${dit}`);
+    const fresh = new Keyer();
+    keyStream(fresh, 'EIANTS', dit);
+    assert.equal(keyStream(fresh, text, dit, { start: 30 }), text, `dit ${dit}, after a few letters`);
     // ...and from a keyer that's already learnt you.
     const k = new Keyer({ dit });
     keyStream(k, 'TEAN', dit);
@@ -183,8 +188,33 @@ test('keying: letters sent one straight after another, properly spaced, each rea
   const k = new Keyer({ dit: 0.3 });
   keyStream(k, 'EEIAN', 0.07);
   assert.equal(keyStream(k, 'AINTEMS', 0.07, { start: 50 }), 'AINTEMS');
+  // Tapping on glass: quick taps, but slower lifts between them (and a
+  // beginner's long pauses) -- each letter whole, straight away.
+  for (const [dit, dah, pause, space] of [[0.06, 0.25, 0.15, 0.45], [0.1, 0.3, 0.18, 0.6], [0.04, 0.2, 0.16, 0.5]]) {
+    for (const k of [new Keyer(), new Keyer({ dit: 0.05 })]) {
+      let t = 0;
+      const out = [];
+      const text = 'KKANTKRDGW';
+      for (const ch of text) {
+        [...CODE[ch]].forEach((s, i) => {
+          for (const end = t + (i ? pause : 0); t < end; t += 1 / 60) {
+            const c = k.tick(t);
+            if (c) out.push(c);
+          }
+          k.down(t);
+          t += s === '.' ? dit : dah;
+          k.up(t);
+        });
+        for (const end = t + space; t < end; t += 1 / 60) {
+          const c = k.tick(t);
+          if (c) out.push(c);
+        }
+      }
+      assert.equal(out.join(''), text, `taps ${dit}/${dah}, pauses ${pause}`);
+    }
+  }
   // A slow-ish frame rate doesn't run letters together either.
-  assert.equal(keyStream(new Keyer({ dit: 0.06 }), 'EEEETTTTIIII', 0.06, { frame: 1 / 15 }), 'EEEETTTTIIII');
+  assert.equal(keyStream(new Keyer({ dit: 0.06, pause: 0.06 }), 'EEEETTTTIIII', 0.06, { frame: 1 / 15 }), 'EEEETTTTIIII');
 });
 
 const sendGame = (spec) => {
@@ -389,17 +419,17 @@ test('sending: keying the next letter while a shot is still flying -- each goes 
     });
   };
   key('E');
-  step(0.2);
+  step(0.4);
   assert.equal(p.shots.length, 1, 'E fired');
   const slow = p.shots[0];
   slow.speed = 30; // (a long flight)
   key('A');
-  step(0.2);
+  step(0.4);
   assert.equal(p.shots.length, 2, 'A fired too, the E shot still on its way');
   assert.ok(p.shots.includes(slow));
   assert.notEqual(p.shots[1].tile, slow.tile);
   key('T');
-  step(0.2);
+  step(0.4);
   assert.equal(p.hits + p.shots.length, 3, 'and T');
   slow.speed = 2000;
   step(1.5);

@@ -34,12 +34,12 @@ const every = (w) => 60 / (5 * w);
 const FALL = 5;
 
 export class SendPlay {
-  constructor(canvas, spec, hooks, { dit } = {}) {
+  constructor(canvas, spec, hooks, { dit, pause } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.spec = { ...spec, ...sendPace(spec.n) };
     this.hooks = hooks;
-    this.keyer = new Keyer(dit ? { dit } : {});
+    this.keyer = new Keyer({ ...(dit ? { dit } : {}), ...(pause ? { pause } : {}) });
     this.paused = true;
     this.timeScale = 1;
     this.resize();
@@ -279,7 +279,7 @@ export class SendPlay {
   }
 
   result(won) {
-    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, wpm: this.spec.wpm, topWpm: this.topWpm, effectiveWpm: this.effectiveWpm };
+    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, pause: this.keyer.pause, wpm: this.spec.wpm, topWpm: this.topWpm, effectiveWpm: this.effectiveWpm };
   }
 
   // ------------------------------------------------------------- input

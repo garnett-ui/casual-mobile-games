@@ -87,7 +87,7 @@ export function mount(root, ctx, sub) {
     };
     const canvas = root.querySelector('canvas');
     if (mode === SEND) {
-      play = new SendPlay(canvas, spec, { ...hooks, tone: (on) => sidetone(on) }, { dit: ctx.load('send-dit', null) });
+      play = new SendPlay(canvas, spec, { ...hooks, tone: (on) => sidetone(on) }, { dit: ctx.load('send-dit', null), pause: ctx.load('send-pause', null) });
       window.__morseSend = play; // (for the end-to-end tests)
     } else {
       play = new Play(canvas, spec, { ...hooks, morse: (code) => playMorse(code) });
@@ -157,7 +157,9 @@ export function mount(root, ctx, sub) {
       { label: 'Levels', act: 'levels', run: () => ctx.back(home(mode)) },
       { label: 'Try again', act: 'retry', primary: true, run: () => showPlay(mode, n) },
     ];
-    if (mode === SEND && res.dit) ctx.save('send-dit', res.dit); // (your keying speed, for next time)
+    // (Your keying rhythm, for next time.)
+    if (mode === SEND && res.dit) ctx.save('send-dit', res.dit);
+    if (mode === SEND && res.pause) ctx.save('send-pause', res.pause);
     if (!res.won) {
       ctx.track('level_fail', { level: n, mode });
       ctx.sfx('lose');
