@@ -17,7 +17,7 @@
 //   of the two sums is a better guide.
 //
 // Every move changes the distance by exactly one (it flips the parity of
-// the arrangement), which is what walk() uses to follow a game cheaply.
+// the arrangement), which is what track() uses to follow a game cheaply.
 
 // The goal: tiles 1, 2, 3... in reading order, the gap last.
 export function goalOf(w, h) {
@@ -140,31 +140,41 @@ export class Solver {
     return this.solve(board)[0] ?? null;
   }
 
-  // Follow a game: the distance after each move, from the start (so one
-  // more than the moves). Each step is one more or one less than the last;
-  // which, a search no deeper than one less tells -- often not even that:
-  // following a known best line, or the heuristic too high for less.
-  walk(start, moves) {
+  // Follow a game as it's played: track(start) gives the distance now and
+  // a best line from here, kept up move by move without solving afresh.
+  // Each move changes the distance by exactly one:
+  // - along the line: one less, and the rest of the line is still best;
+  // - otherwise, if the estimate's already more than one less: one more,
+  //   and the best line is straight back, then the old line;
+  // - otherwise one search, no deeper than one less, tells which -- and
+  //   finding one, that's the new line; not, straight back again.
+  track(start) {
     let board = start.slice();
     let line = this.solve(board);
-    let d = line.length;
-    const out = [d];
-    for (const m of moves) {
-      board = apply(board, m);
-      if (this.n <= TABLE_MAX) d = this.table()[this.rank(board)];
-      else if (line && line[0] === m) {
-        line = line.slice(1);
-        d--;
-      } else if (d === 0 || this.estimate(board) > d - 1) {
-        line = null;
-        d++;
-      } else {
-        line = this.search(board, d - 1);
-        d += line ? -1 : 1;
-      }
-      out.push(d);
-    }
-    return out;
+    const t = {
+      d: line.length,
+      line,
+      board,
+      move: (m) => {
+        const back = board.indexOf(0);
+        board = apply(board, m);
+        if (line[0] === m) line = line.slice(1);
+        else if (this.n > TABLE_MAX && (t.d === 0 || this.estimate(board) > t.d - 1)) line = [back, ...line];
+        else line = (this.n <= TABLE_MAX ? (this.table()[this.rank(board)] < t.d ? this.solveByTable(board) : null) : this.search(board, t.d - 1)) ?? [back, ...line];
+        t.d = line.length;
+        t.line = line;
+        t.board = board;
+        return t.d;
+      },
+    };
+    return t;
+  }
+
+  // The distance after each move of a game, from the start (so one more
+  // than the moves).
+  walk(start, moves) {
+    const t = this.track(start);
+    return [t.d, ...moves.map((m) => t.move(m))];
   }
 
   // ---------------------------------------------------- small boards: a table

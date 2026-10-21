@@ -121,6 +121,13 @@ test('following a game: every move one more or one less; the moves are the dista
       if (ds[i] > ds[i - 1]) up++;
     }
     assert.equal(moves.length, ds[0] + 2 * up);
+    // The line kept along the way is always a best one.
+    const t = s.track(start);
+    for (const m of moves.slice(0, 60)) {
+      t.move(m);
+      assert.equal(t.line.length, t.d);
+      assert.ok(reaches(s, t.board, t.line));
+    }
     // ...and each, exactly.
     for (let i = 0, b = start; i < ds.length; i += 7) {
       assert.equal(ds[i], s.distance(b), `${w}x${h} after ${i}`);
