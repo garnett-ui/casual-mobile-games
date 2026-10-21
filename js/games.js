@@ -67,6 +67,14 @@ export const GAMES = [
     art: () => import('../games/morse/art.js'),
   },
   {
+    id: 'trial-bike',
+    title: 'Trial Bike',
+    blurb: 'Ride a trials bike over hills, logs, ledges and gaps: gas, brake and lean. Beat the computer rider’s time without a crash.',
+    color: '#e63946',
+    load: () => import('../games/trial-bike/index.js'),
+    art: () => import('../games/trial-bike/art.js'),
+  },
+  {
     id: 'jigsaw',
     title: 'Jigsaw',
     blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',

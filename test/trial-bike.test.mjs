@@ -82,7 +82,8 @@ test('coming down on the helmet is a crash; so is falling out of the world', () 
   const res = ride(course, B, idle, 3);
   assert.equal(res.kind, 'crash');
   assert.equal(B.crashed, true);
-  assert.equal(step(course, B, idle, 1 / 60), null, 'a crashed bike stays put');
+  assert.equal(step(course, B, { gas: true }, 1 / 60), null, 'a crashed bike takes no input');
+  assert.equal(B.gas, false);
   const B2 = newBike(course);
   B2.y = course.minY - 10;
   assert.equal(ride(course, B2, idle, 1).reason, 'Fell');
@@ -136,7 +137,6 @@ test('every course is ridable (the computer rider finishes it) and gets longer a
     const run = bestRide(level);
     assert.equal(run.kind, 'finished', `course ${n} finished`);
     assert.ok(level.par >= run.time && level.par < run.time + 1.5, `par ${level.par} is the rider's time ${run.time}`);
-    assert.ok(level.ride.length > 10, 'the rider\'s line is kept for the course preview');
   }
   const s3 = specFor(3);
   const s20 = specFor(20);

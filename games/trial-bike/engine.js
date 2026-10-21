@@ -26,11 +26,11 @@ export const BASE = 1.3; // wheelbase (m)
 export const COM = 0.55; // centre of mass this far above the axles (m)
 export const HEAD = [0.05, 1.45]; // the rider's helmet, from the centre of mass
 export const MASS = 1;
-export const INERTIA = MASS * 0.9; // kg m^2: the bike is long and the rider high
+export const INERTIA = MASS * 1.0; // kg m^2: the bike is long and the rider high
 export const TIRE_K = 420; // tire/suspension stiffness (N/m per unit mass)
 export const TIRE_C = 22; // and damping
 export const GRIP = 1.1; // friction coefficient: dirt tires on dirt
-export const DRIVE = 10; // rear-wheel push at full throttle (m/s^2)
+export const DRIVE = 9; // rear-wheel push at full throttle (m/s^2)
 export const BRAKE = 3.5; // each wheel's brake at full squeeze (m/s^2): about 0.7 g together, short of an endo
 export const VMAX = 14; // the engine runs out of puff here (m/s, ~31 mph)
 export const LEAN = 10; // rider's torque at full lean (rad/s^2)
@@ -325,13 +325,14 @@ export function step(course, B, input, dt) {
   B.gas = !!input.gas;
   B.brake = !!input.brake;
   B.lean = lean;
-  // Standing still (against a wall, or balanced on the back wheel).
-  B.stall = grounded(B) && Math.abs(B.vx) < 0.25 ? (B.stall ?? 0) + dt : 0;
   // The walls of the world.
   if (B.x < WHEEL) {
     B.x = WHEEL;
     B.vx = Math.abs(B.vx) * 0.2;
   }
+  if (B.crashed) return null;
+  // Standing still (against a wall, or balanced on the back wheel).
+  B.stall = grounded(B) && Math.abs(B.vx) < 0.25 ? (B.stall ?? 0) + dt : 0;
   while (B.flag + 1 < course.flags.length && B.x > course.flags[B.flag + 1]) B.flag++;
   // The helmet touching the ground is a crash; so is falling out of the world.
   if (B.y < course.minY - 4) return crash(B, 'Fell');
@@ -497,7 +498,8 @@ export function bestRide(course) {
 }
 
 // Course n as played: one the rider has actually finished (re-rolled until
-// it does), with par set by its time. `checked` says the rider managed it.
+// it does), with par set by its time and `pace` the pace that set it (for
+// the demo). `checked` says the rider managed it.
 export function makeLevel(n) {
   let course;
   let run = null;
@@ -506,7 +508,7 @@ export function makeLevel(n) {
     run = bestRide(course);
   }
   const par = run ? Math.ceil(run.time) : Math.ceil(course.length / 4);
-  return { ...course, par, checked: !!run, ride: run?.path ?? null };
+  return { ...course, par, pace: run?.pace ?? 0.5, checked: !!run };
 }
 
 // Stars for a finish: against par, and the number of crashes along the way.
