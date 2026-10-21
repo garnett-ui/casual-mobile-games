@@ -277,7 +277,7 @@ again, every few seconds, until you find it. No hurry.
 - **Two sets of lessons, each with its own levels and stars, chosen by
   tabs on the level page: Listen (above) and Send.**
 - **Sending**, Missile Command style: tiles drift down the screen (swaying
-  a little, faster as the levels go on). Tap anywhere to key -- a short tap
+  a little). Tap anywhere to key -- a short tap
   a dit, a long one a dah -- and you hear only your own sidetone. A pause
   ends the letter, and the cannon at the bottom fires a homing shot at the
   lowest tile with that letter, so the urgent ones come first (any can be
@@ -291,11 +291,14 @@ again, every few seconds, until you find it. No hurry.
   -- and "Excellent timing!" fires two shots, at the two lowest tiles of
   that letter. The board keys anywhere (the header's buttons and the cards
   don't), with a KEY pad under the cannon to aim for.
-- The rain keeps up with you: shoot a tile down in the top half and it
-  speeds up (10% a time, up to 2.5x, easing in); one shot low (the bottom
-  quarter) eases it back a little, and a life lost by a quarter. The speed
-  shows by the lives (with a rising arrow while it's climbing), and the top
-  speed on the score card. And there are always at least three tiles to aim
+- The rain comes at a sending speed, in words a minute (five letters a
+  word, about five tiles on the screen at any speed): 5 wpm on the first
+  level, a little quicker each level after (to 12). It keeps up with you:
+  shoot a tile down in the top half and it speeds up (10% a time, easing
+  in, never past 20 wpm); one shot low (the bottom quarter) eases it back a
+  little, and a life lost by a quarter (never below 5). The speed shows by
+  the lives (with a rising arrow while it's climbing), and the top speed on
+  the score card. And there are always at least three tiles to aim
   at while more are to come: clear them and the next drop in at once
   (placed away from the others near the top).
 - The keyer reads you by your own rhythm, not a fixed speed: it learns your

@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.61.1
+- Morse Rain, sending: the letters come at a real sending speed, shown in
+  words a minute -- 5 to start, up to 20 at the fastest.
+
 ## 1.61.0
 - Morse Rain, sending: shoot the letters down while they're still high and
   the rain speeds up -- up to two and a half times as fast -- easing off

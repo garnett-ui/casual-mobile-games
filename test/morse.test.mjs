@@ -103,7 +103,7 @@ test('stars: by the letters got first time', () => {
 // ------------------------------------------------------------- sending
 
 const { Keyer, decode, UNKNOWN } = await import('../games/morse/key.js');
-const { SendPlay, FASTEST, MIN_ON_SCREEN } = await import('../games/morse/send.js');
+const { SendPlay, sendPace, SLOWEST, FASTEST, MIN_ON_SCREEN } = await import('../games/morse/send.js');
 
 // Key a string of letters on a keyer at a given dit length (with a little
 // human wobble), returning what it read.
@@ -152,7 +152,6 @@ const runSend = (p, s, now = 0) => {
 
 test('sending: the cannon shoots the lowest tile with the letter keyed', () => {
   const p = sendGame({ ...levelSpec(1), letters: ['E', 'T', 'E'] });
-  p.spec.every = 0.5;
   runSend(p, 2);
   assert.equal(p.tiles.length, 3);
   const lowest = p.tiles.filter((a) => a.ch === 'E').sort((a, b) => b.y - a.y)[0];
@@ -186,12 +185,10 @@ test('sending: a letter that isn\'t there flies off carrying it; not a character
 
 test('sending: tiles reaching the ground cost a life; three and it\'s over; shoot them all and you win', () => {
   const p = sendGame({ ...levelSpec(1), letters: ['E', 'T', 'A', 'N'] });
-  p.spec.every = 0.5;
   runSend(p, 60);
   assert.equal(p.over.won, false);
   assert.equal(p.lives, 0);
   const q = sendGame({ ...levelSpec(1), letters: ['E', 'T'] });
-  q.spec.every = 0.5;
   let now = 0;
   while (!q.over && now < 60) {
     for (const a of q.tiles) if (!q.shots.some((s) => s.tile === a)) q.fire(a.ch);
@@ -222,7 +219,6 @@ test('sending: excellent timing (every dah three dits, every pause one) shoots t
   for (let x = 0; x < 80 && !k.tick((t += 0.02)); x++);
   assert.ok(k.precision < 0.9, `ragged keying (${k.precision})`);
   const p = sendGame({ ...levelSpec(1), letters: ['A', 'A', 'A'] });
-  p.spec.every = 0.5;
   runSend(p, 2);
   p.fire('A', 0.97);
   assert.equal(p.shots.length, 2, 'two for one');
@@ -232,24 +228,25 @@ test('sending: excellent timing (every dah three dits, every pause one) shoots t
   assert.equal(p.excellent, 1);
 });
 
-test('sending: always a few tiles to aim at; shoot them high and the rain speeds up, let them get low and it eases', () => {
-  const p = sendGame({ ...levelSpec(1), letters: Array(30).fill('E') });
-  p.spec.every = 100; // (only the minimum brings them in)
-  runSend(p, 4);
-  assert.equal(p.tiles.length, MIN_ON_SCREEN, 'three to aim at within a few seconds, even at the slowest');
+test('sending: from 5 words a minute, faster as you shoot them high (up to 20), slower as they get low; always a few to aim at', () => {
+  assert.equal(sendPace(1).wpm, SLOWEST);
+  assert.ok(sendPace(40).wpm < FASTEST);
+  const p = sendGame({ ...levelSpec(1), letters: Array(200).fill('E') });
+  runSend(p, 1.5);
+  assert.equal(p.tiles.length, MIN_ON_SCREEN, 'three to aim at straight away, even at the slowest');
   // Clear each one as soon as it's in: more keep coming, and faster.
   let now = 10;
-  for (let k = 0; k < 12; k++) {
+  for (let k = 0; k < 40; k++) {
     for (const a of p.tiles) if (!p.shots.some((s) => s.tile === a) && a.y > 0) p.fire(a.ch);
     for (let x = 0; x < 30; x++) p.update(1 / 30, (now += 1 / 30));
-    assert.ok(p.tiles.length + p.queue.length === 0 || p.tiles.length >= 1);
   }
-  assert.ok(p.hits >= 12, `shot down ${p.hits}`);
-  assert.ok(p.tempo > 2 && p.tempo <= FASTEST, `faster: ${p.tempo}`);
-  assert.ok(p.speed > 1.5, `eased up to ${p.speed}`);
-  assert.ok(p.result(true).topSpeed > 1.5);
-  // Let them come down: a life lost, and it slows.
-  const was = p.tempo;
-  while (p.lives === 3 && now < 200) p.update(1 / 30, (now += 1 / 30));
-  assert.ok(p.tempo < was, `eased off: ${p.tempo}`);
+  assert.ok(p.hits >= 30, `shot down ${p.hits}`);
+  assert.equal(p.tempo, FASTEST, 'up to 20 and no more');
+  assert.ok(p.wpm > 15, `eased up to ${p.wpm}`);
+  assert.ok(p.result(true).topWpm > 15);
+  // Let them come down: a life lost, and it slows (never below 5).
+  while (p.lives === 3 && now < 300) p.update(1 / 30, (now += 1 / 30));
+  assert.ok(p.tempo < FASTEST, `eased off: ${p.tempo}`);
+  while (!p.over && now < 600) p.update(1 / 30, (now += 1 / 30));
+  assert.ok(p.tempo >= SLOWEST);
 });

@@ -7,23 +7,30 @@
 // dud, which drops to the ground -- splat -- and a red ? floats up. A tile that reaches the ground costs a life; three, and
 // it's over. Key a letter with excellent timing -- every dah three dits,
 // every pause one -- and it fires twice, at the two lowest of that letter.
-// Shoot them down while they're still high and the rain speeds up (up to
-// FASTEST); let them get low, or lose a life, and it eases off. There are
-// always a few on the screen to aim at (MIN_ON_SCREEN), however quick you are.
+// The rain comes at a sending speed, in words a minute (five letters a
+// word): each level starts a little quicker, from SLOWEST. Shoot them down
+// while they're still high and it speeds up (up to FASTEST); let them get
+// low, or lose a life, and it eases off. There are always a few on the
+// screen to aim at (MIN_ON_SCREEN), however quick you are.
 import { Keyer, UNKNOWN } from './key.js';
 
 export const EXCELLENT = 0.9; // (precision: see Keyer.tick)
-export const FASTEST = 2.5; // the most the rain speeds up
+export const SLOWEST = 5; // words a minute
+export const FASTEST = 20;
 export const MIN_ON_SCREEN = 3; // tiles to aim at (while there are more to come)
 import { rng } from '../../js/lib/random.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// The sending lesson's pace: how long a tile takes to come down, and how
-// often another comes in -- unhurried to start.
+// The sending lesson's pace to start (words a minute): unhurried at first.
 export function sendPace(n) {
-  return { fall: Math.max(9, 24 - 0.75 * (n - 1)), every: Math.max(1.3, 3.8 - 0.13 * (n - 1)) };
+  return { wpm: Math.min(12, SLOWEST + 0.4 * (n - 1)) };
 }
+
+// At w words a minute: seconds between letters, and for one to come down
+// (about five on the screen at any speed).
+const every = (w) => 60 / (5 * w);
+const FALL = 5;
 
 export class SendPlay {
   constructor(canvas, spec, hooks, { dit } = {}) {
@@ -73,9 +80,9 @@ export class SendPlay {
     this.praise = null; // "Excellent timing!", for a moment
     this.over = null;
     this.ids = 0;
-    this.tempo = 1; // how fast the rain's heading for (x the lesson's pace)...
-    this.speed = 1; // ...and how fast it is, easing there
-    this.topSpeed = 1;
+    this.tempo = this.spec.wpm; // how fast the rain's heading for...
+    this.wpm = this.spec.wpm; // ...and how fast it is, easing there
+    this.topWpm = this.wpm;
     this.aim = -Math.PI / 2;
   }
 
@@ -97,8 +104,8 @@ export class SendPlay {
   update(dt, now) {
     this.t += dt;
     const { size } = this;
-    this.speed += (this.tempo - this.speed) * Math.min(1, dt * 0.8);
-    this.topSpeed = Math.max(this.topSpeed, this.speed);
+    this.wpm += (this.tempo - this.wpm) * Math.min(1, dt * 0.8);
+    this.topWpm = Math.max(this.topWpm, this.wpm);
     // The next tile, from somewhere along the top: on time, or sooner if
     // there are too few left to aim at (a moment after the last).
     const live = this.tiles.filter((a) => !this.shots.some((s) => s.tile === a)).length;
@@ -115,10 +122,10 @@ export class SendPlay {
       }
       this.lastAt = this.t;
       this.tiles.push({ id: this.ids++, ch, x, y: -size / 2, phase: this.r() * 6.3, sway: 12 + this.r() * 20, tilt: (this.r() - 0.5) * 0.25 });
-      this.nextAt = this.t + (this.spec.every * (0.7 + 0.6 * this.r())) / this.speed;
+      this.nextAt = this.t + every(this.wpm) * (0.7 + 0.6 * this.r());
     }
     // Drifting down (and a little from side to side), apart.
-    const fall = (this.ground / this.spec.fall) * this.speed;
+    const fall = this.ground / (FALL * every(this.wpm));
     for (const a of this.tiles) {
       a.y += fall * dt;
       a.x = clamp(a.x + Math.cos(this.t * 0.9 + a.phase) * a.sway * dt, size / 2, this.W - size / 2);
@@ -142,7 +149,7 @@ export class SendPlay {
       this.tiles.splice(this.tiles.indexOf(a), 1);
       this.boom(a.x, this.ground - 4, '#ff7a3d', 26);
       this.lives--;
-      this.tempo = Math.max(1, this.tempo * 0.75);
+      this.tempo = Math.max(SLOWEST, this.tempo * 0.75);
       this.hooks.haptic?.(60);
       if (this.lives <= 0) return this.lose();
     }
@@ -229,7 +236,7 @@ export class SendPlay {
   // speeds up; low down (the bottom quarter), and it eases off a little.
   quicken(y) {
     if (y < this.ground * 0.5) this.tempo = Math.min(FASTEST, this.tempo * 1.1);
-    else if (y > this.ground * 0.75) this.tempo = Math.max(1, this.tempo * 0.95);
+    else if (y > this.ground * 0.75) this.tempo = Math.max(SLOWEST, this.tempo * 0.95);
   }
 
   boom(x, y, colour, n) {
@@ -255,7 +262,7 @@ export class SendPlay {
   }
 
   result(won) {
-    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, topSpeed: this.topSpeed };
+    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, wpm: this.spec.wpm, topWpm: this.topWpm };
   }
 
   // ------------------------------------------------------------- input
@@ -410,14 +417,12 @@ export class SendPlay {
       ctx.bezierCurveTo(x + 6, y - 12, x + 12, y - 2, x, y + 6);
       ctx.fill();
     }
-    // How fast the rain is coming (once it's picked up).
-    if (this.topSpeed > 1.05) {
-      ctx.fillStyle = this.speed > 1.05 ? '#ffd25a' : 'rgba(255,255,255,0.45)';
-      ctx.font = '800 13px system-ui, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`${this.tempo > this.speed + 0.02 ? '▲ ' : ''}×${this.speed.toFixed(1)}`, W - 14, this.ground + (H - this.ground) / 2);
-    }
+    // How fast the rain is coming.
+    ctx.fillStyle = this.wpm > this.spec.wpm + 0.25 ? '#ffd25a' : 'rgba(255,255,255,0.45)';
+    ctx.font = '800 13px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${this.tempo > this.wpm + 0.1 ? '▲ ' : ''}${Math.round(this.wpm)} wpm`, W - 14, this.ground + (H - this.ground) / 2);
     // The key pad under the cannon (though anywhere on the board keys).
     const pw = Math.min(150, W * 0.36);
     const ph = Math.min(30, (H - this.ground) * 0.5);
