@@ -306,8 +306,14 @@ again, every few seconds, until you find it. No hurry.
   at while more are to come: clear them and the next drop in at once
   (placed away from the others near the top).
 - The keyer reads you by your own rhythm, not a fixed speed: it learns your
-  dit and dah from your presses and the pauses inside a letter, starting
-  from about 15 words a minute, and remembers your speed between levels. The
+  dit and dah from your last 16 presses (where their lengths jump from
+  short to long; or, all of a kind, whichever they're nearer), starting
+  from about 15 words a minute, and remembers your speed between levels.
+  As it learns, it re-reads the letter so far. A pause of two dits ends a
+  letter -- halfway between the one-dit pause inside a letter and the
+  three between letters -- so letters keyed one straight after another,
+  properly spaced, each fire on their own. (A letter's ended by the next
+  press too, if the screen hasn't caught up yet.) The
   lessons are the same as listening's.
 
 ## Jigsaw

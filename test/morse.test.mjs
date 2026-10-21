@@ -119,10 +119,8 @@ const keyText = (k, text, dit, start = 0) => {
     }
     for (let x = 0; x < 100; x++) {
       const c = k.tick(t);
-      if (c) {
-        out.push(c);
-        break;
-      }
+      if (c) out.push(c);
+      if (c && !k.done.length && !k.code) break;
       t += 0.02;
     }
   }
@@ -139,6 +137,54 @@ test('keying: decoded by your own rhythm -- quick, steady or slow', () => {
   assert.equal(keyText(k, 'NTMSO', 0.2, 100).text, 'NTMSO');
   // Something that isn't a letter: '?'.
   assert.equal(keyText(new Keyer(), 'E', 0.08).text, 'E');
+});
+
+// Key a string continuously, as a person would -- the next letter straight
+// after the last (letterGap dits apart), with a little wobble -- while the
+// game reads the keyer every frame. What it read.
+const keyStream = (k, text, dit, { letterGap = 3, wobble = 0.15, frame = 1 / 60, start = 0, seed = 1 } = {}) => {
+  let x = seed;
+  const jiggle = () => 1 + wobble * (((x = (x * 16807) % 2147483647) / 2147483647) * 2 - 1);
+  const events = []; // [time, down?]
+  let t = start;
+  for (const ch of text) {
+    [...CODE[ch]].forEach((s, i) => {
+      if (i) t += dit * jiggle();
+      events.push([t, true]);
+      t += (s === '.' ? 1 : 3) * dit * jiggle();
+      events.push([t, false]);
+    });
+    t += letterGap * dit * jiggle();
+  }
+  const out = [];
+  let e = 0;
+  for (let now = start; now < t + 2; now += frame) {
+    while (e < events.length && events[e][0] <= now) {
+      const [at, down] = events[e++];
+      if (down) k.down(at);
+      else k.up(at);
+    }
+    const c = k.tick(now);
+    if (c) out.push(c);
+  }
+  return out.join('');
+};
+
+test('keying: letters sent one straight after another, properly spaced, each read on its own', () => {
+  for (const dit of [0.06, 0.08, 0.1, 0.15]) {
+    const text = 'EIANTMSOUEDKRWGTAINE';
+    assert.equal(keyStream(new Keyer(), text, dit), text, `dit ${dit}`);
+    // ...and from a keyer that's already learnt you.
+    const k = new Keyer({ dit });
+    keyStream(k, 'TEAN', dit);
+    assert.equal(keyStream(k, text, dit, { start: 50, seed: 7 }), text, `dit ${dit}, learnt`);
+  }
+  // A speed remembered wrong (much too slow) is soon put right.
+  const k = new Keyer({ dit: 0.3 });
+  keyStream(k, 'EEIAN', 0.07);
+  assert.equal(keyStream(k, 'AINTEMS', 0.07, { start: 50 }), 'AINTEMS');
+  // A slow-ish frame rate doesn't run letters together either.
+  assert.equal(keyStream(new Keyer({ dit: 0.06 }), 'EEEETTTTIIII', 0.06, { frame: 1 / 15 }), 'EEEETTTTIIII');
 });
 
 const sendGame = (spec) => {
@@ -265,4 +311,44 @@ test('sending: effective speed -- letters keyed right a minute, five to a word',
   assert.equal(p.sent, 10);
   assert.ok(Math.abs(p.effectiveWpm - 10 * (9 * 1.2) / (9 * 1.2 + 0.0)) < 1.2, `${p.effectiveWpm}`);
   assert.equal(p.result(true).effectiveWpm, p.effectiveWpm);
+});
+
+test('sending: keying letter after letter, properly spaced, shoots every one -- fast enough to keep up', () => {
+  const p = sendGame({ ...levelSpec(5), letters: Array.from({ length: 60 }, (_, i) => 'EIANTMSOUDRKW'[(i * 7) % 13]) });
+  p.tempo = p.wpm = 15; // (the rain, quick)
+  const dit = 0.06; // (keyed at 20 words a minute)
+  const frame = 1 / 60;
+  let now = 0;
+  let plan = []; // [time, down?] for the letter being keyed
+  let free = 0; // when the key's free for the next letter (a letter's space after the last)
+  const claimed = new Set();
+  while (!p.over && now < 120) {
+    if (!plan.length) {
+      const tile = p.tiles.filter((a) => a.y > 0 && !claimed.has(a)).sort((a, b) => b.y - a.y)[0];
+      if (tile) {
+        claimed.add(tile);
+        let t = Math.max(now, free);
+        [...CODE[tile.ch]].forEach((s, i) => {
+          if (i) t += dit;
+          plan.push([t, true]);
+          t += (s === '.' ? 1 : 3) * dit;
+          plan.push([t, false]);
+        });
+        free = t + 3 * dit;
+      }
+    }
+    while (plan.length && plan[0][0] <= now) {
+      const [t, down] = plan.shift();
+      if (down) p.press(t);
+      else p.release(t);
+    }
+    p.update(frame, (now += frame));
+  }
+  assert.equal(p.over?.won, true, `cleared them all (lives ${p.lives}, hits ${p.hits})`);
+  assert.equal(p.lives, 3, 'none got through');
+  assert.ok(p.excellent > 0, 'and, keyed perfectly, two for one');
+  // (Every letter read right: the only misses are letters keyed at a tile a
+  // two-for-one had already taken.)
+  assert.ok(p.wrong <= p.excellent, `${p.wrong} keyed at nothing`);
+  assert.equal(p.notes.filter((n) => n.ch === UNKNOWN).length, 0, 'no duds');
 });

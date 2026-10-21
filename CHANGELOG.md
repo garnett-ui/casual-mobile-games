@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.62.1
+- Morse Rain, sending: letters keyed one straight after another, with the
+  proper space between them, now each fire a shot. Before, a steady stream
+  of keying ran together into one long dud, so you couldn't keep up with
+  fast rain.
+
 ## 1.62.0
 - Morse Rain, sending: each level's tile shows your best effective speed,
   in words a minute -- how many letters you sent right each minute. The
