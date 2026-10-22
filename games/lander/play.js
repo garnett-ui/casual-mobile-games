@@ -1229,7 +1229,7 @@ export class Play {
     {
       const rate = L.omega * DEG; // degrees per second, + clockwise
       const r = R + 7;
-      if (Math.abs(rate) > 0.3) {
+      if (Math.abs(rate) >= 0.05) {
         const dir = rate > 0 ? -1 : 1; // which way round from the bottom
         const sweep = Math.max(0.15, Math.min(1, Math.abs(rate) / 30)) * Math.PI * 0.55;
         const a0 = Math.PI / 2;
@@ -1254,12 +1254,14 @@ export class Play {
         ctx.closePath();
         ctx.fill();
       }
-      ctx.fillStyle = Math.abs(rate) < 0.3 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
+      ctx.fillStyle = Math.abs(rate) < 0.05 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
       ctx.shadowColor = ctx.fillStyle;
       ctx.textAlign = 'center';
       ctx.font = '700 13px ui-monospace, Menlo, Consolas, monospace';
-      const shown = Math.round(rate);
-      ctx.fillText(`${shown > 0 ? '+' : shown < 0 ? '−' : '±'}${Math.abs(shown)}°/s`, bx, by + R + 36);
+      // (Tenths when slow: a creep you'd want to null before landing shows.)
+      const shown = Math.abs(rate) < 9.95 ? Math.round(rate * 10) / 10 : Math.round(rate);
+      const digits = Math.abs(rate) < 9.95 ? Math.abs(shown).toFixed(1) : String(Math.abs(shown));
+      ctx.fillText(`${shown > 0 ? '+' : shown < 0 ? '−' : '±'}${digits}°/s`, bx, by + R + 36);
     }
     if (this.assist) {
       ctx.fillStyle = PHOSPHOR;

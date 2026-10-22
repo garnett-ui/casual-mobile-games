@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.67.2
+- Lunar Lander, assist off: no more automatic damping of slow spins at all,
+  so a tap on one side thruster then the other always nudges the lander
+  the way of the first and stops it -- even a tiny tap, however long you
+  wait between them. The spin rate shows in tenths when it's slow.
+
 ## 1.67.1
 - Lunar Lander, assist off: a quick tap on one side thruster and then the
   other now cancel, as they should. Before, the automatic attitude hold

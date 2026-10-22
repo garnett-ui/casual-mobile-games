@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   makeLevel, makeTerrain, newLander, step, simulate, heightAt, scoreLanding, missionKind, planRoute, inRock,
-  G, SAFE, ROT_ACCEL, HOLD_BAND, HEIGHT,
+  G, SAFE, ROT_ACCEL, HEIGHT,
 } from '../games/lander/engine.js';
 
 const idle = { thrust: false, left: false, right: false };
@@ -39,12 +39,13 @@ test('side thrusters change the spin rate, not the angle directly (rotational in
   // Let go: a fast spin keeps going...
   fly(level, L, idle, 0.5);
   assert.ok(Math.abs(L.omega - w) < 1e-9, 'keeps spinning');
-  // ...until countered. Then attitude hold mops up the slow creep left
-  // (once the buttons have been left alone a moment).
+  // ...until countered; whatever's left keeps going too -- nothing damps
+  // it but the thrusters (assist off).
   fly(level, L, { left: true }, 0.49);
-  assert.ok(Math.abs(L.omega) < HOLD_BAND);
-  fly(level, L, idle, 1.5);
-  assert.equal(L.omega, 0, 'small residual spin is held to zero');
+  const rest = L.omega;
+  assert.ok(rest > 0 && rest < ROT_ACCEL * 0.03, `a little left over (${rest})`);
+  fly(level, L, idle, 3);
+  assert.ok(Math.abs(L.omega - rest) < 1e-12, 'a small spin is not damped away');
 });
 
 test('running out of fuel cuts the engines', () => {
@@ -245,7 +246,8 @@ test('two quick opposite taps cancel -- the auto-settle never eats the first (as
   // quick tap right. The lean should come down a little, and the turning
   // stop -- not end up turning right as if the left tap never happened.
   const level = makeLevel(1);
-  for (const [tap, gap] of [[0.08, 0.15], [0.12, 0.25], [0.2, 0.3]]) {
+  // (Down to a single 60 Hz frame of thrust, and a long look between.)
+  for (const [tap, gap] of [[0.08, 0.15], [0.12, 0.25], [0.2, 0.3], [1 / 60, 1.5], [0.05, 3]]) {
     const L = airborne(level);
     L.angle = (3 * Math.PI) / 180;
     L.omega = 0;
@@ -259,9 +261,4 @@ test('two quick opposite taps cancel -- the auto-settle never eats the first (as
     fly(level, L, {}, 2);
     assert.ok(Math.abs(L.angle - angle) < 1e-9);
   }
-  // A slow creep left over from imperfect taps still settles, after a pause.
-  const L = airborne(level);
-  L.omega = (0.3 * Math.PI) / 180;
-  fly(level, L, {}, 2);
-  assert.equal(L.omega, 0);
 });
