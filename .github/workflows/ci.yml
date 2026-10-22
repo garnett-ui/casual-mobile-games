@@ -38,14 +38,31 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # A run that started late (GitHub sometimes delays them) must not put
+      # an older version back over a newer one: deploy only the newest
+      # commit on main.
+      - name: Still the newest commit on main?
+        id: newest
+        run: |
+          head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the deploy: $GITHUB_SHA is no longer the newest commit on main ($head)."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Assemble site
+        if: steps.newest.outputs.deploy == 'true'
         run: |
           mkdir _site
           cp -r index.html manifest.webmanifest sw.js sw-manifest.js css js games icons _site/
           touch _site/.nojekyll
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - if: steps.newest.outputs.deploy == 'true'
+        uses: actions/configure-pages@v5
+      - if: steps.newest.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: _site
       - id: deployment
+        if: steps.newest.outputs.deploy == 'true'
         uses: actions/deploy-pages@v4
