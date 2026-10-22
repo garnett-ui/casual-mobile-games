@@ -225,3 +225,16 @@ test('show me: the autopilot picks the way of flying that scores best, and lands
     assert.ok(res.score.total > 700, `mission ${n} scores ${res.score.total}`);
   }
 });
+
+test('side thrusters are balanced: equal bursts left and right cancel exactly (assist off)', () => {
+  const level = makeLevel(1);
+  for (const [first, second] of [['right', 'left'], ['left', 'right']]) {
+    for (const secs of [0.2, 0.5, 1.5]) {
+      const L = airborne(level);
+      fly(level, L, { [first]: true }, secs);
+      assert.ok(Math.abs(L.omega) > 0.05, 'spinning');
+      fly(level, L, { [second]: true }, secs);
+      assert.ok(Math.abs(L.omega) < 1e-9, `${first} then ${second}, ${secs}s each: ${L.omega}`);
+    }
+  }
+});
