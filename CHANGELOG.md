@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.65.0
+- Morse Rain, listening: a letter you only find after hearing it more than
+  once costs a little on the score. After the last lesson, each review
+  level brings the letters round faster -- from 5 words a minute up to 15,
+  shown under each level.
+
 ## 1.64.0
 - 15: choose what's on the tiles, for any level -- numbers, a gradient, a
   colour wheel, a spiral, stained glass, a map, a landscape, a clock, the

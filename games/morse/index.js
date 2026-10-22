@@ -1,7 +1,7 @@
 // Morse Rain: two sets of lessons -- listening (hear a letter, tap it in the
 // cloud) and sending (key a letter, and the cannon shoots it down) -- each
 // with its own levels; the lesson; and how you did.
-import { CODE, levelSpec, starsFor } from './code.js';
+import { CODE, levelSpec, starsFor, SLOWEST } from './code.js';
 import { Play } from './play.js';
 import { SendPlay } from './send.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
@@ -44,8 +44,9 @@ export function mount(root, ctx, sub) {
         id: 'morse',
         title: 'Morse Rain',
         intro: 'A cloud of letters drifts about. Listen to the Morse code for one of them, and tap it. Clear the screen!',
-        outro: 'E I A N T to start, then a couple of new characters each level -- the rest of the letters, numbers and punctuation -- then bigger reviews of the lot. Always sent at 20 words a minute, as real Morse sounds; each one repeats until you find it.',
+        outro: 'E I A N T to start, then a couple of new characters each level -- the rest of the letters, numbers and punctuation -- then bigger reviews of the lot, coming faster: from 5 words a minute up to 15 (marked on each). Every character is sent at 20 words a minute, as real Morse sounds, and repeats until you find it -- but find it the first time for the best score.',
         progress: progress[LISTEN],
+        note: (n) => (levelSpec(n).pace > SLOWEST ? `${levelSpec(n).pace} wpm` : ''),
       });
     // Listening or sending: switch between them.
     const tabs = document.createElement('div');
@@ -127,11 +128,11 @@ export function mount(root, ctx, sub) {
     const quiet = !ctx.getSetting('sound');
     const how = mode === SEND
       ? 'Tap anywhere to key -- a short tap for a dit, a longer one for a dah -- and pause: the cannon fires at the lowest tile with that letter. Three tiles reaching the ground and it’s over. They come at 5 words a minute to start; get them down to fewer than three, all high up, and they come faster, up to 20. The keying follows your speed; key a letter with excellent timing (a dah three units long, a dit one, the pause between them one, and three between letters) and it shoots two.'
-      : 'You’ll hear the code for one of the letters on the screen, again and again till you find it: tap a tile with that letter and it’s gone. Clear them all! Tap the wrong letter and a copy of the right one floats in.';
+      : 'You’ll hear the code for one of the letters on the screen, again and again till you find it: tap a tile with that letter and it’s gone. Clear them all! Tap the wrong letter and a copy of the right one floats in. Find each one the first time you hear it for the best score.';
     const text = (quiet ? '<b>Sound is off -- and this game is all sound. Start turns it on.</b><br><br>' : '') + (list.length
       ? `New ${list.length === 1 ? 'character' : 'characters'}: tap to listen.<div class="mr-keys">${keys}</div>
         ${n === 1 ? how : `With all ${spec.alphabet.length} so far.`}`
-      : `A review: all ${spec.alphabet.length} characters so far.`);
+      : `A review: all ${spec.alphabet.length} characters so far${mode === LISTEN && spec.pace > SLOWEST ? `, coming at <b>${spec.pace} words a minute</b>` : ''}.`);
     ctx.track('level_start', { level: n, mode });
     showDialog(dialog, ctx, {
       title: `${mode === SEND ? 'Send' : 'Level'} ${n}${list.length ? '' : ': review'}`,
@@ -172,7 +173,7 @@ export function mount(root, ctx, sub) {
     // lives left (and not too many letters keyed at nothing).
     const stars = mode === SEND
       ? res.lives === 3 && res.wrong <= Math.ceil(res.total * 0.2) ? 3 : res.lives >= 2 ? 2 : 1
-      : starsFor(res.total - res.wrong, res.total);
+      : starsFor(res.total - res.wrong, res.total, res.again);
     // Sending: your best effective speed, for the level grid.
     const wpm = Math.round(res.effectiveWpm || 0);
     const best = mode === SEND && wpm > (progress[SEND].data.wpm?.[n] || 0);
@@ -182,7 +183,7 @@ export function mount(root, ctx, sub) {
     ctx.sfx('win');
     const text = mode === SEND
       ? `<b>${res.hits}</b> of ${res.total} shot down${res.total - res.hits ? `, ${res.total - res.hits} got through` : ''}${res.wrong ? `; ${res.wrong} keyed at nothing` : ''}.${res.excellent ? ` Excellent timing ${res.excellent} time${res.excellent === 1 ? '' : 's'}!` : ''}<br>Sent at <b>${wpm} wpm</b>${best && wpm ? ' -- your best here' : ''}${res.topWpm >= res.wpm + 0.5 ? `; the rain got up to ${Math.round(res.topWpm)}` : ''}.`
-      : `All ${res.right} cleared${res.wrong ? `, with ${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}` : ' -- not a single wrong tap'}.`;
+      : `All ${res.right} cleared${res.wrong ? `, with ${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}` : ' -- not a single wrong tap'}${res.again ? `; ${res.again} heard more than once before you found ${res.again === 1 ? 'it' : 'them'}` : res.wrong ? '' : ', every one found first time'}.`;
     showDialog(dialog, ctx, {
       title: stars === 3 ? 'Loud and clear!' : stars === 2 ? 'Good copy' : 'Made it through',
       stars,

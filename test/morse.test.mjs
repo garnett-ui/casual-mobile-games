@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CODE, UNIT, REPEAT, duration, levelSpec, starsFor } from '../games/morse/code.js';
+import { CODE, UNIT, duration, cycle, paceFor, levelSpec, starsFor } from '../games/morse/code.js';
 
 // The game, headless: a canvas that draws nothing.
 globalThis.requestAnimationFrame ??= () => 0;
@@ -76,7 +76,7 @@ test('play: it repeats till you find it -- no hurry; the wrong letter brings a c
   const { p, sounds } = game({ ...levelSpec(1), letters: ['E', 'T'] });
   run(p, 1);
   const want = p.target;
-  run(p, 3 * (REPEAT + 0.3));
+  run(p, 3 * (cycle(CODE[p.target ?? 'E'], 5) + 0.3));
   assert.ok(sounds.length >= 3 && sounds.every((c) => c === CODE[want]), 'again and again');
   assert.equal(p.tiles.length, 2, 'no copies for taking your time');
   const wrong = p.tiles.find((t) => t.ch !== want);
@@ -435,4 +435,46 @@ test('sending: keying the next letter while a shot is still flying -- each goes 
   step(1.5);
   assert.equal(p.hits, 3, 'all three down');
   assert.equal(p.wrong, 0);
+});
+
+test('listening: 5 words a minute through the lessons, then each review quicker, up to 15', () => {
+  assert.equal(paceFor(1), 5);
+  assert.equal(paceFor(17), 5, 'the last lesson');
+  assert.equal(paceFor(18), 6);
+  assert.equal(paceFor(27), 15);
+  assert.equal(paceFor(60), 15, 'and no faster');
+  assert.equal(levelSpec(20).pace, 8);
+  // A character comes round every 12/w seconds (five to a word) -- but
+  // never sooner than its own length and a letter's space.
+  assert.ok(Math.abs(cycle('.', 5) - 2.4) < 1e-9);
+  assert.ok(Math.abs(cycle('.', 15) - 0.8) < 1e-9);
+  assert.ok(cycle('-----', 15) >= duration('-----') + 3 * UNIT);
+});
+
+test('listening: heard more than once before you find it costs a little; faster levels repeat sooner', () => {
+  const plays = (n) => {
+    const heard = [];
+    const p = new Play(canvas(), { ...levelSpec(n), letters: ['E', 'T', 'A'] }, { morse: (code) => heard.push(code) });
+    p.paused = false;
+    run(p, 6);
+    return { p, heard: heard.length };
+  };
+  const slow = plays(3);
+  const fast = plays(30);
+  assert.ok(fast.heard > slow.heard * 2, `15 wpm repeats sooner (${fast.heard} against ${slow.heard})`);
+  // Heard twice, then found: once "again".
+  const p = slow.p;
+  const tile = p.tiles.find((t) => t.ch === p.target);
+  p.answer(tile);
+  assert.equal(p.again, 1);
+  // ...and found at the first hearing: not.
+  run(p, 1.2);
+  p.answer(p.tiles.find((t) => t.ch === p.target));
+  assert.equal(p.again, 1);
+  assert.equal(p.result(false).again, 1);
+  // The stars: hearing again costs a quarter of a wrong tap.
+  assert.equal(starsFor(20, 20, 8), 3);
+  assert.equal(starsFor(20, 20, 10), 2);
+  assert.equal(starsFor(18, 20, 0), 3);
+  assert.equal(starsFor(18, 20, 1), 2);
 });

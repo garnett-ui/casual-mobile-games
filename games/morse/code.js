@@ -26,8 +26,23 @@ export function duration(code, unit = UNIT) {
   return t - unit;
 }
 
-// Seconds between a character and its repeat (until you find it).
-export const REPEAT = 2.5;
+// Listening, how fast the characters come round (each repeating till you
+// find it), as an effective speed: every character at 20 words a minute,
+// the pause after it longer or shorter. 5 words a minute through the
+// lessons; then each review a word a minute quicker, up to 15 (any faster
+// and there's no time to find the tile).
+export const SLOWEST = 5;
+export const FASTEST = 15;
+export function paceFor(n) {
+  return n <= ADD.length ? SLOWEST : Math.min(FASTEST, SLOWEST + (n - ADD.length));
+}
+
+// Seconds from the start of a character to the start of its repeat, at w
+// words a minute (five characters a word) -- never less than a character's
+// own length and a letter's space after it.
+export function cycle(code, w) {
+  return Math.max(duration(code) + 3 * UNIT, 60 / (5 * w));
+}
 
 // The lessons: E I A N T to start, then a couple more characters each
 // level, by how long their codes are -- the rest of the short letters, the
@@ -58,12 +73,14 @@ export function levelSpec(n) {
     fresh,
     letters,
     seed: seedFor(n, 0xc10d),
+    pace: paceFor(n), // (listening, words a minute)
     drift: Math.min(70, 26 + 1.5 * (n - 1)), // how fast the tiles drift (points a second)
   };
 }
 
-// Stars, by how many of the letters you found without a wrong tap.
-export function starsFor(right, total) {
-  const p = right / Math.max(1, total);
+// Stars, by how many of the letters you found without a wrong tap -- and,
+// a little, how many you had to hear more than once (again) first.
+export function starsFor(right, total, again = 0) {
+  const p = (right - 0.25 * again) / Math.max(1, total);
   return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1;
 }

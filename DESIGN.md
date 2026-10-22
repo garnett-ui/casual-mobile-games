@@ -260,13 +260,18 @@ behind a lit window now and then.
 Learn Morse code by ear. A cloud of Scrabble-like letter tiles drifts about
 the screen; you hear the code for one of them -- a 600 Hz tone, always keyed
 at 20 words a minute, so you learn each character as a sound -- again and
-again, every few seconds, until you find it. No hurry.
+again until you find it. No hurry: through the lessons it comes round at
+5 words a minute (every 2.4 seconds); after them, each review level a word
+a minute quicker, up to 15 (every 0.8 seconds) -- any faster and there's no
+time to find the tile in the cloud. Review levels show their speed.
 
 - **Tap a tile with the letter you heard** and it's gone; then you hear the
   next. Clear the screen to win.
 - Tap the wrong letter and a copy of the right one floats in, sounding
   again. If the cloud grows to twice its size, the level's over. Stars for
-  how many you found without a wrong tap.
+  how many you found without a wrong tap -- and, a little (a quarter of a
+  wrong tap each), how many you only found after hearing them more than
+  once, whether repeated or asked for again.
 - The lessons: E I A N T to start, then a couple of new characters each
   level by how long their codes are (the rest of the short letters, the
   four-symbol ones), with reviews, then numbers and punctuation (. , ? /);

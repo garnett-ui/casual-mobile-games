@@ -3,7 +3,7 @@
 // a tile with that letter and it's gone, then the next. Tap the wrong
 // letter and a copy of the right one floats in, sounding again. Clear the
 // screen to win; let the cloud grow to twice its size and it's over.
-import { CODE, UNIT, REPEAT, duration } from './code.js';
+import { CODE, UNIT, duration, cycle } from './code.js';
 import { rng } from '../../js/lib/random.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -44,6 +44,8 @@ export class Play {
     this.bursts = [];
     this.right = 0;
     this.wrong = 0;
+    this.again = 0; // letters found only after hearing them more than once
+    this.heard = 0; // times the letter you're listening for has sounded
     this.over = null;
     this.target = null; // the letter you're listening for
     this.askAt = 0.8; // when the next one's played
@@ -94,6 +96,7 @@ export class Play {
 
   sound(ch) {
     if (this.hooks.morse?.(CODE[ch]) === false) this.noSound = true;
+    this.soundAt = this.t;
     this.sounding = this.t + duration(CODE[ch]);
   }
 
@@ -102,6 +105,7 @@ export class Play {
     const tile = this.tiles[Math.floor(this.r() * this.tiles.length)];
     this.target = tile.ch;
     this.askedAt = this.t;
+    this.heard = 1;
     this.sound(tile.ch);
   }
 
@@ -115,8 +119,11 @@ export class Play {
   update(dt) {
     this.t += dt;
     if (!this.target && this.t >= this.askAt && this.tiles.length) this.ask();
-    // Again and again, till you find it.
-    if (this.target && this.t >= this.sounding + REPEAT) this.sound(this.target);
+    // Again and again, till you find it (as often as the level's pace).
+    if (this.target && this.t >= this.soundAt + cycle(CODE[this.target], this.spec.pace)) {
+      this.heard++;
+      this.sound(this.target);
+    }
     this.drift(dt);
     for (const b of this.bursts) b.t += dt;
     this.bursts = this.bursts.filter((b) => b.t < 0.5);
@@ -169,6 +176,7 @@ export class Play {
     if (!this.target) return false;
     if (tile.ch === this.target) {
       this.right++;
+      if (this.heard > 1) this.again++;
       this.tiles.splice(this.tiles.indexOf(tile), 1);
       this.bursts.push({ x: tile.x, y: tile.y, t: 0 });
       this.hooks.sfx?.('pop');
@@ -188,7 +196,10 @@ export class Play {
 
   // Hear it again.
   repeat() {
-    if (this.target && this.t >= this.sounding) this.sound(this.target);
+    if (this.target && this.t >= this.sounding) {
+      this.heard++;
+      this.sound(this.target);
+    }
   }
 
   lose() {
@@ -203,7 +214,7 @@ export class Play {
   }
 
   result(won) {
-    return { won, right: this.right, wrong: this.wrong, total: this.spec.letters.length, left: this.tiles.length };
+    return { won, right: this.right, wrong: this.wrong, again: this.again, total: this.spec.letters.length, left: this.tiles.length };
   }
 
   // The tile at (x, y), if any (the one on top).
