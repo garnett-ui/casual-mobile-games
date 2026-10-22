@@ -1168,8 +1168,8 @@ test('15: a 4x4 level gets its tables from the server, and follows every move ex
     page.on('request', (r) => r.url().includes('tables-4x4') && tables.push(r.url()));
     const base = `http://localhost:${server.address().port}/`;
     await page.goto(base);
-    await page.evaluate(() => localStorage.setItem('pocket-arcade:fifteen:progress', JSON.stringify({ unlocked: 16, stars: {} })));
-    await page.goto(`${base}#/fifteen/16`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:fifteen:progress', JSON.stringify({ unlocked: 11, stars: {} })));
+    await page.goto(`${base}#/fifteen/11`);
     await page.waitForFunction(() => window.__fifteen?.play?.w === 4);
     const t0 = Date.now();
     const first = await page.evaluate(() => window.__fifteen.coach().hint());
@@ -1194,6 +1194,46 @@ test('15: a 4x4 level gets its tables from the server, and follows every move ex
     await page.evaluate((cell) => window.__fifteen.play.slide(cell), wrong);
     const after = await page.evaluate(() => window.__fifteen.coach().done());
     assert.equal(Math.abs(after[4] - after[3]), 1);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('15: choose the tiles -- for any level, mid-game too; a photo whose tiles look alike gets numbered', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/#/fifteen`);
+    // The level page: the chooser, and each level's size.
+    await page.locator('.ff-style[data-style="pic:wheel"]').click();
+    assert.equal(await page.locator('.lvl[data-n="1"] .lvl-note').textContent(), '3×2');
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__fifteen?.play);
+    assert.equal(await page.evaluate(() => window.__fifteen.play.style.key), 'pic:wheel');
+    // Mid-game: the board stays, the tiles change.
+    await page.evaluate(() => window.__fifteen.play.slide(window.__fifteen.play.board.indexOf(0) - 1));
+    const board = await page.evaluate(() => window.__fifteen.play.board.join());
+    await page.locator('[data-act=tiles]').click();
+    await page.locator('.ff-sheet .ff-style[data-style="seq:clock"]').click();
+    await page.waitForFunction(() => window.__fifteen.play.style.key === 'seq:clock');
+    assert.equal(await page.evaluate(() => window.__fifteen.play.board.join()), board);
+    // A photo all one colour: every tile alike, so numbered.
+    const shot = await browser.newPage({ viewport: { width: 300, height: 200 } });
+    await shot.setContent('<body style="margin:0;background:#3a7bd5"></body>');
+    const png = await shot.screenshot();
+    await shot.close();
+    await page.locator('.ff-sheet .ff-add input').setInputFiles({ name: 'sky.png', mimeType: 'image/png', buffer: png });
+    await page.waitForFunction(() => window.__fifteen.play.style.kind === 'photo', null, { timeout: 10000 });
+    assert.equal(await page.evaluate(() => window.__fifteen.play.alike), true);
+    assert.equal(await page.evaluate(() => window.__fifteen.play.labelled), true);
+    // Remembered for the next level.
+    await page.locator('[data-act=done]').click();
+    assert.match(await page.evaluate(() => localStorage.getItem('pocket-arcade:fifteen:style')), /photo:/);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

@@ -144,7 +144,7 @@ test('levels: the same every time, always solvable, small ones exactly as far as
   for (let n = 1; n <= 40; n++) {
     const a = makeLevel(n);
     assert.deepEqual(makeLevel(n), a, `level ${n} the same`);
-    const [w, h, , how] = levelPlan(n);
+    const [w, h, how] = levelPlan(n);
     assert.equal(a.w, w);
     assert.equal(a.h, h);
     assert.ok(isSolvable(a.board, goalOf(w, h), w), `level ${n} solvable`);
@@ -166,14 +166,14 @@ test('score: wrong-way moves and stars; the walk reviewed', () => {
   assert.equal(r.moves, r.best + 2 * r.wrong);
 });
 
-test('levels: every board size starts with plain numbers, and only then has pictures and sequences', () => {
-  const seen = new Map(); // size -> has it had a picture or sequence yet
-  for (let n = 1; n <= 25; n++) {
-    const [w, h, kind] = levelPlan(n);
-    const size = `${w}x${h}`;
-    if (!seen.has(size)) assert.equal(kind, 'numbers', `level ${n}: ${size} opens with numbers`);
-    if (kind !== 'numbers') seen.set(size, true);
-    else assert.ok(!seen.get(size), `level ${n}: numbers on ${size} after its patterns`);
-    if (!seen.has(size)) seen.set(size, false);
+test('levels: the boards only grow, and the scrambles deepen on each size', () => {
+  let cells = 0;
+  let last = 0;
+  for (let n = 1; n <= 30; n++) {
+    const [w, h, how] = levelPlan(n);
+    const depth = how === 'shuffle' ? Infinity : how;
+    assert.ok(w * h >= cells, `level ${n} no smaller`);
+    if (w * h === cells) assert.ok(depth >= last, `level ${n} no easier`);
+    [cells, last] = [w * h, depth];
   }
 });

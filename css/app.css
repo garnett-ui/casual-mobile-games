@@ -833,3 +833,15 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .ff-graph .ff-up { stroke: #e4572e; stroke-width: 2.5; }
 .ff-graph text { font-size: 11px; fill: #6b7280; }
 .ff-stats { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.ff-chooser { display: grid; gap: 8px; max-width: 720px; margin: 0 auto 14px; }
+.ff-styles { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 8px; scroll-snap-type: x proximity; }
+.ff-style { flex: 0 0 auto; width: 74px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; border: 2px solid transparent; border-radius: 14px; background: rgba(255, 255, 255, .1); color: inherit; font: inherit; font-size: 11px; font-weight: 700; line-height: 1.2; text-align: center; scroll-snap-align: center; cursor: pointer; }
+.ff-style.on { border-color: #ffd23f; background: rgba(255, 210, 63, .15); }
+.ff-swatch { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; display: block; }
+.ff-plus { display: grid; place-items: center; font-size: 30px; font-weight: 400; background: rgba(255, 255, 255, .12); }
+.ff-labels { display: flex; align-items: center; gap: 8px; font-size: 14px; justify-content: center; }
+.ff-labels input { width: 18px; height: 18px; }
+.ff-sheet[hidden] { display: none; }
+.ff-sheet { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-end; background: rgba(0, 0, 0, .45); }
+.ff-sheet-card { width: 100%; background: #3d2a1c; color: #fff; border-radius: 20px 20px 0 0; padding: 16px calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) calc(16px + var(--safe-l)); display: grid; gap: 10px; }
+.ff-sheet-card h3 { margin: 0; font-size: 20px; }

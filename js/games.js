@@ -69,7 +69,7 @@ export const GAMES = [
   {
     id: 'fifteen',
     title: '15',
-    blurb: 'The sliding puzzle: put the tiles back in order -- numbers, pictures, clocks and moons. Then see a graph of every move you made against the best possible.',
+    blurb: 'The sliding puzzle: put the tiles back in order -- numbers, pictures, clocks and moons, or your own photos. Then see a graph of every move you made against the best possible.',
     color: '#b5835a',
     load: () => import('../games/fifteen/index.js'),
     art: () => import('../games/fifteen/art.js'),

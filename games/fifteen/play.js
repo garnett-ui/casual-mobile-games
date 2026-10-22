@@ -1,19 +1,22 @@
 // 15: the board. Tap (or swipe) a tile in line with the gap and it slides
 // in -- and every tile between with it. Tiles show numbers on wood, part of
-// a picture, or a frame of a sequence. Hold Peek to see the board solved;
-// a hint makes the tile to move glow.
+// a picture or photo, or a frame of a sequence (see styles.js) -- with
+// little numbers in the corner if asked, or if some tiles look alike. Hold
+// Peek to see the board solved; a hint makes the tile to move glow.
 import { goalOf } from './solver.js';
-import { PICTURES, SEQUENCES, render } from '../../js/lib/patterns.js';
+import { pictureFor, sequenceOf, alikeness, TOO_ALIKE } from './styles.js';
 
 const SLIDE = 0.11; // seconds for a tile to slide one place
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = (t) => 1 - (1 - t) ** 3;
 
 export class Play {
-  constructor(canvas, level, hooks) {
+  // style: { kind, id, image (a photo), labels (numbers in the corner) }
+  constructor(canvas, level, style, hooks) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.level = level;
+    this.style = style;
     this.hooks = hooks;
     this.w = level.w;
     this.h = level.h;
@@ -64,39 +67,35 @@ export class Play {
 
   // ------------------------------------------------------------- faces
 
+  // Tiles in another style, where they are.
+  setStyle(style) {
+    this.style = style;
+    this.faces = this.makeFaces();
+  }
+
   // Each tile's face, drawn once at this size.
   makeFaces() {
-    const { w, h, tile } = this;
+    const { w, h, tile, style } = this;
     const px = Math.max(8, Math.round(tile * Math.min(2, this.dpr)));
     const n = w * h;
     const faces = [];
-    const { kind, id, seed } = this.level.tiles;
-    let picture = null;
-    if (kind === 'pic') {
-      // The whole picture, cut up.
-      const p = PICTURES.find((q) => q.id === id) || PICTURES[0];
-      const colourAt = p.make(seed);
-      const full = document.createElement('canvas');
-      full.width = px * w;
-      full.height = px * h;
-      const fctx = full.getContext('2d');
-      const img = fctx.createImageData(full.width, full.height);
-      render(colourAt, full.width, full.height, img.data);
-      fctx.putImageData(img, 0, 0);
-      picture = full;
-    }
-    const seq = kind === 'seq' ? SEQUENCES.find((q) => q.id === id) || SEQUENCES[0] : null;
+    this.lastFace = null;
+    // Pictures and photos: the whole picture, cut up -- numbered if some
+    // tiles are too alike to tell apart (one solution, always).
+    this.full = style.kind === 'pic' || style.kind === 'photo' ? pictureFor(style, w, h, px, this.level.seed, style.image) : null;
+    this.alike = this.full && alikeness(this.full, w, h) < TOO_ALIKE;
+    if (this.alike) this.hooks.onAlike?.();
     for (let t = 1; t < n; t++) {
       const c = document.createElement('canvas');
       c.width = c.height = px;
       const g = c.getContext('2d');
       const home = t - 1;
-      if (picture) {
-        g.drawImage(picture, (home % w) * px, ((home / w) | 0) * px, px, px, 0, 0, px, px);
-      } else if (seq) {
+      if (this.full) {
+        g.drawImage(this.full, (home % w) * px, ((home / w) | 0) * px, px, px, 0, 0, px, px);
+      } else if (style.kind === 'seq') {
         g.fillStyle = '#f4e4c1';
         g.fillRect(0, 0, px, px);
-        seq.draw(g, px, home, n - 1);
+        sequenceOf(style).draw(g, px, home, n - 1);
       } else {
         g.fillStyle = '#f4e4c1';
         g.fillRect(0, 0, px, px);
@@ -109,6 +108,11 @@ export class Play {
       faces[t] = c;
     }
     return faces;
+  }
+
+  // Little numbers in the corner (not on numbered tiles).
+  get labelled() {
+    return this.style.kind !== 'numbers' && (this.style.labels || this.alike);
   }
 
   // ------------------------------------------------------------- moves
@@ -251,7 +255,22 @@ export class Play {
     if (last) {
       const face = this.lastFace ??= this.makeLast();
       ctx.drawImage(face, x, y, tile, tile);
-    } else ctx.drawImage(this.faces[t], x, y, tile, tile);
+    } else {
+      ctx.drawImage(this.faces[t], x, y, tile, tile);
+      if (this.labelled) {
+        const fs = Math.max(9, Math.round(tile * 0.17));
+        ctx.font = `800 ${fs}px system-ui, sans-serif`;
+        const tw = ctx.measureText(String(t)).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        ctx.roundRect(x + 3, y + 3, tw + fs * 0.6, fs * 1.25, fs * 0.35);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(t), x + 3 + fs * 0.3, y + 3 + fs * 0.66);
+      }
+    }
     ctx.lineWidth = Math.max(1.5, tile * 0.03);
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
     ctx.beginPath();
@@ -276,23 +295,8 @@ export class Play {
     const c = document.createElement('canvas');
     c.width = c.height = px;
     const g = c.getContext('2d');
-    const { kind, id, seed } = this.level.tiles;
-    if (kind === 'pic') {
-      const p = PICTURES.find((q) => q.id === id) || PICTURES[0];
-      const colourAt = p.make(seed);
-      const img = g.createImageData(px, px);
-      const aspect = w / h;
-      for (let y = 0; y < px; y++) {
-        for (let x = 0; x < px; x++) {
-          const [rr, gg, bb] = colourAt((w - 1 + (x + 0.5) / px) / w, (h - 1 + (y + 0.5) / px) / h, aspect);
-          const k = (y * px + x) * 4;
-          img.data[k] = rr;
-          img.data[k + 1] = gg;
-          img.data[k + 2] = bb;
-          img.data[k + 3] = 255;
-        }
-      }
-      g.putImageData(img, 0, 0);
+    if (this.full) {
+      g.drawImage(this.full, (w - 1) * px, (h - 1) * px, px, px, 0, 0, px, px);
     } else {
       // A star, burnt into the wood.
       g.fillStyle = '#f4e4c1';

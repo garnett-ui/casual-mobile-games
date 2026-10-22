@@ -1,57 +1,43 @@
 // 15: the levels. (No DOM: made in a worker, and in Node for the tests.)
 //
-// A level is a board size, what's on the tiles -- numbers, a picture (see
-// js/lib/patterns.js) or a sequence of frames -- and a starting position.
-// Small boards (up to 3x3) start an exact number of moves from solved, from
-// the table of every position; bigger ones a number of random moves back
-// from solved, or a full shuffle. Either way, always solvable.
+// A level is a board size and a starting position -- the difficulty; what's
+// on the tiles is the player's choice (see styles.js), the same for any
+// level. Small boards (up to 3x3) start an exact number of moves from
+// solved, from the table of every position; bigger ones a number of random
+// moves back from solved, or a full shuffle. Either way, always solvable.
 import { Solver, goalOf, scramble, shuffle } from './solver.js';
 import { rng, seedFor } from '../../js/lib/random.js';
 
 export const BASE_SEED = 0x15f1f7;
 
-// [columns, rows, tiles, how scrambled]: tiles 'numbers', 'pic:<picture>'
-// or 'seq:<sequence>'; how scrambled, for boards up to 3x3 the exact
-// distance, bigger ones moves back from solved -- or 'shuffle'.
+// [columns, rows, how scrambled]: for boards up to 3x3 the exact distance,
+// bigger ones moves back from solved -- or 'shuffle'.
 const LEVELS = [
-  // Each size: plain numbers first, then pictures and sequences.
-  [3, 2, 'numbers', 5],
-  [3, 2, 'numbers', 9],
-  [3, 3, 'numbers', 8],
-  [3, 3, 'numbers', 12],
-  [3, 3, 'numbers', 16],
-  [3, 3, 'seq:glass', 12],
-  [3, 3, 'pic:wheel', 16],
-  [3, 3, 'seq:clock', 20],
-  [3, 3, 'seq:plant', 22],
-  [3, 3, 'seq:moon', 24],
-  [3, 4, 'numbers', 25],
-  [3, 4, 'numbers', 35],
-  [3, 4, 'pic:spiral', 30],
-  [3, 4, 'seq:sun', 40],
-  [3, 4, 'pic:glass', 50],
-  [4, 4, 'numbers', 30],
-  [4, 4, 'numbers', 50],
-  [4, 4, 'numbers', 'shuffle'],
-  [4, 4, 'pic:topo', 40],
-  [4, 4, 'seq:clock', 50],
-  [4, 4, 'pic:wheel', 70],
-  [4, 4, 'seq:moon', 90],
-  [4, 4, 'seq:plant', 110],
-  [4, 4, 'pic:glass', 'shuffle'],
-  [4, 4, 'pic:landscape', 'shuffle'],
+  [3, 2, 5],
+  [3, 2, 9],
+  [3, 3, 8],
+  [3, 3, 12],
+  [3, 3, 16],
+  [3, 3, 20],
+  [3, 3, 24],
+  [3, 4, 25],
+  [3, 4, 35],
+  [3, 4, 50],
+  [4, 4, 30],
+  [4, 4, 45],
+  [4, 4, 60],
+  [4, 4, 80],
+  [4, 4, 100],
+  [4, 4, 'shuffle'],
 ];
 
-// After those, 4x4s fully shuffled, round all the kinds of tiles.
-const AFTER = ['numbers', 'pic:wheel', 'seq:clock', 'pic:glass', 'pic:spiral', 'seq:moon', 'pic:topo', 'seq:sun', 'seq:plant', 'pic:landscape', 'seq:glass'];
-
+// After those, 4x4s fully shuffled.
 export function levelPlan(n) {
-  if (n <= LEVELS.length) return LEVELS[n - 1];
-  return [4, 4, AFTER[(n - LEVELS.length - 1) % AFTER.length], 'shuffle'];
+  return n <= LEVELS.length ? LEVELS[n - 1] : [4, 4, 'shuffle'];
 }
 
 export function makeLevel(n) {
-  const [w, h, kind, how] = levelPlan(n);
+  const [w, h, how] = levelPlan(n);
   const seed = seedFor(n, BASE_SEED);
   const r = rng(seed);
   const goal = goalOf(w, h);
@@ -63,8 +49,7 @@ export function makeLevel(n) {
     do board = scramble(goal, w, h, how, r);
     while (board.join() === goal.join());
   }
-  const [type, id] = kind.split(':');
-  return { n, w, h, tiles: { kind: type, id: id || null, seed }, board };
+  return { n, w, h, seed, board };
 }
 
 // A position exactly d moves from solved, picked at random.

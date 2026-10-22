@@ -1,14 +1,17 @@
-// 15: level select, play screen (moves, restart, peek, hint) and the score
-// card -- with a graph of how far from solved the board was after every
-// move, against the best possible.
-import { makeLevel, starsFor, review, BASE_SEED } from './levels.js';
+// 15: level select (with the tile style chooser), play screen (moves,
+// restart, peek, hint, tiles) and the score card -- with a graph of how far
+// from solved the board was after every move, against the best possible.
+import { makeLevel, levelPlan, starsFor, review, BASE_SEED } from './levels.js';
 import { Play } from './play.js';
 import { coach } from './coach.js';
+import { STYLES, styleOf, preview } from './styles.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 import { levelSource } from '../../js/lib/level-source.js';
+import { savePhoto, listPhotos, getPhoto, decode } from '../../js/lib/photos.js';
 
-const GEN_VERSION = 3;
+const GEN_VERSION = 4;
 const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2"/></svg>';
+const TILES = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2" opacity=".6"/><rect x="3" y="13" width="8" height="8" rx="2" opacity=".6"/></svg>';
 const CHEERS = ['Solved!', 'In order!', 'Click, click, done!', 'Every tile home!'];
 
 export function mount(root, ctx, sub) {
@@ -22,6 +25,10 @@ export function mount(root, ctx, sub) {
   let follow = null;
   let showing = 0;
   let onResize = null;
+  // The tiles: the player's choice, for every level.
+  let styleKey = ctx.load('style', 'numbers');
+  let labels = ctx.load('labels', false);
+  const images = new Map(); // photo id -> decoded image
 
   function teardown() {
     showing = 0;
@@ -32,15 +39,106 @@ export function mount(root, ctx, sub) {
     onResize = null;
   }
 
+  // The chosen style, ready to draw (a photo loaded; numbers if it's gone).
+  async function chosenStyle() {
+    const style = { ...styleOf(styleKey), labels };
+    if (style.kind !== 'photo') return style;
+    try {
+      if (!images.has(style.id)) {
+        const rec = await getPhoto(style.id);
+        if (!rec) throw new Error('gone');
+        images.set(style.id, await decode(rec.blob));
+      }
+      return { ...style, image: images.get(style.id) };
+    } catch {
+      styleKey = 'numbers';
+      ctx.save('style', styleKey);
+      return { ...styleOf(styleKey), labels };
+    }
+  }
+
+  // The chooser: every style as a little picture, your photos, adding one,
+  // and numbers in the corner. pick(style) when one's chosen.
+  async function chooser(box, pick) {
+    box.innerHTML = `
+      <div class="ff-styles" role="listbox" aria-label="Tiles"></div>
+      <label class="ff-labels"><input type="checkbox" ${labels ? 'checked' : ''}> Numbers in the corner</label>`;
+    const strip = box.querySelector('.ff-styles');
+    const add = (key, name, canvasOrImg) => {
+      const b = document.createElement('button');
+      b.className = `ff-style${key === styleKey ? ' on' : ''}`;
+      b.dataset.style = key;
+      b.setAttribute('role', 'option');
+      b.setAttribute('aria-selected', key === styleKey);
+      canvasOrImg.className = 'ff-swatch';
+      b.append(canvasOrImg);
+      b.insertAdjacentHTML('beforeend', `<span>${name}</span>`);
+      b.onclick = async () => {
+        ctx.sfx('tap');
+        styleKey = key;
+        ctx.save('style', key);
+        strip.querySelectorAll('.ff-style').forEach((x) => {
+          x.classList.toggle('on', x === b);
+          x.setAttribute('aria-selected', x === b);
+        });
+        pick(await chosenStyle());
+      };
+      strip.append(b);
+      return b;
+    };
+    for (const st of STYLES) add(st.key, st.name, preview(st, 112));
+    // Your photos (shared with Jigsaw), and a new one.
+    const more = document.createElement('label');
+    more.className = 'ff-style ff-add';
+    more.innerHTML = `<span class="ff-swatch ff-plus">+</span><span>Your photo</span><input type="file" accept="image/*" hidden>`;
+    strip.append(more);
+    more.querySelector('input').onchange = async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        ctx.toast('Saving your photo…');
+        const rec = await savePhoto(file);
+        ctx.track('photo_added', { game: 'fifteen' });
+        styleKey = `photo:${rec.id}`;
+        ctx.save('style', styleKey);
+        await chooser(box, pick);
+        pick(await chosenStyle());
+      } catch {
+        ctx.toast('Sorry, that picture could not be opened.');
+      }
+    };
+    box.querySelector('.ff-labels input').onchange = async (e) => {
+      labels = e.target.checked;
+      ctx.save('labels', labels);
+      pick(await chosenStyle());
+    };
+    try {
+      for (const p of await listPhotos()) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(p.blob);
+        img.alt = '';
+        strip.insertBefore(add(`photo:${p.id}`, 'Photo', img), more);
+      }
+    } catch {
+      // (No photos here.)
+    }
+    strip.querySelector('.ff-style.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+
   function showLevels() {
     teardown();
     renderLevelSelect(root, ctx, {
       id: 'fifteen',
       title: '15',
-      intro: 'Slide the tiles back in order: tap one in line with the gap and it slides in, with any between.',
-      outro: 'Numbers first, then pictures and sequences -- a clock, the moon, the sun across the sky -- on bigger and bigger boards. After every puzzle, a graph of your moves against the best possible.',
+      intro: 'Slide the tiles back in order: tap one in line with the gap and it slides in, with any between. Choose what’s on the tiles -- for any level:',
+      outro: 'Bigger and more scrambled boards as the levels go on, then 4×4s shuffled. After every puzzle, a graph of your moves against the best possible.',
       progress,
+      note: (n) => levelPlan(n).slice(0, 2).join('×'),
     });
+    const box = document.createElement('div');
+    box.className = 'ff-chooser';
+    root.querySelector('.levels-intro').after(box);
+    chooser(box, () => {});
   }
 
   function showPlay(n) {
@@ -55,41 +153,43 @@ export function mount(root, ctx, sub) {
         <div class="stage building"><div class="spinner"></div></div>
       </div>`;
     root.querySelector('[data-act=levels]').onclick = () => ctx.back('#/fifteen');
-    levels.get(n).then((level) => {
-      if (showing === n && !play) startPlay(n, level);
+    Promise.all([levels.get(n), chosenStyle()]).then(([level, style]) => {
+      if (showing === n && !play) startPlay(n, level, style);
     });
   }
 
-  function startPlay(n, level) {
-    ctx.track('level_start', { level: n });
+  function startPlay(n, level, style) {
+    ctx.track('level_start', { level: n, style: style.kind === 'photo' ? 'photo' : style.key });
     levels.get(n + 1);
-    const pictured = level.tiles.kind !== 'numbers';
     root.innerHTML = `
       <div class="screen play-screen ff-screen">
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
           <h2>Level ${n}</h2>
           <span class="pill"><b data-moves>0</b>&nbsp;moves</span>
+          <button class="icon-btn" data-act="tiles" aria-label="Tiles">${TILES}</button>
         </header>
         <div class="stage"><canvas class="board ff-board"></canvas></div>
         <footer class="controls">
           <button class="ctl" data-act="restart">${ICON.restart}<span>Restart</span></button>
-          ${pictured ? `<button class="ctl" data-act="peek">${EYE}<span>Hold to peek</span></button>` : ''}
+          <button class="ctl" data-act="peek">${EYE}<span>Hold to peek</span></button>
           <button class="ctl" data-act="hint">${ICON.hint}<span>Hint</span></button>
         </footer>
         <div class="tip" hidden></div>
+        <div class="ff-sheet" hidden><div class="ff-sheet-card"><h3>Tiles</h3><div class="ff-chooser"></div><button class="btn primary" data-act="done">Done</button></div></div>
         <div class="dialog" hidden></div>
       </div>`;
     const movesEl = root.querySelector('[data-moves]');
     const tip = root.querySelector('.tip');
     let hinted = false;
+    let warned = false;
     const begin = () => {
       follow?.destroy();
       follow = coach(level);
       hinted = false;
     };
     begin();
-    play = new Play(root.querySelector('canvas'), level, {
+    play = new Play(root.querySelector('canvas'), level, style, {
       sfx: ctx.sfx,
       haptic: ctx.haptic,
       onMove: (m) => {
@@ -98,6 +198,12 @@ export function mount(root, ctx, sub) {
         tip.hidden = true;
       },
       onWin: () => finished(n, hinted),
+      // (Some tiles alike: numbered, so there's still only one way.)
+      onAlike: () => {
+        if (warned) return;
+        warned = true;
+        setTimeout(() => ctx.toast('Some tiles look alike, so they’re numbered.'), 300);
+      },
     });
     // Handles for the end-to-end tests (test/e2e.test.mjs).
     window.__fifteen = { play, coach: () => follow };
@@ -120,13 +226,25 @@ export function mount(root, ctx, sub) {
       if (play && play.moves.length === at) play.showHint(c);
     };
     const peek = root.querySelector('[data-act=peek]');
-    if (peek) {
-      peek.onpointerdown = (e) => {
-        e.preventDefault();
-        play.peek = true;
-      };
-      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) peek.addEventListener(ev, () => play && (play.peek = false));
-    }
+    peek.onpointerdown = (e) => {
+      e.preventDefault();
+      play.peek = true;
+    };
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) peek.addEventListener(ev, () => play && (play.peek = false));
+    // The tiles, changed mid-game: the board stays as it is.
+    const sheet = root.querySelector('.ff-sheet');
+    root.querySelector('[data-act=tiles]').onclick = () => {
+      ctx.sfx('tap');
+      sheet.hidden = false;
+      chooser(sheet.querySelector('.ff-chooser'), (st) => {
+        warned = false;
+        play?.setStyle(st);
+      });
+    };
+    sheet.querySelector('[data-act=done]').onclick = () => {
+      ctx.sfx('tap');
+      sheet.hidden = true;
+    };
     if (n === 1) {
       tip.textContent = 'Tap a tile next to the gap to slide it in. Tap one further along the row or column and they all slide.';
       tip.hidden = false;

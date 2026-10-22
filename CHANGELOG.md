@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.64.0
+- 15: choose what's on the tiles, for any level -- numbers, a gradient, a
+  colour wheel, a spiral, stained glass, a map, a landscape, a clock, the
+  moon, a plant, the sun, a glass of water, or your own photo -- from the
+  level page, or mid-game with the Tiles button. "Numbers in the corner"
+  adds little numbers to any of them, and a photo with tiles that look
+  alike (a clear sky) gets them anyway. Levels are now just how big and
+  how scrambled, shown under each one.
+
 ## 1.63.2
 - 15: every board size now starts with plain numbers, and only then moves
   on to pictures and sequences.

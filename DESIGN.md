@@ -337,16 +337,21 @@ any tiles between; every tile moved counts as a move.
   Tiles show numbers, a picture or a sequence (js/lib/patterns.js), and no
   two tiles of a level look alike: pictures are checked for it by tests
   (games/fifteen/solver.js, test/patterns.test.mjs).
-- **The levels.** Each board size -- 2x3, 3x3, 3x4, 4x4 -- starts with
-  plain numbers, and only then has pictures (colour wheel, spiral, stained
-  glass, topographic map, landscape) and sequences
-  (a filling glass, a clock, a plant growing, the moon -- northern
-  hemisphere, unlabelled, its phases evenly spaced by how much is lit, so
-  the shadow's edge moves the same each frame even near full -- and the sun
-  across the sky) on 3x3, 3x4 and 4x4 boards, ending fully shuffled. After
-  the first 25, 4x4 shuffles round all of them. (The plain gradients, marble
-  and weave were too hard to tell apart; they're still in the pattern
-  library.)
+- **The levels are difficulty only**: a board size (shown under each level
+  number) and how scrambled -- 2x3, 3x3, 3x4, then 4x4, deeper each time,
+  then 4x4s fully shuffled.
+- **The tiles are the player's choice, for any level** -- a strip of
+  previews on the level page, or the Tiles button mid-game (the board stays
+  as it is): numbers; pictures (gradient, colour wheel, spiral, stained
+  glass, topographic map, landscape -- drawn from the level's seed); sequences
+  (a clock, the moon -- northern hemisphere, unlabelled, its phases evenly
+  spaced by how much is lit, so the shadow's edge moves the same each frame
+  even near full -- a plant growing, the sun across the sky, a glass of
+  water filling); or a photo of your own (saved on the device, shared with
+  Jigsaw, cropped to the board). "Numbers in the corner" puts little
+  numbers on any of them. Pictures and photos are checked as they're cut
+  (the same test as the pattern library's): if any two tiles look alike,
+  they're numbered anyway, so there's always one solution.
 - **The walk.** The game knows, after every move, exactly how far the board
   is from solved: a table of every position for small boards; IDA* with
   additive 5-5-5 pattern databases (and the board's mirror across the
