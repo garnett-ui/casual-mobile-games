@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.67.3
+- Lunar Lander: the camera zooms in close to shaft, cave and tunnel walls
+  too, not just to the ground below -- so you can judge the gap, in
+  landscape as well. Down a shaft, the far hills no longer show through as
+  if the floor were just below.
+
 ## 1.67.2
 - Lunar Lander, assist off: no more automatic damping of slow spins at all,
   so a tap on one side thruster then the other always nudges the lander

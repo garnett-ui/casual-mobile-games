@@ -68,6 +68,43 @@ export function topAt(level, x) {
   return top;
 }
 
+// How far the nearest solid surface is from (x, y), within R metres either
+// side: ground below (or, where it rises higher than y, its face beside),
+// and rock above, below or beside -- the walls of a shaft or a tunnel as
+// much as the floor. Searched outward from x, so it stops as soon as
+// nothing nearer can be found.
+export function clearance(level, x, y, R = 120) {
+  let best = Infinity;
+  for (let d = 0; d <= R && d < best; d++) {
+    for (const xx of d ? [x - d, x + d] : [x]) {
+      if (xx < 0 || xx > level.width) continue;
+      const g = heightAt(level, xx);
+      best = Math.min(best, y >= g ? Math.hypot(d, y - g) : d);
+      for (const p of level.rocks || []) {
+        if (xx < p.x0 || xx > p.x1) continue;
+        const [lo, hi] = rockSpan(level, p, xx);
+        if (hi <= lo) continue;
+        best = Math.min(best, Math.hypot(d, y < lo ? lo - y : y > hi ? y - hi : 0));
+      }
+    }
+  }
+  return best;
+}
+
+// How far below the top of nearby rock (within R metres either side) the
+// point (x, y) is -- down a shaft, or in a cave or tunnel -- or 0 if it isn't.
+export function underRock(level, x, y, R = 40) {
+  let top = -Infinity;
+  for (const p of level.rocks || []) {
+    if (p.x1 < x - R || p.x0 > x + R) continue;
+    for (let xx = Math.max(p.x0, x - R); xx <= Math.min(p.x1, x + R); xx += level.step) {
+      const [lo, hi] = rockSpan(level, p, xx);
+      if (hi > lo) top = Math.max(top, hi);
+    }
+  }
+  return Math.max(0, top - y);
+}
+
 // What kind of course mission n is. The first ten each have a shape of
 // their own; from 11 the caves, tunnels and shafts come in turn, with an
 // open course between, each a little tighter than the last time round.

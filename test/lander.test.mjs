@@ -262,3 +262,34 @@ test('two quick opposite taps cancel -- the auto-settle never eats the first (as
     assert.ok(Math.abs(L.angle - angle) < 1e-9);
   }
 });
+
+test('clearance: the nearest surface in any direction -- the walls of a shaft, not just the floor far below', async () => {
+  const { clearance, topAt } = await import('../games/lander/engine.js');
+  const level = makeLevel(25);
+  assert.equal(missionKind(25), 'shaft');
+  // Halfway down the shaft (its centre: where the rock either side is
+  // furthest), the floor far below, the walls close beside.
+  const shaft = level.rocks[0].x1 + 1;
+  const wall = level.rocks[1].x0;
+  const x = (shaft + wall) / 2;
+  const y = (level.base.y + topAt(level, x - 30)) / 2;
+  const below = y - heightAt(level, x);
+  const near = clearance(level, x, y);
+  assert.ok(below > 40, `well above the floor (${below.toFixed(0)} m)`);
+  assert.ok(near < 12, `but walls close by (${near.toFixed(1)} m)`);
+  // Out in the open, it's just the height above the ground.
+  const open = makeLevel(1);
+  const h = heightAt(open, 100);
+  assert.ok(Math.abs(clearance(open, 100, h + 30) - 30) < 3);
+});
+
+test('down a shaft the far hills are hidden (they would look like ground just below); out in the open they show', async () => {
+  const { underRock } = await import('../games/lander/engine.js');
+  const level = makeLevel(25);
+  const x = (level.rocks[0].x1 + 1 + level.rocks[1].x0) / 2;
+  const top = Math.max(...level.rocks[0].hi);
+  assert.ok(underRock(level, x, (level.base.y + top) / 2) > 15, 'halfway down: well below the rim');
+  assert.equal(underRock(level, x, top + 10), 0, 'above the rim');
+  const open = makeLevel(1);
+  assert.equal(underRock(open, 100, heightAt(open, 100) + 5), 0);
+});

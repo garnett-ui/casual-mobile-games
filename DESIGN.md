@@ -105,6 +105,12 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   first of such a pair.) The spin rate shows in tenths when it's slow, so a
   leftover creep can be seen and nulled. The main engine gets
   punchier as fuel burns off.
+- The camera follows the lander and zooms in as it gets close to anything
+  -- the ground below, or the walls of a shaft, a cave or a tunnel, or rock
+  overhead (the nearest surface in any direction) -- so the gap you're
+  judging is always big on screen, in landscape too. Down among rock the
+  far hills fade out: seen through a shaft they'd look like ground just
+  below.
 - Green-phosphor instrument panel: altitude, horizontal/vertical velocity and
   acceleration, attitude and spin rate, fuel, distance to base, an attitude
   ball and a velocity box, with LOW FUEL / SINK RATE / DRIFT warnings.

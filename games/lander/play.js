@@ -1,6 +1,6 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
-import { step, newLander, heightAt, flightPath, autopilot, bestTilt, G, SAFE, FEET, TRACK_DT } from './engine.js';
+import { step, newLander, heightAt, clearance, underRock, flightPath, autopilot, bestTilt, G, SAFE, FEET, HEIGHT, TRACK_DT } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const PHOSPHOR = '#3dff7a';
@@ -339,13 +339,15 @@ export class Play {
     this.canvas.height = Math.round(this.cssH * dpr);
   }
 
-  // Camera follows the lander and zooms in as it gets close to the ground.
+  // Camera follows the lander and zooms in as it gets close to anything:
+  // the ground below, or the walls of a shaft or tunnel, or rock overhead.
   camera() {
     if (this.intro) return this.introCamera();
     const L = this.L;
     const ground = heightAt(this.level, L.x);
     const alt = Math.max(0, L.y - ground);
-    const wantH = Math.max(55, Math.min(420, alt * 1.7 + 48));
+    const near = Math.max(0, clearance(this.level, L.x, L.y + HEIGHT / 2) - HEIGHT / 2);
+    const wantH = Math.max(55, Math.min(420, Math.min(alt, near) * 1.7 + 48));
     // Keep the surface above the thruster buttons at the bottom.
     let bottom = Math.min(ground, L.y) - wantH * 0.27;
     if (L.y + 12 > bottom + wantH * 0.8) bottom = L.y + 12 - wantH * 0.8;
@@ -389,7 +391,12 @@ export class Play {
     const free = W - Math.min(W * 0.66, 300) - 8;
     const er = Math.max(4, Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12));
     this.drawEarth(free * 0.5 - cam.left * 0.01, Math.max(er + 16, H * 0.2), er);
+    // The far hills: not seen from down among rock (a shaft, a cave or a
+    // tunnel) -- there they'd look like ground just below.
+    const under = underRock(this.level, this.L.x, this.L.y + HEIGHT);
+    ctx.globalAlpha = 1 - Math.max(0, Math.min(1, under / 15));
     this.drawHorizon(cam, W, H);
+    ctx.globalAlpha = 1;
 
     // Terrain
     const x0 = Math.max(0, cam.left - 10);
