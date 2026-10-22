@@ -3,7 +3,7 @@
 // a tile with that letter and it's gone, then the next. Tap the wrong
 // letter and a copy of the right one floats in, sounding again. Clear the
 // screen to win; let the cloud grow to twice its size and it's over.
-import { CODE, UNIT, duration, cycle } from './code.js';
+import { CODE, UNIT, WRONG, duration, cycle } from './code.js';
 import { rng } from '../../js/lib/random.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -46,6 +46,7 @@ export class Play {
     this.wrong = 0;
     this.again = 0; // letters found only after hearing them more than once
     this.heard = 0; // times the letter you're listening for has sounded
+    this.points = {}; // trouble, by character (see updateTrouble in code.js)
     this.over = null;
     this.target = null; // the letter you're listening for
     this.askAt = 0.8; // when the next one's played
@@ -122,6 +123,7 @@ export class Play {
     // Again and again, till you find it (as often as the level's pace).
     if (this.target && this.t >= this.soundAt + cycle(CODE[this.target], this.spec.pace)) {
       this.heard++;
+      this.trouble(1);
       this.sound(this.target);
     }
     this.drift(dt);
@@ -187,6 +189,7 @@ export class Play {
       return true;
     }
     this.wrong++;
+    this.trouble(WRONG);
     tile.shake = 0.4;
     this.hooks.sfx?.('buzz');
     this.hooks.haptic?.(40);
@@ -194,10 +197,16 @@ export class Play {
     return false;
   }
 
+  // Points against the letter you're listening for.
+  trouble(p) {
+    this.points[this.target] = (this.points[this.target] || 0) + p;
+  }
+
   // Hear it again.
   repeat() {
     if (this.target && this.t >= this.sounding) {
       this.heard++;
+      this.trouble(1);
       this.sound(this.target);
     }
   }
@@ -214,7 +223,7 @@ export class Play {
   }
 
   result(won) {
-    return { won, right: this.right, wrong: this.wrong, again: this.again, total: this.spec.letters.length, left: this.tiles.length };
+    return { won, right: this.right, wrong: this.wrong, again: this.again, points: { ...this.points }, total: this.spec.letters.length, left: this.tiles.length };
   }
 
   // The tile at (x, y), if any (the one on top).

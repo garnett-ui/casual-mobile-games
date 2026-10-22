@@ -845,3 +845,14 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .ff-sheet { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-end; background: rgba(0, 0, 0, .45); }
 .ff-sheet-card { width: 100%; background: #3d2a1c; color: #fff; border-radius: 20px 20px 0 0; padding: 16px calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) calc(16px + var(--safe-l)); display: grid; gap: 10px; }
 .ff-sheet-card h3 { margin: 0; font-size: 20px; }
+.mr-work-btn { display: block; margin: -4px auto 14px; padding: 10px 16px; border: 0; border-radius: 12px; background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: 15px; font-weight: 700; }
+.mr-work-btn b { color: #ffd23f; letter-spacing: .12em; margin-left: 4px; }
+.mr-trouble { list-style: none; margin: 0 auto 16px; padding: 0; max-width: 420px; display: grid; gap: 6px; }
+.mr-trouble li { display: grid; grid-template-columns: 44px 1fr 40px; align-items: center; gap: 10px; opacity: .65; }
+.mr-trouble li.top { opacity: 1; }
+.mr-trouble button { width: 44px; height: 44px; border: 0; border-radius: 10px; background: #f4e4c1; color: #3b2a1a; font: inherit; font-size: 22px; font-weight: 900; }
+.mr-bar { height: 12px; border-radius: 6px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.mr-bar i { display: block; height: 100%; border-radius: 6px; background: #ffd23f; }
+.mr-trouble li:not(.top) .mr-bar i { background: rgba(255, 255, 255, .45); }
+.mr-trouble small { font-variant-numeric: tabular-nums; text-align: right; }
+.mr-practise { display: block; margin: 0 auto 10px; }

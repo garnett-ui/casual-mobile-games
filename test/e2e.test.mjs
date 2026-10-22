@@ -1241,6 +1241,60 @@ test('15: choose the tiles -- for any level, mid-game too; a photo whose tiles l
   }
 });
 
+test('morse rain: letters to work on -- ranked, decaying after each game, and a practice level of the hardest seven', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const base = `http://localhost:${server.address().port}/`;
+    await page.goto(base);
+    const weights = { K: 9, Q: 8, Y: 7, G: 6, W: 5, D: 4, R: 3, U: 2, S: 1 };
+    await page.evaluate((w) => {
+      localStorage.setItem('pocket-arcade:morse:trouble', JSON.stringify(w));
+      localStorage.setItem('pocket-arcade:morse:progress', JSON.stringify({ unlocked: 12, stars: {} }));
+    }, weights);
+    await page.goto(`${base}#/morse`);
+    assert.match(await page.locator('.mr-work-btn').textContent(), /K Q Y/);
+    await page.locator('.mr-work-btn').click();
+    await page.waitForFunction(() => location.hash === '#/morse/work');
+    assert.equal(await page.locator('.mr-trouble li').count(), 9);
+    assert.equal(await page.locator('.mr-trouble li.top').count(), 7);
+    assert.match(await page.locator('.mr-practise').textContent(), /K Q Y G W D R/);
+    // Practice: just those seven.
+    await page.locator('.mr-practise').click();
+    await page.waitForFunction(() => window.__morse?.spec.practice);
+    const letters = await page.evaluate(() => window.__morse.tiles.map((t) => t.ch));
+    assert.ok(letters.every((ch) => 'KQYGWDR'.includes(ch)), letters.join(''));
+    await page.locator('[data-act=start]').click();
+    // Play it through: find each at once.
+    await page.evaluate(async () => {
+      const p = window.__morse;
+      p.timeScale = 4;
+      for (let k = 0; k < 600 && !p.over; k++) {
+        await new Promise((r) => setTimeout(r, 50));
+        const t = p.target && p.tiles.find((x) => x.ch === p.target);
+        if (t) p.answer(t);
+      }
+    });
+    await page.locator('.dialog:not([hidden]) [data-act=work]').waitFor({ timeout: 20000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /Practice done/);
+    // Every old weight faded by 0.9 (none got new points: all found at once).
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:trouble')));
+    for (const [ch, w] of Object.entries(weights)) assert.ok(Math.abs(after[ch] - w * 0.9) < 0.01, `${ch}: ${after[ch]}`);
+    const stats = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:listen-stats')));
+    assert.equal(stats.games, 1);
+    assert.equal(stats.found, letters.length);
+    // No stars or unlocking from practice.
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:progress')).unlocked), 12);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('elevator operator: tap a shaft to send a lift, deliver everyone, scored against the dispatcher', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

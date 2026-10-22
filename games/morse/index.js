@@ -1,7 +1,7 @@
 // Morse Rain: two sets of lessons -- listening (hear a letter, tap it in the
 // cloud) and sending (key a letter, and the cannon shoots it down) -- each
 // with its own levels; the lesson; and how you did.
-import { CODE, levelSpec, starsFor, SLOWEST } from './code.js';
+import { CODE, levelSpec, starsFor, SLOWEST, updateTrouble, hardest, practiceSpec, PRACTICE } from './code.js';
 import { Play } from './play.js';
 import { SendPlay } from './send.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
@@ -53,6 +53,18 @@ export function mount(root, ctx, sub) {
     tabs.className = 'mr-tabs';
     tabs.innerHTML = `<button data-mode="${LISTEN}" class="${mode === LISTEN ? 'on' : ''}">Listen</button><button data-mode="${SEND}" class="${mode === SEND ? 'on' : ''}">Send</button>`;
     root.querySelector('.levels-scroll').prepend(tabs);
+    // Listening: the letters you find hardest, and practice on them.
+    if (mode === LISTEN) {
+      const work = document.createElement('button');
+      work.className = 'mr-work-btn';
+      const top = hardest(ctx.load('trouble', {}), 3).map(([ch]) => ch);
+      work.innerHTML = `Letters to work on${top.length ? ` <b>${top.join(' ')}</b>` : ''} ›`;
+      work.onclick = () => {
+        ctx.sfx('tap');
+        ctx.navigate('#/morse/work');
+      };
+      tabs.after(work);
+    }
     tabs.querySelectorAll('button').forEach((b) => {
       b.onclick = () => {
         if (b.dataset.mode === mode) return;
@@ -62,14 +74,72 @@ export function mount(root, ctx, sub) {
     });
   }
 
+  // Letters to work on: every character that's given you trouble lately,
+  // the hardest first, your listening so far, and practice on the worst.
+  function showWork() {
+    teardown();
+    const weights = ctx.load('trouble', {});
+    const ranked = hardest(weights, 40);
+    const top = ranked.slice(0, PRACTICE);
+    const most = ranked[0]?.[1] || 1;
+    const stats = ctx.load('listen-stats', { games: 0, found: 0, first: 0, wrong: 0 });
+    root.innerHTML = `
+      <div class="screen levels-screen">
+        <header class="bar">
+          <button class="icon-btn" data-act="back" aria-label="Back">${ICON.back}</button>
+          <h2>Letters to work on</h2>
+        </header>
+        <div class="levels-scroll">
+          <p class="levels-intro">${ranked.length
+    ? 'The characters that have taken you longest to find lately: a point each time one sounded again before you found it, three for each wrong tap while it was the one. Older games count for less (each game, nine tenths of what was there), so this follows you as you improve. Tap one to hear it.'
+    : 'Nothing yet: play some listening levels, and the characters you find hardest will show up here.'}</p>
+          <ol class="mr-trouble">${ranked.map(([ch, w], k) => `
+            <li class="${k < PRACTICE ? 'top' : ''}"><button data-ch="${ch}" aria-label="Hear ${ch}"><b>${ch}</b></button>
+              <span class="mr-bar"><i style="width:${Math.max(4, (100 * w) / most).toFixed(0)}%"></i></span><small>${w.toFixed(1)}</small></li>`).join('')}
+          </ol>
+          ${top.length >= 2 ? `<button class="btn primary mr-practise" data-act="practise">Practise ${top.length === PRACTICE ? 'these' : 'your'} ${top.length}: ${top.map(([ch]) => ch).join(' ')}</button>` : ''}
+          <p class="levels-intro mr-stats">${stats.games
+    ? `${stats.games} listening game${stats.games === 1 ? '' : 's'} · ${stats.found} letters found, ${Math.round((100 * stats.first) / Math.max(1, stats.found))}% the first time you heard them · ${stats.wrong} wrong tap${stats.wrong === 1 ? '' : 's'}`
+    : ''}</p>
+        </div>
+      </div>`;
+    root.querySelector('[data-act=back]').onclick = () => ctx.back('#/morse');
+    root.querySelectorAll('.mr-trouble [data-ch]').forEach((b) => {
+      b.onclick = () => {
+        if (!ctx.getSetting('sound')) ctx.setSetting('sound', true);
+        playMorse(CODE[b.dataset.ch]);
+      };
+    });
+    const go = root.querySelector('[data-act=practise]');
+    if (go) {
+      go.onclick = () => {
+        ctx.sfx('tap');
+        ctx.navigate('#/morse/practice');
+      };
+    }
+  }
+
+  // After every listening game: the trouble weights fade, this game's come
+  // in; and the running totals.
+  function record(res) {
+    ctx.save('trouble', updateTrouble(ctx.load('trouble', {}), res.points || {}));
+    const s = ctx.load('listen-stats', { games: 0, found: 0, first: 0, wrong: 0 });
+    ctx.save('listen-stats', { games: s.games + 1, found: s.found + res.right, first: s.first + Math.max(0, res.right - res.again), wrong: s.wrong + res.wrong });
+  }
+
   function showPlay(mode, n) {
     teardown();
-    const spec = levelSpec(n);
+    const practice = n === 'practice';
+    const letters = hardest(ctx.load('trouble', {})).map(([ch]) => ch);
+    if (practice && letters.length < 2) return showWork();
+    const spec = practice
+      ? practiceSpec(letters, levelSpec(progress[LISTEN].data.unlocked).pace, (Date.now() % 2147483647) >>> 0)
+      : levelSpec(n);
     root.innerHTML = `
       <div class="screen play-screen mr-screen ${mode === SEND ? 'mr-send' : ''}">
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
-          <h2>${mode === SEND ? 'Send' : 'Level'} ${n}</h2>
+          <h2>${practice ? 'Practice' : `${mode === SEND ? 'Send' : 'Level'} ${n}`}</h2>
           <span class="pill"><b data-left>${spec.letters.length}</b>&nbsp;left</span>
           <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
         </header>
@@ -115,7 +185,7 @@ export function mount(root, ctx, sub) {
       ctx.sfx('tap');
       pause();
     };
-    root.querySelector('[data-act=levels]').onclick = () => ctx.back(home(mode));
+    root.querySelector('[data-act=levels]').onclick = () => ctx.back(practice ? '#/morse/work' : home(mode));
     intro(mode, n, spec);
   }
 
@@ -123,19 +193,21 @@ export function mount(root, ctx, sub) {
   // printed dots and dashes are never shown).
   function intro(mode, n, spec) {
     const dialog = root.querySelector('.dialog');
-    const list = spec.fresh;
+    const list = spec.practice ? spec.alphabet : spec.fresh;
     const keys = list.map((ch) => `<button class="btn mr-key" data-ch="${ch}"><b>${ch}</b></button>`).join('');
     const quiet = !ctx.getSetting('sound');
     const how = mode === SEND
       ? 'Tap anywhere to key -- a short tap for a dit, a longer one for a dah -- and pause: the cannon fires at the lowest tile with that letter. Three tiles reaching the ground and it’s over. They come at 5 words a minute to start; get them down to fewer than three, all high up, and they come faster, up to 20. The keying follows your speed; key a letter with excellent timing (a dah three units long, a dit one, the pause between them one, and three between letters) and it shoots two.'
       : 'You’ll hear the code for one of the letters on the screen, again and again till you find it: tap a tile with that letter and it’s gone. Clear them all! Tap the wrong letter and a copy of the right one floats in. Find each one the first time you hear it for the best score.';
-    const text = (quiet ? '<b>Sound is off -- and this game is all sound. Start turns it on.</b><br><br>' : '') + (list.length
+    const text = (quiet ? '<b>Sound is off -- and this game is all sound. Start turns it on.</b><br><br>' : '') + (spec.practice
+      ? `Your ${list.length} hardest letters lately: tap to listen.<div class="mr-keys">${keys}</div>Just these, at ${spec.pace} words a minute. No stars -- but this counts towards your letters to work on, like any game.`
+      : list.length
       ? `New ${list.length === 1 ? 'character' : 'characters'}: tap to listen.<div class="mr-keys">${keys}</div>
         ${n === 1 ? how : `With all ${spec.alphabet.length} so far.`}`
       : `A review: all ${spec.alphabet.length} characters so far${mode === LISTEN && spec.pace > SLOWEST ? `, coming at <b>${spec.pace} words a minute</b>` : ''}.`);
     ctx.track('level_start', { level: n, mode });
     showDialog(dialog, ctx, {
-      title: `${mode === SEND ? 'Send' : 'Level'} ${n}${list.length ? '' : ': review'}`,
+      title: spec.practice ? 'Practice' : `${mode === SEND ? 'Send' : 'Level'} ${n}${list.length ? '' : ': review'}`,
       text,
       buttons: [{ label: 'Start', act: 'start', primary: true, run: () => {
         if (!ctx.getSetting('sound')) ctx.setSetting('sound', true);
@@ -161,6 +233,20 @@ export function mount(root, ctx, sub) {
     // (Your keying rhythm, for next time.)
     if (mode === SEND && res.dit) ctx.save('send-dit', res.dit);
     if (mode === SEND && res.pause) ctx.save('send-pause', res.pause);
+    if (mode === LISTEN) record(res);
+    if (n === 'practice') {
+      ctx.sfx(res.won ? 'win' : 'lose');
+      const top = hardest(ctx.load('trouble', {}), 3).map(([ch]) => ch);
+      showDialog(dialog, ctx, {
+        title: res.won ? 'Practice done' : 'Too many letters!',
+        text: `${res.right} found${res.wrong ? `, ${res.wrong} wrong tap${res.wrong === 1 ? '' : 's'}` : ''}${res.again ? `, ${res.again} heard more than once` : ''}.${top.length ? ` Hardest now: <b>${top.join(' ')}</b>.` : ''}`,
+        buttons: [
+          { label: 'Letters', act: 'work', run: () => ctx.navigate('#/morse/work', { replace: true }) },
+          { label: 'Again', act: 'again', primary: true, run: () => showPlay(LISTEN, 'practice') },
+        ],
+      });
+      return;
+    }
     if (!res.won) {
       ctx.track('level_fail', { level: n, mode });
       ctx.sfx('lose');
@@ -197,6 +283,8 @@ export function mount(root, ctx, sub) {
 
   function route(s = '') {
     const [first, second] = s.split('/');
+    if (first === 'work') return showWork();
+    if (first === 'practice') return showPlay(LISTEN, 'practice');
     const mode = first === SEND ? SEND : LISTEN;
     const n = parseInt(mode === SEND ? second : first, 10);
     if (n >= 1 && n <= progress[mode].data.unlocked) showPlay(mode, n);

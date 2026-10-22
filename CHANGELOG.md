@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.66.0
+- Morse Rain, listening: **Letters to work on** -- the characters you've
+  found hardest lately, ranked (each repeat you needed counts one, each
+  wrong tap three, and older games count for less as you go), with your
+  listening totals. Tap **Practise** for a level of just your hardest seven.
+
 ## 1.65.0
 - Morse Rain, listening: a letter you only find after hearing it more than
   once costs a little on the score. After the last lesson, each review

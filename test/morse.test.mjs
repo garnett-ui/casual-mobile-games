@@ -478,3 +478,40 @@ test('listening: heard more than once before you find it costs a little; faster 
   assert.equal(starsFor(18, 20, 0), 3);
   assert.equal(starsFor(18, 20, 1), 2);
 });
+
+const { updateTrouble, hardest, practiceSpec, DECAY, WRONG } = await import('../games/morse/code.js');
+
+test('letters to work on: each game the old weights fade by 0.9, then the new points come in', () => {
+  assert.equal(DECAY, 0.9);
+  assert.equal(WRONG, 3);
+  let w = updateTrouble({}, { K: 4, E: 0 });
+  assert.deepEqual(w, { K: 4 });
+  w = updateTrouble(w, { Q: 3 });
+  assert.ok(Math.abs(w.K - 3.6) < 1e-9);
+  assert.equal(w.Q, 3);
+  // Ten quiet games: K's down to about a third.
+  for (let k = 0; k < 10; k++) w = updateTrouble(w, {});
+  assert.ok(Math.abs(w.K - 3.6 * 0.9 ** 10) < 0.01);
+  // ...and the hardest, in order; ties alphabetical.
+  assert.deepEqual(hardest({ A: 1, B: 5, C: 3, D: 3, E: 0.5, F: 2, G: 4, H: 6, I: 0.2 }, 7).map(([ch]) => ch), ['H', 'B', 'G', 'C', 'D', 'F', 'A']);
+  // A practice cloud: just those, each at least once.
+  const s = practiceSpec(['K', 'Q', 'Y'], 9, 42);
+  assert.ok(s.letters.every((ch) => ['K', 'Q', 'Y'].includes(ch)));
+  assert.ok(['K', 'Q', 'Y'].every((ch) => s.letters.includes(ch)));
+  assert.equal(s.pace, 9);
+});
+
+test('listening: points against a letter -- one each time it sounds again, three for a wrong tap', () => {
+  const p = new Play(canvas(), { ...levelSpec(3), letters: ['E', 'T'] }, {});
+  p.paused = false;
+  run(p, 1);
+  const want = p.target;
+  run(p, 2 * cycle(CODE[want], 5) + 0.1); // (two repeats)
+  p.repeat(); // (and one asked for -- once the last has finished)
+  run(p, 0.5);
+  p.repeat();
+  p.answer(p.tiles.find((t) => t.ch !== want));
+  const pts = p.result(false).points;
+  assert.ok(pts[want] >= 2 + 1 + WRONG, `${want}: ${pts[want]}`);
+  assert.equal(Object.keys(pts).length, 1, 'only the letter being listened for');
+});

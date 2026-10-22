@@ -84,3 +84,39 @@ export function starsFor(right, total, again = 0) {
   const p = (right - 0.25 * again) / Math.max(1, total);
   return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1;
 }
+
+// Letters to work on: how much trouble each character has given you,
+// listening. After every game the weights all fade (x DECAY) and the game's
+// points come in on top: a point for each time a character's code sounded
+// again before you found it, WRONG for each wrong letter tapped while it
+// was the one to find. So the hardest letters drift as you get better.
+export const DECAY = 0.9;
+export const WRONG = 3;
+export const PRACTICE = 7; // letters in a practice level
+
+export function updateTrouble(weights, points) {
+  const out = {};
+  for (const [ch, w] of Object.entries(weights)) {
+    const v = w * DECAY;
+    if (v >= 0.05) out[ch] = Math.round(v * 1000) / 1000;
+  }
+  for (const [ch, p] of Object.entries(points)) if (p > 0) out[ch] = (out[ch] || 0) + p;
+  return out;
+}
+
+// The hardest k, most trouble first: [[ch, weight], ...].
+export function hardest(weights, k = PRACTICE) {
+  return Object.entries(weights)
+    .filter(([, w]) => w > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, k);
+}
+
+// A practice level: a cloud of just these letters (each at least once),
+// at this pace.
+export function practiceSpec(letters, pace, seed) {
+  const r = rng(seed);
+  const count = Math.max(12, letters.length * 2);
+  const cloud = Array.from({ length: count }, (_, i) => (i < letters.length ? letters[i] : letters[Math.floor(r() * letters.length)]));
+  return { n: 'practice', practice: true, alphabet: letters.slice(), fresh: [], letters: cloud, seed, drift: 36, pace };
+}
