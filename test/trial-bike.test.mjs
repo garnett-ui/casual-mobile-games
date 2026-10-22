@@ -145,20 +145,21 @@ test('every course is ridable (the computer rider finishes it) and gets longer a
   assert.ok(makeLevel(20).par > makeLevel(3).par);
 });
 
-test('course 1 is rolling hills; jumps, logs, drops, ledges and gaps come in that order', () => {
-  const kinds = (n) => new Set(makeCourse(n).features.map((f) => f.kind));
-  assert.deepEqual([...kinds(1)], ['hill']);
+test('course 1 is hills and one small jump; a log, a drop, a ledge and a gap arrive one a course after it', () => {
+  const kinds = (n) => makeCourse(n).features.map((f) => f.kind);
+  assert.deepEqual(kinds(1), ['hill', 'jump', 'hill', 'hill']);
   const first = {};
-  for (let n = 1; n <= 14; n++) for (const k of kinds(n)) first[k] ??= n;
-  assert.ok(first.hill < first.jump && first.jump < first.log && first.log < first.drop && first.drop <= first.step && first.step < first.gap, JSON.stringify(first));
+  for (let n = 1; n <= 8; n++) for (const k of kinds(n)) first[k] ??= n;
+  assert.deepEqual(first, { hill: 1, jump: 1, log: 2, drop: 3, step: 4, gap: 5 });
+  assert.ok(specFor(1).combo === 0 && specFor(10).combo > specFor(3).combo, 'obstacles come closer together as courses go on');
 });
 
 test('the rider reads the ground ahead: a log is a wall, a lip is an edge, a pit is a gap', () => {
-  const level = makeCourse(13);
+  const level = makeCourse(12);
   const log = level.features.find((f) => f.kind === 'log');
   const gap = level.features.find((f) => f.kind === 'gap');
   const jump = level.features.find((f) => f.kind === 'jump');
-  assert.ok(log && gap && jump, 'course 13 has them all');
+  assert.ok(log && gap && jump, 'course 12 has them all');
   const B = newBike(level, log.x0 - 3);
   const r = readAhead(level, B);
   assert.ok(r.wall > 2 && r.wall < 4 && r.wallH > 0.2, JSON.stringify(r));

@@ -14,11 +14,11 @@ const RIDER = '<svg class="tb-rider" viewBox="0 0 48 48"><circle cx="12" cy="36"
 const LEVER = '<svg viewBox="0 0 120 44"><path d="M8 30c20-12 54-18 104-18" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="8" cy="30" r="6" fill="currentColor"/></svg>';
 const GRIP = '<svg viewBox="0 0 120 60"><rect x="4" y="14" width="112" height="32" rx="16" fill="currentColor" opacity=".25"/><rect x="4" y="14" width="112" height="32" rx="16" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 18v24M42 18v24M58 18v24M74 18v24M90 18v24" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".7"/><circle cx="110" cy="30" r="8" fill="currentColor"/></svg>';
 const TIPS = {
-  1: 'Right thumb: hold the GAS grip. Left thumb: drag back to lift the front wheel, forward to bring it down. Sideways is easier to see ahead!',
-  3: 'A ramp! Keep the gas on, and in the air drag forward or back to land on both wheels.',
-  5: 'Logs: slow down, then drag back and give it gas just before, so the front wheel rides up and over.',
-  8: 'Ledges: lift the front wheel onto the top, keep the gas on, and the back wheel climbs up after it.',
-  11: 'A gap! Full gas from well back, and lean back as you leave the lip. Crash and you restart at the last flag.',
+  1: 'Right thumb: hold the GAS grip. Left thumb: drag back to lift the front wheel, forward to bring it down. In the air, lean to land on both wheels. Sideways is easier to see ahead!',
+  2: 'A log: slow down, then drag back and give it gas just before, so the front wheel rides up and over.',
+  3: 'A drop-off: a touch of lean back as you go over, so the back wheel lands first.',
+  4: 'Ledges: lift the front wheel onto the top, keep the gas on, and the back wheel climbs up after it.',
+  5: 'A gap! Full gas from well back, and lean back as you leave the lip. Crash and you restart at the last flag.',
 };
 
 export function mount(root, ctx, sub) {

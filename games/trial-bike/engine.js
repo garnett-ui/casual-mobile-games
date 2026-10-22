@@ -102,21 +102,42 @@ export function contactAt(course, x, y, radius = WHEEL) {
 // ------------------------------------------------------------------ course
 
 // What course n asks of you. Everything grows with n: the length, how many
-// obstacles there are and how big, and which kinds appear at all -- rolling
-// hills first, then jumps, logs, steps up and down, and gaps to clear.
+// obstacles there are and how big, and how often they come one on top of
+// another. Every kind is in play by course 5 -- rolling hills and a small
+// jump from the first course, then a log, a drop-off, a ledge and a gap,
+// one new kind a course -- because the bike is the game, and the sooner
+// you meet everything it can do, the better.
 export function specFor(n) {
   const k = n - 1;
   return {
     length: Math.round(Math.min(240, 70 + 9 * k)),
-    features: Math.min(18, 3 + Math.floor(k * 0.8)),
-    hill: Math.min(3.0, 0.8 + 0.14 * k), // amplitude (m)
+    features: Math.min(18, 4 + Math.floor(k * 0.8)),
+    hill: Math.min(3.0, 1.0 + 0.14 * k), // amplitude (m)
     roll: Math.min(2.5, 1 + 0.12 * k), // the lie of the land: a slow rise and fall under everything (m)
-    jump: n >= 3 ? Math.min(1.8, 0.5 + 0.09 * (n - 3)) : 0, // ramp height
-    log: n >= 5 ? Math.min(0.55, 0.25 + 0.03 * (n - 5)) : 0, // log height
-    step: n >= 8 ? Math.min(0.58, 0.3 + 0.035 * (n - 8)) : 0, // ledge height
-    gap: n >= 11 ? Math.min(2.8, 1.2 + 0.16 * (n - 11)) : 0, // gap width
-    drop: n >= 7 ? Math.min(2.4, 0.5 + 0.12 * (n - 7)) : 0, // drop-off height
+    jump: Math.min(1.8, 0.35 + 0.08 * k), // ramp height
+    log: n >= 2 ? Math.min(0.55, 0.25 + 0.03 * (n - 2)) : 0, // log height
+    drop: n >= 3 ? Math.min(2.4, 0.4 + 0.11 * (n - 3)) : 0, // drop-off height
+    step: n >= 4 ? Math.min(0.58, 0.28 + 0.03 * (n - 4)) : 0, // ledge height
+    gap: n >= 5 ? Math.min(2.8, 1.0 + 0.14 * (n - 5)) : 0, // gap width
+    combo: n >= 3 ? Math.min(0.5, 0.1 + 0.04 * (n - 3)) : 0, // chance the next obstacle comes straight after
   };
+}
+
+// The kinds of obstacle course n is made of, in order: the kind that is new
+// this course is always there, the rest are drawn from everything the
+// course allows, and course 1 is hills with one small jump in the middle.
+function kindsFor(n, spec, r) {
+  const allowed = ['hill', 'hill', 'jump', 'jump'];
+  if (spec.log) allowed.push('log');
+  if (spec.drop) allowed.push('drop');
+  if (spec.step) allowed.push('step');
+  if (spec.gap) allowed.push('gap', 'gap');
+  if (n === 1) return ['hill', 'jump', 'hill', 'hill'];
+  const fresh = { 2: 'log', 3: 'drop', 4: 'step', 5: 'gap' }[n];
+  const kinds = [];
+  for (let i = 0; i < spec.features; i++) kinds.push(allowed[Math.floor(r() * allowed.length)]);
+  if (fresh && !kinds.includes(fresh)) kinds[1 + Math.floor(r() * (kinds.length - 2))] = fresh;
+  return kinds;
 }
 
 // Course n, attempt a: a flat start, obstacles in a random order picked from
@@ -126,12 +147,7 @@ export function specFor(n) {
 export function makeCourse(n, attempt = 0) {
   const r = rng(seedFor(n * 16 + attempt, BASE_SEED));
   const spec = specFor(n);
-  const kinds = ['hill', 'hill'];
-  if (spec.jump) kinds.push('jump', 'jump');
-  if (spec.log) kinds.push('log');
-  if (spec.drop) kinds.push('drop');
-  if (spec.step) kinds.push('step');
-  if (spec.gap) kinds.push('gap', 'gap');
+  const kinds = kindsFor(n, spec, r);
   const features = [];
   const flags = [];
   let x = 12; // the start is flat
@@ -154,14 +170,15 @@ export function makeCourse(n, attempt = 0) {
   flat(x);
   const perFlag = n < 4 ? 3 : 4;
   for (let i = 0; i < spec.features; i++) {
-    const kind = kinds[Math.floor(r() * kinds.length)];
+    const kind = kinds[i];
     const s = 0.6 + 0.4 * r(); // this one's size, as a share of the spec
     switch (kind) {
       case 'hill': {
         // A rolling rise and fall, or a few of them.
+        // (No steeper than about 35 degrees: a hill is for climbing.)
         const waves = 1 + Math.floor(r() * 2);
-        const len = (8 + 6 * r()) * waves;
         const amp = spec.hill * s;
+        const len = Math.max(6 + 4 * r(), 4.6 * amp) * waves;
         piece('hill', len, (d) => amp * (1 - Math.cos((2 * Math.PI * waves * d) / len)) / 2);
         break;
       }
@@ -206,9 +223,16 @@ export function makeCourse(n, attempt = 0) {
     }
     // Level ground between obstacles: room to land and settle after a
     // jump or drop, and longer early on, when there's more to learn than
-    // to do.
-    flat(Math.max(landing, Math.max(4, 9 - 0.4 * (n - 1))) + 3 * r());
-    if ((i + 1) % perFlag === 0 && i < spec.features - 1) flags.push(x - 1.5);
+    // to do. Sometimes (more often as courses go on) the next obstacle
+    // comes straight after instead -- a log at the foot of a drop, a
+    // second jump off the first's landing -- except a wall (a log or a
+    // ledge) right where a jump or drop comes down, which is a crash, not
+    // a combination.
+    const next = kinds[i + 1];
+    const wall = next === 'log' || next === 'step';
+    const combo = next && next !== 'gap' && r() < spec.combo && !(landing && wall);
+    flat(combo ? Math.max(1.5, landing ? landing * 0.6 : 0) + r() : Math.max(landing, Math.max(4, 9 - 0.4 * (n - 1))) + 3 * r());
+    if ((i + 1) % perFlag === 0 && i < spec.features - 1 && !combo) flags.push(x - 1.5);
   }
   flat(10);
   const finish = x - 3;
@@ -434,9 +458,10 @@ export function rider(course, B, pace = 0.5) {
   const speed = B.vx;
   const cruise = 5 + 7 * pace;
   const wall = read.wall - BASE; // in front of the front wheel
-  let gas = speed < cruise;
+  const slope = Math.atan(slopeAt(course, B.x));
+  let gas = speed < cruise || slope > 0.25; // open it up on a climb
   let brake = false;
-  let target = Math.atan(slopeAt(course, B.x)); // pitch to hold
+  let target = slope; // pitch to hold
   if (read.pit) {
     // Out over a gap: nose up a little so the front wheel finds the far
     // lip, throttle open to drive up and over it.

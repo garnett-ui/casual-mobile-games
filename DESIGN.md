@@ -350,12 +350,16 @@ keyboard.
   the price of a crash.
 - **Endless courses from a seed**, and every one test-ridden. Course *n* is
   built from `seedFor(n)`: a slow rise and fall of the land, with obstacles
-  along it in a random order drawn from the kinds that course allows --
-  rolling hills from the start, jumps from course 3, logs from 5, drop-offs
-  from 7, ledges up and down from 8, gaps from 11 -- growing in size and
-  number, with a run-up before every gap and room to land after every
-  jump. The computer rider rides each course at three paces as it is
-  generated; one it can't finish is re-rolled, and its best time is **par**.
+  along it in a random order drawn from the kinds that course allows.
+  Everything the bike can do is met early -- course 1 is hills and one
+  small jump, then a log on course 2, a drop-off on 3, a ledge up and down
+  on 4 and a gap on 5 -- and from there they grow in size and number and,
+  more and more often, come one straight after another (a log at the foot
+  of a drop, a second jump off the first one's landing). Hills are never
+  steeper than about 35°, there's a run-up before every gap, and a wall
+  never stands where a jump comes down. The computer rider rides each
+  course at three paces as it is generated; one it can't finish is
+  re-rolled, and its best time is **par**.
 - **Stars** against par and your crashes: three for beating par clean, two
   for within 1.5× par with at most one crash, one for getting there. The
   course tile shows your best time.
