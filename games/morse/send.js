@@ -14,6 +14,7 @@
 // up (up to FASTEST); let them get low, or lose a life, and it eases off. There are always a few on the
 // screen to aim at (MIN_ON_SCREEN), however quick you are.
 import { Keyer, UNKNOWN } from './key.js';
+import { LOW, LANDED } from './code.js';
 
 export const EXCELLENT = 0.9; // (precision: see Keyer.tick)
 export const SLOWEST = 5; // words a minute
@@ -37,7 +38,7 @@ export class SendPlay {
   constructor(canvas, spec, hooks, { dit, pause } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.spec = { ...spec, ...sendPace(spec.n) };
+    this.spec = { ...sendPace(spec.n), ...spec }; // (a practice brings its own pace)
     this.hooks = hooks;
     this.keyer = new Keyer({ ...(dit ? { dit } : {}), ...(pause ? { pause } : {}) });
     this.paused = true;
@@ -76,6 +77,7 @@ export class SendPlay {
     this.splats = [];
     this.lives = 3;
     this.hits = 0;
+    this.points = {}; // trouble, by letter (see updateTrouble in code.js)
     this.sent = 0; // letters keyed right (an excellent one, still one)
     this.firstAt = null; // when the first tile came in...
     this.lastSentAt = null; // ...and the last letter keyed right
@@ -154,6 +156,7 @@ export class SendPlay {
       this.tiles.splice(this.tiles.indexOf(a), 1);
       this.boom(a.x, this.ground - 4, '#ff7a3d', 26);
       this.lives--;
+      this.points[a.ch] = (this.points[a.ch] || 0) + LANDED;
       this.tempo = Math.max(SLOWEST, this.tempo * 0.75);
       this.hooks.haptic?.(60);
       if (this.lives <= 0) return this.lose();
@@ -179,6 +182,7 @@ export class SendPlay {
         this.shots.splice(this.shots.indexOf(s), 1);
         this.boom(s.tile.x, s.tile.y, '#ffd25a', 34);
         this.hits++;
+        if (s.tile.y > this.ground * 0.75) this.points[s.tile.ch] = (this.points[s.tile.ch] || 0) + LOW;
         this.quicken(s.tile.y);
         this.hooks.haptic?.(20);
       } else if (s.x < -40 || s.x > this.W + 40 || s.y < -40 || s.t > 3) this.shots.splice(this.shots.indexOf(s), 1);
@@ -279,7 +283,7 @@ export class SendPlay {
   }
 
   result(won) {
-    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, total: this.spec.letters.length, dit: this.keyer.dit, pause: this.keyer.pause, wpm: this.spec.wpm, topWpm: this.topWpm, effectiveWpm: this.effectiveWpm };
+    return { won, hits: this.hits, wrong: this.wrong, excellent: this.excellent, lives: this.lives, points: { ...this.points }, total: this.spec.letters.length, dit: this.keyer.dit, pause: this.keyer.pause, wpm: this.spec.wpm, topWpm: this.topWpm, effectiveWpm: this.effectiveWpm };
   }
 
   // ------------------------------------------------------------- input

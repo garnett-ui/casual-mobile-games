@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.67.0
+- Morse Rain: practice rounds no longer change your letters to work on --
+  only ordinary levels do. Sending now has its own letters to work on (the
+  ones that reach the ground, or that you only shoot down low) and its own
+  practice of your hardest seven.
+
 ## 1.66.0
 - Morse Rain, listening: **Letters to work on** -- the characters you've
   found hardest lately, ranked (each repeat you needed counts one, each

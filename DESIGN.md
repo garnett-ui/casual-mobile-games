@@ -277,17 +277,19 @@ time to find the tile in the cloud. Review levels show their speed.
   four-symbol ones), with reviews, then numbers and punctuation (. , ? /);
   after that, reviews of the lot with bigger, livelier clouds. The new ones
   are played half the time; before each lesson, tap one to hear it.
-- **Letters to work on.** Listening keeps a trouble weight for every
-  character: a point each time its code sounded again before you found it
-  (repeated, or asked for), three for each wrong letter tapped while it was
-  the one to find. After every listening game -- level or practice, won or
-  lost -- all the weights are multiplied by 0.9 and that game's points added,
-  so older games fade (ten games on, a third) and the list follows you. The
-  screen (from the listening level page, which shows the top three) ranks
-  them, marks the hardest seven, plays any you tap, and has your totals:
-  games, letters found, how many the first time you heard them, wrong taps.
-  **Practise these** starts a cloud of just those seven, at the speed of
-  your furthest level; no stars, no unlocking.
+- **Letters to work on**, listening and sending apart. Each keeps a
+  trouble weight for every character. Listening: a point each time its code
+  sounded again before you found it (repeated, or asked for), three for each
+  wrong letter tapped while it was the one to find. Sending: three when its
+  tile reached the ground, one when you only shot it down low (the bottom
+  quarter). After every ordinary game, won or lost, all the weights are
+  multiplied by 0.9 and that game's points added, so older games fade (ten
+  games on, a third) and the list follows you. Practice rounds don't count
+  at all: they only drill the hardest letters, and counting them would keep
+  those at the top. The screen (from each level page, which shows the top
+  three) ranks them, marks the hardest seven, plays any you tap, and has
+  your totals. **Practise** starts a level of just those seven, at the pace
+  of your furthest level; no stars, no unlocking.
 - All by ear: the dots and dashes are never shown (learning them printed
   only gets in the way of hearing them), so it needs the sound on.
 - **Two sets of lessons, each with its own levels and stars, chosen by

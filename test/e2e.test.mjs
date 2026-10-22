@@ -1241,7 +1241,7 @@ test('15: choose the tiles -- for any level, mid-game too; a photo whose tiles l
   }
 });
 
-test('morse rain: letters to work on -- ranked, decaying after each game, and a practice level of the hardest seven', { skip: !chromium, timeout: 90000 }, async () => {
+test('morse rain: letters to work on -- ranked, decaying after each ordinary game (not practice), listening and sending', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -1280,13 +1280,39 @@ test('morse rain: letters to work on -- ranked, decaying after each game, and a 
     });
     await page.locator('.dialog:not([hidden]) [data-act=work]').waitFor({ timeout: 20000 });
     assert.match(await page.locator('.dialog h3').textContent(), /Practice done/);
-    // Every old weight faded by 0.9 (none got new points: all found at once).
+    // Practice changes nothing: it only drills the hardest.
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:trouble'))), weights);
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:morse:listen-stats')), null);
+    // An ordinary level does: every old weight fades by 0.9 (found at once:
+    // no new points).
+    await page.goto(`${base}#/morse/1`);
+    await page.waitForFunction(() => window.__morse?.spec.n === 1);
+    await page.locator('[data-act=start]').click();
+    await page.evaluate(async () => {
+      const p = window.__morse;
+      p.timeScale = 4;
+      for (let k = 0; k < 600 && !p.over; k++) {
+        await new Promise((r) => setTimeout(r, 50));
+        const t = p.target && p.tiles.find((x) => x.ch === p.target);
+        if (t) p.answer(t);
+      }
+    });
+    await page.locator('.dialog:not([hidden]) .stars').waitFor({ timeout: 20000 });
     const after = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:trouble')));
     for (const [ch, w] of Object.entries(weights)) assert.ok(Math.abs(after[ch] - w * 0.9) < 0.01, `${ch}: ${after[ch]}`);
     const stats = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:listen-stats')));
     assert.equal(stats.games, 1);
-    assert.equal(stats.found, letters.length);
-    // No stars or unlocking from practice.
+    // Sending has its own list, and its own practice.
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:morse:send-trouble', JSON.stringify({ X: 6, Z: 5, B: 4 })));
+    await page.goto(`${base}#/morse/send`);
+    assert.match(await page.locator('.mr-work-btn').textContent(), /X Z B/);
+    await page.locator('.mr-work-btn').click();
+    await page.waitForFunction(() => location.hash === '#/morse/send/work');
+    assert.match(await page.locator('.levels-intro').first().textContent(), /reached the ground/);
+    await page.locator('.mr-practise').click();
+    await page.waitForFunction(() => window.__morseSend?.spec.practice);
+    assert.ok((await page.evaluate(() => window.__morseSend.queue.concat(window.__morseSend.tiles.map((t) => t.ch)))).every((ch) => 'XZB'.includes(ch)));
+    // No unlocking from practice.
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:morse:progress')).unlocked), 12);
     assert.deepEqual(errors, []);
   } finally {

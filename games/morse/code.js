@@ -85,13 +85,18 @@ export function starsFor(right, total, again = 0) {
   return p >= 0.9 ? 3 : p >= 0.7 ? 2 : 1;
 }
 
-// Letters to work on: how much trouble each character has given you,
-// listening. After every game the weights all fade (x DECAY) and the game's
-// points come in on top: a point for each time a character's code sounded
-// again before you found it, WRONG for each wrong letter tapped while it
-// was the one to find. So the hardest letters drift as you get better.
+// Letters to work on: how much trouble each character has given you --
+// listening and sending apart. After every game (not practice: that only
+// drills the hardest, and would keep them there) the weights all fade
+// (x DECAY) and the game's points come in on top. Listening: a point for
+// each time a character's code sounded again before you found it, WRONG
+// for each wrong letter tapped while it was the one to find. Sending: LOW
+// for a tile only shot down in the bottom quarter, LANDED for one that
+// reached the ground. So the hardest letters drift as you get better.
 export const DECAY = 0.9;
 export const WRONG = 3;
+export const LOW = 1;
+export const LANDED = 3;
 export const PRACTICE = 7; // letters in a practice level
 
 export function updateTrouble(weights, points) {

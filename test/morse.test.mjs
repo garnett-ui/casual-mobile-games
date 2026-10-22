@@ -515,3 +515,20 @@ test('listening: points against a letter -- one each time it sounds again, three
   assert.ok(pts[want] >= 2 + 1 + WRONG, `${want}: ${pts[want]}`);
   assert.equal(Object.keys(pts).length, 1, 'only the letter being listened for');
 });
+
+test('sending: points against a letter -- three when it reaches the ground, one when only shot down low', () => {
+  const { LOW, LANDED } = { LOW: 1, LANDED: 3 };
+  const p = sendGame({ ...levelSpec(1), letters: ['E', 'T'] });
+  let now = 0;
+  // Let the first land.
+  while (p.lives === 3 && now < 60) p.update(1 / 30, (now += 1 / 30));
+  const landed = Object.entries(p.points).find(([, v]) => v === LANDED);
+  assert.ok(landed, JSON.stringify(p.points));
+  // Shoot the other once it's low.
+  const other = p.tiles[0];
+  while (other.y < p.ground * 0.8 && now < 120) p.update(1 / 30, (now += 1 / 30));
+  p.fire(other.ch);
+  for (let k = 0; k < 30; k++) p.update(1 / 30, (now += 1 / 30));
+  assert.equal(p.points[other.ch], LOW);
+  assert.deepEqual(p.result(false).points, p.points);
+});
