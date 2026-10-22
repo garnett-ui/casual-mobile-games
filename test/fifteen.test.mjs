@@ -165,3 +165,15 @@ test('score: wrong-way moves and stars; the walk reviewed', () => {
   assert.deepEqual(r, { best: 5, moves: 9, wrong: 2, climb: 2, climbAt: 2, finish: 6, top: 6 });
   assert.equal(r.moves, r.best + 2 * r.wrong);
 });
+
+test('levels: every board size starts with plain numbers, and only then has pictures and sequences', () => {
+  const seen = new Map(); // size -> has it had a picture or sequence yet
+  for (let n = 1; n <= 25; n++) {
+    const [w, h, kind] = levelPlan(n);
+    const size = `${w}x${h}`;
+    if (!seen.has(size)) assert.equal(kind, 'numbers', `level ${n}: ${size} opens with numbers`);
+    if (kind !== 'numbers') seen.set(size, true);
+    else assert.ok(!seen.get(size), `level ${n}: numbers on ${size} after its patterns`);
+    if (!seen.has(size)) seen.set(size, false);
+  }
+});

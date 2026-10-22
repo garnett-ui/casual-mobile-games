@@ -337,13 +337,14 @@ any tiles between; every tile moved counts as a move.
   Tiles show numbers, a picture or a sequence (js/lib/patterns.js), and no
   two tiles of a level look alike: pictures are checked for it by tests
   (games/fifteen/solver.js, test/patterns.test.mjs).
-- **The levels.** Numbers on 2x3 and 3x3 first, then pictures (colour
-  wheel, spiral, stained glass, topographic map, landscape) and sequences
+- **The levels.** Each board size -- 2x3, 3x3, 3x4, 4x4 -- starts with
+  plain numbers, and only then has pictures (colour wheel, spiral, stained
+  glass, topographic map, landscape) and sequences
   (a filling glass, a clock, a plant growing, the moon -- northern
   hemisphere, unlabelled, its phases evenly spaced by how much is lit, so
   the shadow's edge moves the same each frame even near full -- and the sun
   across the sky) on 3x3, 3x4 and 4x4 boards, ending fully shuffled. After
-  the first 24, 4x4 shuffles round all of them. (The plain gradients, marble
+  the first 25, 4x4 shuffles round all of them. (The plain gradients, marble
   and weave were too hard to tell apart; they're still in the pattern
   library.)
 - **The walk.** The game knows, after every move, exactly how far the board

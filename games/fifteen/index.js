@@ -7,7 +7,7 @@ import { coach } from './coach.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 import { levelSource } from '../../js/lib/level-source.js';
 
-const GEN_VERSION = 2;
+const GEN_VERSION = 3;
 const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2"/></svg>';
 const CHEERS = ['Solved!', 'In order!', 'Click, click, done!', 'Every tile home!'];
 

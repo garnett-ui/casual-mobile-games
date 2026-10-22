@@ -1168,8 +1168,8 @@ test('15: a 4x4 level gets its tables from the server, and follows every move ex
     page.on('request', (r) => r.url().includes('tables-4x4') && tables.push(r.url()));
     const base = `http://localhost:${server.address().port}/`;
     await page.goto(base);
-    await page.evaluate(() => localStorage.setItem('pocket-arcade:fifteen:progress', JSON.stringify({ unlocked: 15, stars: {} })));
-    await page.goto(`${base}#/fifteen/15`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:fifteen:progress', JSON.stringify({ unlocked: 16, stars: {} })));
+    await page.goto(`${base}#/fifteen/16`);
     await page.waitForFunction(() => window.__fifteen?.play?.w === 4);
     const t0 = Date.now();
     const first = await page.evaluate(() => window.__fifteen.coach().hint());

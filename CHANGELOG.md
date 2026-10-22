@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.63.2
+- 15: every board size now starts with plain numbers, and only then moves
+  on to pictures and sequences.
+
 ## 1.63.1
 - 15: the moon's phases are evenly spaced, so the ones near full are easy
   to tell apart. The plain colour gradients are gone (too alike); a
