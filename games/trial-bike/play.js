@@ -457,89 +457,235 @@ export class Play {
 // the centre of mass, x forward, y up (the caller has set the transform).
 // The rider stands on the pegs and leans by `pose` (1 = back, -1 =
 // forward). Shared with the card picture on the hub.
+const INK = '#1d1b22';
+const RED_DARK = '#9d1b25';
+const RED_LIGHT = '#ff8f98';
+const JERSEY = ['#2a9d8f', '#1b6b61']; // near side, far side
+const PANTS = ['#264653', '#16303a'];
+const METAL = '#a7adb5';
+
+// Two-bone reach: where the joint goes between a root and a tip, given the
+// two bone lengths. The joint sits to the left of the line root -> tip, which
+// is above it for an arm reaching forward and down and in front of it for a
+// leg reaching down. The reach is clamped so a limb never straightens past
+// its length (the tip returned is where the limb actually gets to), and
+// `flat` shortens the bend for an elbow that also flares out of the picture.
+const reach = (a, b, l1, l2, flat = 1) => {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const far = Math.hypot(dx, dy) || 1e-6;
+  const d = Math.max(Math.abs(l1 - l2) + 0.01, Math.min(far, (l1 + l2) * 0.995));
+  const ux = dx / far;
+  const uy = dy / far;
+  const along = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+  const out = Math.sqrt(Math.max(0, l1 * l1 - along * along)) * flat;
+  return [[a[0] + ux * along - uy * out, a[1] + uy * along + ux * out], [a[0] + ux * d, a[1] + uy * d]];
+};
+
+// Piecewise between the three poses: over the bars, neutral, and back.
+const byPose = (pose, fwd, mid, back) => (pose < 0 ? mid + (mid - fwd) * pose : mid + (back - mid) * pose);
+
 export function paintBike(ctx, B, pose = B.lean ?? 0) {
-ctx.lineCap = 'round';
-ctx.lineJoin = 'round';
-const wheel = (x, y, spin) => {
-    ctx.lineWidth = 0.1;
-    ctx.strokeStyle = '#222';
-    ctx.beginPath();
-    ctx.arc(x, y, WHEEL - 0.05, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.lineWidth = 0.025;
-    ctx.strokeStyle = '#bbb';
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const a = spin + (i * Math.PI) / 3;
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + Math.cos(a) * (WHEEL - 0.1), y + Math.sin(a) * (WHEEL - 0.1));
-    }
-    ctx.stroke();
-    ctx.fillStyle = '#555';
-    ctx.beginPath();
-    ctx.arc(x, y, 0.06, 0, Math.PI * 2);
-    ctx.fill();
-  };
+  const p = Math.max(-1, Math.min(1, pose));
+  const spin = B.spin ?? 0;
   const rx = -BASE / 2;
   const fx = BASE / 2;
   const ay = -COM; // axle height
-  wheel(rx, ay, -B.spin);
-  wheel(fx, ay, -B.spin * 0.97);
-  // Frame: swingarm, down tube, seat, tank, forks and bars.
-  ctx.strokeStyle = FRAME;
-  ctx.lineWidth = 0.08;
-  ctx.beginPath();
-  ctx.moveTo(rx, ay); // swingarm to the pegs
-  ctx.lineTo(-0.1, ay + 0.1);
-  ctx.lineTo(0.15, ay + 0.55); // up to the tank
-  ctx.lineTo(0.5, ay + 0.6);
-  ctx.lineTo(fx - 0.12, ay + 0.05); // fork
-  ctx.moveTo(-0.1, ay + 0.1);
-  ctx.lineTo(-0.35, ay + 0.5); // seat post
-  ctx.lineTo(0.15, ay + 0.55);
-  ctx.stroke();
-  ctx.lineWidth = 0.05;
-  ctx.strokeStyle = '#333';
-  ctx.beginPath();
-  ctx.moveTo(fx - 0.12, ay + 0.05);
-  ctx.lineTo(fx - 0.3, ay + 0.95); // forks up to the bars
-  ctx.stroke();
-  ctx.fillStyle = FRAME;
-  ctx.beginPath();
-  ctx.ellipse(0.25, ay + 0.6, 0.3, 0.14, 0, 0, Math.PI * 2); // tank
-  ctx.fill();
-  ctx.fillStyle = '#222';
-  ctx.beginPath();
-  ctx.ellipse(-0.3, ay + 0.52, 0.22, 0.06, 0, 0, Math.PI * 2); // seat
-  ctx.fill();
-  // The rider: on the pegs, knees bent, leaning with the input; the body
-  // is a thick stroke in the jersey colour, with a helmet.
-  const lean = pose;
-  const hipX = -0.3 - lean * 0.25;
-  const hipY = ay + 0.9;
-  const shX = hipX + 0.25 - lean * 0.3;
-  const shY = hipY + 0.55 - Math.abs(lean) * 0.08;
-  ctx.strokeStyle = '#2a9d8f';
-  ctx.lineWidth = 0.17;
-  ctx.beginPath();
-  ctx.moveTo(-0.05, ay + 0.12); // foot on the peg
-  ctx.lineTo(hipX + 0.12, ay + 0.5); // knee
-  ctx.lineTo(hipX, hipY);
-  ctx.lineTo(shX, shY);
-  ctx.stroke();
-  ctx.strokeStyle = '#f2cc8f';
-  ctx.lineWidth = 0.1;
-  ctx.beginPath();
-  ctx.moveTo(shX, shY); // arms to the bars
-  ctx.lineTo(shX + 0.25, shY - 0.2);
-  ctx.lineTo(fx - 0.32, ay + 0.98);
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(shX + 0.08, shY + 0.22, 0.17, 0, Math.PI * 2); // helmet
-  ctx.fill();
-  ctx.fillStyle = '#222';
-  ctx.beginPath();
-  ctx.arc(shX + 0.16, shY + 0.19, 0.08, -0.6, 0.9); // visor
-  ctx.fill();
+  const trace = (pts) => {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  };
+  // Strokes the current path; a dashed one (knobs, teeth, coils) has square
+  // ends so the dashes stay apart.
+  const stroke = (width, colour, dash = []) => {
+    ctx.lineWidth = width;
+    ctx.strokeStyle = colour;
+    ctx.setLineDash(dash);
+    ctx.lineCap = dash.length ? 'butt' : 'round';
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+  };
+  const line = (pts, width, colour, dash) => {
+    trace(pts);
+    stroke(width, colour, dash);
+  };
+  const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+  const finish = (fill, edge, width) => {
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (edge) stroke(width, edge);
+  };
+  const shape = (pts, fill, edge = INK, width = 0.012) => {
+    trace(pts);
+    ctx.closePath();
+    finish(fill, edge, width);
+  };
+  const disc = (x, y, r, fill, edge = null, width = 0.01) => {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    finish(fill, edge, width);
+  };
+  // A ring of tyre knobs or sprocket teeth, turning with the wheel.
+  const teeth = (x, y, r, width, colour, count, turn) => {
+    const gap = (Math.PI * 2 * r) / count;
+    ctx.beginPath();
+    ctx.arc(x, y, r, turn, turn + Math.PI * 2);
+    stroke(width, colour, [gap * 0.55, gap * 0.45]);
+  };
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // The rider's pose: hips slide along the seat, the torso pitches, the head
+  // stays level to look ahead. Feet stay on the pegs and hands on the grips.
+  const peg = [-0.06, -0.36];
+  const ankle = [peg[0] - 0.03, peg[1] + 0.07];
+  const grip = [0.3, 0.47];
+  const hip = [byPose(p, -0.18, -0.22, -0.4), byPose(p, 0.45, 0.52, 0.3)];
+  const tilt = byPose(p, 0.7, 0.45, 0.2); // torso from upright, radians
+  const shoulder = [hip[0] + 0.5 * Math.sin(tilt), hip[1] + 0.5 * Math.cos(tilt)];
+  const nod = tilt * 0.4;
+  const head = [shoulder[0] + 0.25 * Math.sin(nod), shoulder[1] + 0.25 * Math.cos(nod)];
+  const leg = (h, a, colour, boot) => {
+    const [knee, foot] = reach(h, a, 0.44, 0.44);
+    line([h, knee], 0.16, colour[0]);
+    line([knee, foot], 0.125, colour[0]);
+    line([mix(knee, foot, 0.4), foot], 0.13, boot);
+    disc(knee[0] + 0.02, knee[1], 0.065, colour[1]); // knee guard
+    shape([[foot[0] - 0.08, foot[1] + 0.03], [foot[0] + 0.045, foot[1] + 0.035], [foot[0] + 0.15, foot[1] - 0.07], [foot[0] - 0.09, foot[1] - 0.09]], boot, INK, 0.012);
+    line([[foot[0] - 0.09, foot[1] - 0.09], [foot[0] + 0.15, foot[1] - 0.08]], 0.028, INK); // sole
+  };
+  const arm = (s, g, colour) => {
+    const [elbow, hand] = reach(s, g, 0.36, 0.34, 0.55);
+    line([s, elbow], 0.105, colour);
+    line([elbow, hand], 0.088, colour);
+    disc(hand[0], hand[1], 0.047, INK); // glove
+  };
+
+  // The far leg and arm, behind the bike and in shadow.
+  leg([hip[0] + 0.04, hip[1]], [ankle[0] + 0.05, ankle[1]], PANTS.slice().reverse(), '#b9bec4');
+  arm([shoulder[0] + 0.04, shoulder[1]], [grip[0] + 0.05, grip[1] + 0.01], JERSEY[1]);
+
+  // Wheels: knobbly tyres, rims, crossed spokes and hubs.
+  const wheel = (x, y, turn, rear) => {
+    disc(x, y, 0.3, '#2b2b30');
+    teeth(x, y, 0.317, 0.046, INK, 26, turn);
+    disc(x, y, 0.255, '#dbe6ef');
+    disc(x, y, 0.235, '#dbe6ef', METAL, 0.022);
+    ctx.beginPath();
+    for (let i = 0; i < 20; i++) {
+      const a = turn + (i * Math.PI) / 10;
+      const b = a + (i % 2 ? 0.55 : -0.55);
+      ctx.moveTo(x + Math.cos(a) * 0.045, y + Math.sin(a) * 0.045);
+      ctx.lineTo(x + Math.cos(b) * 0.23, y + Math.sin(b) * 0.23);
+    }
+    stroke(0.008, '#6c737b');
+    if (rear) {
+      disc(x, y, 0.12, '#4a4d52', INK);
+      teeth(x, y, 0.13, 0.025, '#4a4d52', 30, turn);
+      for (let i = 0; i < 5; i++) {
+        const a = turn + (i * Math.PI * 2) / 5;
+        disc(x + Math.cos(a) * 0.075, y + Math.sin(a) * 0.075, 0.022, '#dbe6ef');
+      }
+    } else {
+      disc(x, y, 0.1, 'rgba(0,0,0,0)', '#8d949c', 0.03); // brake disc
+    }
+    disc(x, y, 0.05, '#6c737b', INK);
+    disc(x, y, 0.018, '#e9ecef');
+  };
+  const fork = (dx, near) => {
+    const axle = [fx + dx, ay];
+    const top = [0.31 + dx, 0.22];
+    line([axle, mix(axle, top, 0.45)], 0.075, near ? '#2b2b30' : INK); // slider
+    line([mix(axle, top, 0.4), top], 0.05, near ? '#d7dde3' : '#8d949c'); // stanchion
+  };
+  fork(0.035, false);
+  wheel(rx, ay, -spin, true);
+  wheel(fx, ay, -spin * 0.97, false);
+
+  // Chain from the gearbox sprocket to the rear one, then the swingarm and
+  // its shock on top.
+  const box = [-0.04, -0.4];
+  line([[box[0], box[1] + 0.045], [rx, ay + 0.135], [rx, ay - 0.135], [box[0], box[1] - 0.045]], 0.018, '#3a3d42');
+  const pivot = [-0.14, -0.38];
+  shape([[pivot[0], pivot[1] + 0.045], [rx, ay + 0.03], [rx - 0.03, ay], [rx, ay - 0.03], [pivot[0], pivot[1] - 0.045]], '#3d4148');
+  line([[pivot[0] - 0.02, pivot[1] + 0.02], [rx + 0.05, ay + 0.015]], 0.012, '#8d949c');
+  const shockLow = [-0.36, -0.43];
+  const shockTop = [-0.2, -0.02];
+  line([shockLow, shockTop], 0.04, '#5a5f66');
+  line([mix(shockLow, shockTop, 0.2), mix(shockLow, shockTop, 0.8)], 0.07, '#f4b400', [0.014, 0.014]); // spring
+
+  // The engine: crankcase, a finned cylinder leaning forward, a skid plate
+  // underneath, and the pipe curling down from the cylinder and back to the
+  // silencer.
+  shape([[-0.16, -0.22], [0.13, -0.2], [0.2, -0.33], [0.1, -0.46], [-0.14, -0.45], [-0.2, -0.33]], '#6c737b');
+  disc(-0.03, -0.37, 0.065, '#8d949c', INK); // clutch cover
+  disc(box[0], box[1], 0.04, '#3a3d42');
+  shape([[-0.06, -0.21], [0.11, -0.2], [0.17, -0.02], [0.02, -0.02]], '#8d949c');
+  for (let i = 1; i < 5; i++) line([[-0.06 + i * 0.03, -0.205 + i * 0.045], [0.11 + i * 0.012, -0.2 + i * 0.045]], 0.012, '#5a5f66');
+  shape([[0.24, -0.36], [0.12, -0.5], [-0.14, -0.5], [-0.18, -0.45], [0.1, -0.45]], '#c9d0d6'); // skid plate
+  const pipe = [[0.15, -0.06], [0.27, -0.16], [0.28, -0.29], [0.18, -0.36], [-0.12, -0.3], [-0.3, -0.24], [-0.46, -0.1]];
+  line(pipe, 0.055, '#5c4330');
+  line(pipe, 0.022, '#c9925a');
+  line([[-0.46, -0.1], [-0.9, -0.01]], 0.1, '#3a3d42'); // silencer
+  line([[-0.47, -0.1], [-0.89, -0.015]], 0.065, '#8d949c');
+  line([[-0.5, -0.075], [-0.86, 0.005]], 0.014, '#e3e8ec');
+
+  // Frame: twin spars from the steering head to the swingarm pivot, a down
+  // tube to the front of the engine and a subframe for the seat.
+  const headTop = [0.3, 0.2];
+  const headLow = [0.36, 0.06];
+  line([headTop, [-0.12, -0.04], pivot], 0.075, RED_DARK);
+  line([headTop, [-0.12, -0.04], pivot], 0.05, FRAME);
+  line([headLow, [0.22, -0.3]], 0.045, FRAME);
+  line([[-0.12, -0.04], [-0.55, 0.07]], 0.04, RED_DARK);
+  line([headTop, headLow], 0.08, RED_DARK);
+
+  // Plastics: rear mudguard, side panel with a number, slim seat, and the
+  // small tank with its shadow and a highlight.
+  shape([[-0.22, 0.06], [-0.6, 0.11], [-0.98, 0.09], [-0.96, 0.05], [-0.6, 0.04], [-0.3, -0.04]], FRAME, RED_DARK);
+  shape([[-0.16, 0.02], [-0.5, 0.06], [-0.44, -0.16], [-0.2, -0.14]], '#f4f1e8', RED_DARK, 0.02);
+  line([[-0.38, -0.01], [-0.28, -0.01], [-0.35, -0.12]], 0.022, INK); // the number 7
+  line([[-0.25, -0.01], [-0.25, -0.12]], 0.022, INK); // and a 1: rider 71
+  shape([[0.02, 0.13], [-0.1, 0.16], [-0.56, 0.17], [-0.6, 0.12], [-0.1, 0.09]], '#25252b', null);
+  line([[-0.1, 0.152], [-0.52, 0.163]], 0.012, '#4a4a52');
+  disc(0.1, 0.03, 0.09, 'rgba(0,0,0,0.25)'); // shadow under the tank
+  shape([[0.3, 0.12], [0.24, 0.24], [0.05, 0.24], [-0.06, 0.14], [0.06, 0.06], [0.24, 0.06]], FRAME, RED_DARK, 0.016);
+  line([[0.08, 0.215], [0.22, 0.215]], 0.025, RED_LIGHT);
+
+  // Front end: near fork, mudguard, triple clamps, number plate and bars.
+  fork(0, true);
+  shape([[0.47, -0.17], [0.62, -0.15], [0.86, -0.22], [0.85, -0.26], [0.62, -0.2], [0.48, -0.21]], FRAME, RED_DARK);
+  line([[0.27, 0.22], [0.37, 0.22]], 0.035, '#4a4d52');
+  line([[0.32, 0.08], [0.41, 0.08]], 0.035, '#4a4d52');
+  shape([[0.38, 0.05], [0.46, 0.08], [0.45, 0.26], [0.37, 0.25]], FRAME, RED_DARK, 0.014);
+  line([[0.31, 0.22], [0.35, 0.36], [grip[0] - 0.02, grip[1] - 0.02]], 0.042, '#2b2b30');
+  line([[grip[0] + 0.005, grip[1]], [grip[0] + 0.1, grip[1] - 0.07]], 0.016, '#8d949c'); // brake lever
+
+  // The rider: near leg, body, near arm, then the helmet on top.
+  leg(hip, ankle, PANTS, '#eef0f2');
+  line([peg, [peg[0] + 0.08, peg[1]]], 0.035, METAL); // footpeg
+  const t = [Math.sin(tilt), Math.cos(tilt)];
+  const f = [Math.cos(tilt), -Math.sin(tilt)]; // across the body, to the chest
+  const at = (o, a, b) => [o[0] + t[0] * a + f[0] * b, o[1] + t[1] * a + f[1] * b];
+  const torso = [[-0.02, -0.105], [0.17, -0.13], [0.36, -0.125], [0.48, -0.08], [0.55, 0], [0.52, 0.08], [0.39, 0.125], [0.19, 0.095], [0.03, 0.09]];
+  shape(torso.map(([a, b]) => at(hip, a, b)), JERSEY[0], '#164f48', 0.014);
+  shape([at(hip, -0.045, -0.105), at(hip, 0.025, 0.09), at(hip, 0.095, 0.09), at(hip, 0.085, -0.125)], PANTS[0], null);
+  line([at(hip, 0.275, -0.125), at(hip, 0.31, 0.105)], 0.04, '#f4f1e8'); // jersey stripe
+  line([at(shoulder, 0, 0.02), [head[0] - 0.02, head[1] - 0.07]], 0.07, '#e0b07a'); // neck
+  arm(shoulder, grip, JERSEY[0]);
+
+  // Helmet: shell with a stripe, peak, goggles and strap, and a chin bar.
+  ctx.save();
+  ctx.translate(head[0], head[1]);
+  ctx.rotate(-nod * 0.5);
+  ctx.scale(0.95, 0.95);
+  disc(0, 0, 0.15, '#f8f9fa', INK, 0.014);
+  line([[0, 0.115], [-0.07, 0.093], [-0.11, 0.035], [-0.115, -0.01]], 0.035, FRAME);
+  shape([[0.02, 0.13], [0.24, 0.1], [0.22, 0.065], [0.06, 0.07]], FRAME, RED_DARK); // peak
+  shape([[0.1, -0.06], [0.2, -0.07], [0.2, -0.13], [0.07, -0.15]], '#d9dde2', INK); // chin bar
+  line([[-0.15, 0.03], [0.06, 0.02]], 0.035, '#f4b400'); // goggle strap
+  shape([[0.06, 0.055], [0.165, 0.045], [0.16, -0.035], [0.06, -0.025]], '#273c55', INK); // goggle lens
+  line([[0.085, 0.03], [0.13, 0.025]], 0.012, 'rgba(255,255,255,0.7)');
+  ctx.restore();
 }
