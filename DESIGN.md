@@ -324,6 +324,54 @@ again, every few seconds, until you find it. No hurry.
   press too, if the screen hasn't caught up yet.) The lessons are the same
   as listening's.
 
+## Trial Bike
+
+A side-on trials bike over rough country, in the line of *Trials* and
+*Elastomania*: there's nothing on the course but ground shaped against you,
+and the whole game is in handling the bike. Your right thumb holds **GAS**
+or **BRAKE**, your left drags the rider **back** (nose up) or **forward**
+(nose down); both work at once, as in Night Driver. Arrows or WASD on a
+keyboard.
+
+- **One rigid body, two tyres.** The bike and rider are a single body with
+  two wheels fixed to it; each tyre pushes back where it sinks into the
+  ground (a stiff, damped spring, which is also the suspension) and grips
+  along it up to a friction limit. The rear wheel drives, both brake, and a
+  lean is a torque on the body -- in the air it turns the bike, on the
+  ground it shifts weight between the wheels. The front lifts under hard
+  throttle by itself, because the drive pushes at the ground, below the
+  centre of mass. Nothing is scripted: a wheelie, a loop, an endo and a
+  nose-first landing all fall out of the same few forces.
+- **Crashes.** The rider's helmet touching the ground is a crash, as is
+  falling out of the world. Anything else -- a hard landing, a stall against
+  a ledge, a nose-wheelie -- is yours to recover from. The bike tumbles for a
+  moment, then the first touch puts you back on the last flag with the clock
+  still running. Stuck with nowhere to go, the ↶ button does the same at
+  the price of a crash.
+- **Endless courses from a seed**, and every one test-ridden. Course *n* is
+  built from `seedFor(n)`: a slow rise and fall of the land, with obstacles
+  along it in a random order drawn from the kinds that course allows --
+  rolling hills from the start, jumps from course 3, logs from 5, drop-offs
+  from 7, ledges up and down from 8, gaps from 11 -- growing in size and
+  number, with a run-up before every gap and room to land after every
+  jump. The computer rider rides each course at three paces as it is
+  generated; one it can't finish is re-rolled, and its best time is **par**.
+- **Stars** against par and your crashes: three for beating par clean, two
+  for within 1.5× par with at most one crash, one for getting there. The
+  course tile shows your best time.
+- **The computer rider** reads the ground ahead of the rear wheel -- the
+  first wall (a rise too sheer to roll over), the first edge (ground falling
+  away) and, if that edge is a pit, how wide -- and holds the bike's pitch to
+  a target: the slope under it, nose-up for a wheelie sized to the wall,
+  nose-up off an edge, and in the air the slope where it will come down. It
+  carries the speed a gap needs and eases off everywhere else. **Show me**
+  on the crash card runs it on the course, at 1×, 2× or 4×.
+- **Landscape plays best** (the course is wide) but it works upright too,
+  with the ground lower to leave room for the jumps. Not locked: the camera
+  keeps the bike a third of the way across so you see what's coming.
+- Sound is the shared motor loop, pitched to the speed, with a bump on a
+  hard landing and the checkpoint chime at each flag.
+
 ## Jigsaw
 
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo

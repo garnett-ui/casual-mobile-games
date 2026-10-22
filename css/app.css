@@ -789,23 +789,32 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .tb-lean.on { border-color: rgba(0, 0, 0, .5); background: rgba(0, 0, 0, .2); }
 .tb-rider { width: 84px; height: 84px; transition: transform .05s linear; }
 .tb-lean span { font: 700 10px ui-monospace, Menlo, monospace; letter-spacing: 1px; color: rgba(22, 58, 82, .7); }
-.tb-pedals { display: flex; gap: 10px; align-items: flex-end; }
-.tb-pedal {
+.tb-bars { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 170px; }
+.tb-grip {
   pointer-events: auto;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
-  border-radius: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 16px;
   border: 2px solid rgba(0, 0, 0, .35);
-  background: repeating-linear-gradient(0deg, #3b4a5a 0 6px, #2c3a48 6px 12px);
+  background: rgba(22, 58, 82, .55);
   color: #fff;
-  font: 800 14px ui-monospace, Menlo, monospace;
+  font: 800 13px ui-monospace, Menlo, monospace;
   letter-spacing: 1px;
 }
-.tb-brake { width: 82px; height: 92px; }
-.tb-gas { width: 76px; height: 140px; }
+.tb-grip svg { width: 100%; height: auto; display: block; }
+.tb-brake { height: 48px; color: rgba(255, 255, 255, .85); }
+.tb-gas { height: 76px; }
 .tb-brake.on { border-color: #ff3b2f; box-shadow: 0 0 18px rgba(255, 59, 47, .7); color: #ff3b2f; }
 .tb-gas.on { border-color: #3dff7a; box-shadow: 0 0 18px rgba(61, 255, 122, .6); color: #3dff7a; }
+.tb-gas.on svg { transform: rotate(-6deg); }
+.tb-brake.on svg { transform: translateY(4px) rotate(4deg); }
+.tb-grip svg { transition: transform .08s ease-out; transform-origin: right center; }
 .tb-demo, .tb-showme {
   position: absolute;
   left: 50%;
@@ -828,8 +837,9 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   .tb-lean { height: 96px; flex-basis: 220px; }
   .tb-rider { width: 56px; height: 56px; }
   .tb-lean span { display: none; }
-  .tb-brake { width: 70px; height: 64px; }
-  .tb-gas { width: 64px; height: 96px; }
+  .tb-bars { width: 150px; gap: 6px; }
+  .tb-brake { height: 40px; }
+  .tb-gas { height: 54px; }
   .tb-demo, .tb-showme { bottom: calc(106px + var(--safe-b)); }
 }
 @media (max-width: 430px) {

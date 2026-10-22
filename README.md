@@ -22,6 +22,8 @@ the whole arcade.
   six-storey office block to twin towers, against the computer.
 - **Morse Rain** -- learn Morse code by ear: hear a letter and tap it in
   the drifting cloud, or key letters yourself and shoot them down.
+- **Trial Bike** -- ride a trials bike over hills, logs, ledges and gaps;
+  beat the computer rider's time without a crash.
 - **Jigsaw** -- turn your own photos into jigsaw puzzles.
 
 How each one is meant to play, and the decisions behind it, are in
@@ -87,6 +89,7 @@ games/night-driver/         Night Driver: engine.js (road, car, forks; runs in N
 games/morse/                Morse Rain: code.js (the code, lessons, timing; runs in Node), play.js (the cloud)
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
 games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg), city.js (the city round about), pace.js (fast through the lulls)
+games/trial-bike/           Trial Bike: engine.js (bike physics, courses, the computer rider; runs in Node), play.js (view), worker.js
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback

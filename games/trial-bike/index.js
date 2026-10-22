@@ -9,8 +9,12 @@ import { levelSource } from '../../js/lib/level-source.js';
 export const GEN_VERSION = 1;
 
 const RIDER = '<svg class="tb-rider" viewBox="0 0 48 48"><circle cx="12" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="36" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M12 36l10-8h8l6 8M22 28l-2-8h8l4 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="13" r="4" fill="currentColor"/></svg>';
+// The right handlebar, end on: the brake lever reaching forward over the
+// grip, and the twist grip itself.
+const LEVER = '<svg viewBox="0 0 120 44"><path d="M8 30c20-12 54-18 104-18" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="8" cy="30" r="6" fill="currentColor"/></svg>';
+const GRIP = '<svg viewBox="0 0 120 60"><rect x="4" y="14" width="112" height="32" rx="16" fill="currentColor" opacity=".25"/><rect x="4" y="14" width="112" height="32" rx="16" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 18v24M42 18v24M58 18v24M74 18v24M90 18v24" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".7"/><circle cx="110" cy="30" r="8" fill="currentColor"/></svg>';
 const TIPS = {
-  1: 'Right thumb: hold GAS. Left thumb: drag back to lift the front wheel, forward to bring it down. Sideways is easier to see ahead!',
+  1: 'Right thumb: hold the GAS grip. Left thumb: drag back to lift the front wheel, forward to bring it down. Sideways is easier to see ahead!',
   3: 'A ramp! Keep the gas on, and in the air drag forward or back to land on both wheels.',
   5: 'Logs: slow down, then drag back and give it gas just before, so the front wheel rides up and over.',
   8: 'Ledges: lift the front wheel onto the top, keep the gas on, and the back wheel climbs up after it.',
@@ -84,9 +88,9 @@ export function mount(root, ctx, sub) {
         <div class="stage"><canvas class="board"></canvas>
           <div class="tb-controls">
             <div class="tb-lean" aria-label="Lean: drag back or forward">${RIDER}<span>◀ BACK · LEAN · FORWARD ▶</span></div>
-            <div class="tb-pedals">
-              <button class="tb-pedal tb-brake" data-key="brake" aria-label="Brake">BRAKE</button>
-              <button class="tb-pedal tb-gas" data-key="gas" aria-label="Gas">GAS</button>
+            <div class="tb-bars" aria-label="Right handlebar">
+              <button class="tb-grip tb-brake" data-key="brake" aria-label="Brake">${LEVER}<span>BRAKE</span></button>
+              <button class="tb-grip tb-gas" data-key="gas" aria-label="Gas">${GRIP}<span>GAS</span></button>
             </div>
           </div>
         </div>
@@ -174,8 +178,9 @@ export function mount(root, ctx, sub) {
     leanEl.addEventListener('pointercancel', release);
     leanEl.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // Right thumb: GAS and BRAKE, held down; each tracks its own finger.
-    root.querySelectorAll('.tb-pedal').forEach((btn) => {
+    // Right thumb: the throttle grip and the brake lever, held down; each
+    // tracks its own finger.
+    root.querySelectorAll('.tb-grip').forEach((btn) => {
       const key = btn.dataset.key;
       let id = null;
       const set = (on) => (e) => {
@@ -219,7 +224,7 @@ export function mount(root, ctx, sub) {
         setLean([...held].reduce((a, b) => a + b, 0));
       } else {
         if (!play.pilot) play.input[k] = on;
-        root.querySelector(`.tb-pedal[data-key=${k}]`).classList.toggle('on', on);
+        root.querySelector(`.tb-grip[data-key=${k}]`).classList.toggle('on', on);
       }
     };
     const down = onKey(true);
@@ -255,7 +260,7 @@ export function mount(root, ctx, sub) {
       play.input.gas = play.input.brake = false;
       setLean(0);
       held.clear();
-      root.querySelectorAll('.tb-pedal.on').forEach((b) => b.classList.remove('on'));
+      root.querySelectorAll('.tb-grip.on').forEach((b) => b.classList.remove('on'));
     };
     const pause = () => {
       if (!play || play.paused || !dialog.hidden) return;

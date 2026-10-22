@@ -6,6 +6,18 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.63.0
+- New game: **Trial Bike**. Ride a trials bike over a course of hills,
+  jumps, logs, drops, ledges and gaps, seen from the side: hold GAS or
+  BRAKE with your right thumb and lean back or forward with your left (the
+  arrow keys or WASD on a keyboard). Lean back and gas to lift the front
+  wheel over a log; in the air, lean to land on both wheels. Every course
+  is test-ridden by a computer rider as it's made, and its time is par:
+  beat par with no crashes for three stars. A crash sends you back to the
+  last flag with the clock still running, and **Show me** has the computer
+  rider do the course while you watch. The courses never run out and get
+  longer and rougher as you go.
+
 ## 1.62.3
 - Morse Rain, sending: fixed letters breaking apart -- a K read as T E T --
   when the pauses between taps are longer than the taps themselves (as
