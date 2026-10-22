@@ -39,8 +39,9 @@ test('side thrusters change the spin rate, not the angle directly (rotational in
   // Let go: a fast spin keeps going...
   fly(level, L, idle, 0.5);
   assert.ok(Math.abs(L.omega - w) < 1e-9, 'keeps spinning');
-  // ...until countered. Then attitude hold mops up the small remainder.
-  fly(level, L, { left: true }, 0.45);
+  // ...until countered. Then attitude hold mops up the slow creep left
+  // (once the buttons have been left alone a moment).
+  fly(level, L, { left: true }, 0.49);
   assert.ok(Math.abs(L.omega) < HOLD_BAND);
   fly(level, L, idle, 1.5);
   assert.equal(L.omega, 0, 'small residual spin is held to zero');
@@ -237,4 +238,30 @@ test('side thrusters are balanced: equal bursts left and right cancel exactly (a
       assert.ok(Math.abs(L.omega) < 1e-9, `${first} then ${second}, ${secs}s each: ${L.omega}`);
     }
   }
+});
+
+test('two quick opposite taps cancel -- the auto-settle never eats the first (assist off)', () => {
+  // Leaning a little right, not turning: a quick tap left, a moment, a
+  // quick tap right. The lean should come down a little, and the turning
+  // stop -- not end up turning right as if the left tap never happened.
+  const level = makeLevel(1);
+  for (const [tap, gap] of [[0.08, 0.15], [0.12, 0.25], [0.2, 0.3]]) {
+    const L = airborne(level);
+    L.angle = (3 * Math.PI) / 180;
+    L.omega = 0;
+    fly(level, L, { left: true }, tap);
+    fly(level, L, {}, gap);
+    fly(level, L, { right: true }, tap);
+    assert.ok(Math.abs(L.omega) < 1e-9, `tap ${tap}s, gap ${gap}s: still turning at ${(L.omega * 180 / Math.PI).toFixed(2)}°/s`);
+    assert.ok(L.angle < (3 * Math.PI) / 180, 'the lean came down');
+    // ...and it stays put.
+    const angle = L.angle;
+    fly(level, L, {}, 2);
+    assert.ok(Math.abs(L.angle - angle) < 1e-9);
+  }
+  // A slow creep left over from imperfect taps still settles, after a pause.
+  const L = airborne(level);
+  L.omega = (0.3 * Math.PI) / 180;
+  fly(level, L, {}, 2);
+  assert.equal(L.omega, 0);
 });

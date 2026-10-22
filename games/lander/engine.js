@@ -11,7 +11,12 @@ export const HEIGHT = 5.2; // lander height, m
 export const MAIN_THRUST = 3.5; // m/s^2 when nearly empty (heavier when full)
 export const ROT_ACCEL = (26 * Math.PI) / 180; // rad/s^2 from the side thrusters
 export const ROT_MAX = (90 * Math.PI) / 180;
-export const HOLD_BAND = (4 * Math.PI) / 180; // attitude hold cancels slower spins
+// Attitude hold: a spin slower than this, left alone for HOLD_AFTER
+// seconds, is quietly stopped -- the creep left over from taps that didn't
+// quite cancel. Small and late enough never to swallow a deliberate tap
+// (even 20 ms of thruster turns faster), or the first of a quick pair.
+export const HOLD_BAND = (0.5 * Math.PI) / 180;
+export const HOLD_AFTER = 0.5;
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
 // Touchdown limits, as for the Apollo LM: 3 m/s down, 1.2 m/s sideways.
 export const SAFE = { vy: 3, vx: 1.2, angle: (10 * Math.PI) / 180 };
@@ -375,7 +380,8 @@ export function step(level, L, input, dt) {
   }
 
   // Rotation: side thrusters change the spin rate; attitude hold quietly
-  // cancels very slow drift so the craft is easy to steady. With assist on,
+  // cancels a slow creep once the turn buttons have been left alone a
+  // moment, so the craft is easy to steady. With assist on,
   // rotation is a spring: a held turn button pushes against it (settling at
   // 20°), and on release it springs back to level.
   if (input.assist && L.fuel > 0) {
@@ -387,10 +393,11 @@ export function step(level, L, input, dt) {
   } else if (rotating) {
     L.omega += L.rcs * ROT_ACCEL * dt;
     L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
-  } else if (Math.abs(L.omega) < HOLD_BAND) {
+  } else if (L.idle >= HOLD_AFTER && Math.abs(L.omega) < HOLD_BAND) {
     L.omega *= Math.exp(-5 * dt);
     if (Math.abs(L.omega) < 0.002) L.omega = 0;
   }
+  L.idle = rotating ? 0 : (L.idle ?? HOLD_AFTER) + dt;
   L.omega = Math.max(-ROT_MAX, Math.min(ROT_MAX, L.omega));
   L.angle += L.omega * dt;
   L.angle = Math.atan2(Math.sin(L.angle), Math.cos(L.angle));

@@ -96,8 +96,12 @@ the base before the fuel runs out. Hold **THRUST** for the main engine and the
 two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
 
 - Realistic momentum and rotational inertia under lunar gravity (1.62 m/s²):
-  the side thrusters change the spin rate, so you counter-fire to stop; spins
-  under 4°/s are cancelled by an automatic attitude hold. The main engine gets
+  the side thrusters change the spin rate, so you counter-fire to stop. Equal
+  bursts left and right cancel exactly. An automatic attitude hold stops a
+  slow creep (under 0.5°/s) once the turn buttons have been left alone for
+  half a second -- never sooner or bigger, so it can't swallow a tap, or the
+  first of two quick opposite taps (it used to catch anything under 4°/s at
+  once, which did). The main engine gets
   punchier as fuel burns off.
 - Green-phosphor instrument panel: altitude, horizontal/vertical velocity and
   acceleration, attitude and spin rate, fuel, distance to base, an attitude

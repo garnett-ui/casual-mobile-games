@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.67.1
+- Lunar Lander, assist off: a quick tap on one side thruster and then the
+  other now cancel, as they should. Before, the automatic attitude hold
+  could swallow the first tap, so the pair left you turning the wrong way.
+
 ## 1.67.0
 - Morse Rain: practice rounds no longer change your letters to work on --
   only ordinary levels do. Sending now has its own letters to work on (the
