@@ -109,8 +109,9 @@ export function specFor(n) {
   return {
     length: Math.round(Math.min(240, 70 + 9 * k)),
     features: Math.min(18, 3 + Math.floor(k * 0.8)),
-    hill: Math.min(2.6, 0.5 + 0.12 * k), // amplitude (m)
-    jump: n >= 3 ? Math.min(1.6, 0.4 + 0.08 * (n - 3)) : 0, // ramp height
+    hill: Math.min(3.0, 0.8 + 0.14 * k), // amplitude (m)
+    roll: Math.min(2.5, 1 + 0.12 * k), // the lie of the land: a slow rise and fall under everything (m)
+    jump: n >= 3 ? Math.min(1.8, 0.5 + 0.09 * (n - 3)) : 0, // ramp height
     log: n >= 5 ? Math.min(0.55, 0.25 + 0.03 * (n - 5)) : 0, // log height
     step: n >= 8 ? Math.min(0.58, 0.3 + 0.035 * (n - 8)) : 0, // ledge height
     gap: n >= 11 ? Math.min(2.8, 1.2 + 0.16 * (n - 11)) : 0, // gap width
@@ -212,13 +213,22 @@ export function makeCourse(n, attempt = 0) {
   flat(10);
   const finish = x - 3;
   const length = x + 6;
+  // The lie of the land: a slow rise and fall under the whole course (two
+  // long waves, fixed by the seed), so the obstacles sit on real country
+  // rather than a table top. The start and finish stand on it like
+  // everything else.
+  const w1 = 60 + 30 * r();
+  const w2 = 120 + 60 * r();
+  const ph1 = r() * Math.PI * 2;
+  const ph2 = r() * Math.PI * 2;
+  const roll = (gx) => spec.roll * (0.6 * Math.sin((gx / w1) * Math.PI * 2 + ph1) + 0.4 * Math.sin((gx / w2) * Math.PI * 2 + ph2));
   const heights = [];
   let p = 0;
   for (let i = 0; i * STEP <= length + STEP; i++) {
     const gx = i * STEP;
     while (p < pieces.length - 1 && gx >= pieces[p].x1) p++;
     const pc = pieces[p];
-    heights.push(pc.y0 + pc.f(clamp(gx - pc.x0, 0, pc.x1 - pc.x0)));
+    heights.push(roll(gx) + pc.y0 + pc.f(clamp(gx - pc.x0, 0, pc.x1 - pc.x0)));
   }
   const minY = Math.min(...heights);
   const maxY = Math.max(...heights);

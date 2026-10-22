@@ -56,6 +56,7 @@ export class Play {
     this.message = null;
     this.cam = null;
     this.flagShown = -1;
+    this.pose = 0; // the rider's drawn lean, eased toward the input
     this.hooks.onState?.(this);
   }
 
@@ -177,6 +178,9 @@ export class Play {
     this.dust = this.dust.filter((p) => p.t < p.life);
     if (this.message && (this.message.t -= dt) <= 0) this.message = null;
     this.shake = Math.max(0, this.shake - dt * 2);
+    // The rider's body follows the lean a beat behind, so a twitch of the
+    // controls doesn't jerk it about.
+    this.pose += ((B.lean ?? 0) - this.pose) * Math.min(1, dt * 9);
   }
 
   puff(x, y, size, kind) {
@@ -217,7 +221,7 @@ export class Play {
     const { cssW: W, cssH: H } = this;
     const B = this.B;
     const wide = W > H;
-    const scale = W / (wide ? 19 : 11.5);
+    const scale = W / (wide ? 15.5 : 10);
     const ground = heightAt(this.level, B.x + 2);
     const wantY = Math.min(B.y, ground + 1.5) - (H / scale) * (wide ? 0.42 : 0.3);
     const want = { x: B.x - (W / scale) * LOOK, bottom: wantY };
@@ -411,7 +415,7 @@ export class Play {
     ctx.translate(sx(B.x), sy(B.y));
     ctx.rotate(-B.angle);
     ctx.scale(scale, -scale);
-    paintBike(ctx, B);
+    paintBike(ctx, B, this.pose);
     ctx.restore();
   }
 
@@ -451,9 +455,9 @@ export class Play {
 
 // The bike and its rider, drawn in the frame's own coordinates: metres from
 // the centre of mass, x forward, y up (the caller has set the transform).
-// The rider stands on the pegs and leans with the input. Shared with the
-// card picture on the hub.
-export function paintBike(ctx, B) {
+// The rider stands on the pegs and leans by `pose` (1 = back, -1 =
+// forward). Shared with the card picture on the hub.
+export function paintBike(ctx, B, pose = B.lean ?? 0) {
 ctx.lineCap = 'round';
 ctx.lineJoin = 'round';
 const wheel = (x, y, spin) => {
@@ -510,7 +514,7 @@ const wheel = (x, y, spin) => {
   ctx.fill();
   // The rider: on the pegs, knees bent, leaning with the input; the body
   // is a thick stroke in the jersey colour, with a helmet.
-  const lean = B.lean ?? 0; // 1 = back
+  const lean = pose;
   const hipX = -0.3 - lean * 0.25;
   const hipY = ay + 0.9;
   const shX = hipX + 0.25 - lean * 0.3;

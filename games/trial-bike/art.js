@@ -60,7 +60,7 @@ export function paint(canvas) {
   ctx.rotate(-0.42);
   const scale = Math.min(48, H * 0.3);
   ctx.scale(scale, -scale);
-  paintBike(ctx, { angle: 0, spin: 0.4, lean: 0.6 });
+  paintBike(ctx, { angle: 0, spin: 0.4 }, 0.6);
   ctx.restore();
   return rect;
 }
