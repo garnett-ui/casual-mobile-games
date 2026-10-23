@@ -35,7 +35,14 @@ export const BRAKE = 3.5; // each wheel's brake at full squeeze (m/s^2): about 0
 export const VMAX = 14; // the engine runs out of puff here (m/s, ~31 mph)
 export const LEAN = 10; // rider's torque at full lean (rad/s^2)
 export const AIR_LEAN = 2; // the lean counts for this much more in the air
-export const SPIN_DAMP = 0.7; // the air slows a tumbling bike (per second)
+// In the air, while the rider is leaning, the air slows a spin only a
+// little (SPIN_DAMP). Once they let go, the bike rights itself: a spring
+// toward level (rad/s^2 per radian, with damping), pulling the shorter way
+// round -- so a half-hearted turn comes back down on its wheels, and a
+// turn past upside down is carried on through to land. A flip is hold,
+// then let go.
+export const SPIN_DAMP = 0.7;
+export const LEVEL = { spring: 4, damp: 4 };
 // A landing is a crash when a wheel comes down on the ground this fast
 // (m/s): the front wheel alone, pitched nose down into the ground (nose
 // first), or either wheel at all. About a 2.5 m and a 6 m fall.
@@ -397,7 +404,11 @@ export function step(course, B, input, dt) {
       fy += w.fy;
       torque += w.torque;
     }
-    if (airborne) torque -= B.omega * SPIN_DAMP * INERTIA;
+    if (airborne) {
+      const leaning = Math.abs(lean) > 0.3;
+      if (leaning) torque -= B.omega * SPIN_DAMP * INERTIA;
+      else torque -= (Math.atan2(Math.sin(B.angle), Math.cos(B.angle)) * LEVEL.spring + B.omega * LEVEL.damp) * INERTIA;
+    }
     // A wreck scrubs off its spin and speed quickly.
     if (B.crashed && bodies.some(Boolean)) {
       B.omega *= Math.exp(-3 * h);
@@ -614,8 +625,8 @@ export function bestRide(course) {
 }
 
 // Course n as played: one the rider has actually finished (re-rolled until
-// it does), with par set by its time and `pace` the pace that set it (for
-// the demo). `checked` says the rider managed it.
+// it does), with par set by its time, `pace` the pace that set it (for the
+// demo) and `ghost` that ride's path. `checked` says the rider managed it.
 export function makeLevel(n) {
   let course;
   let run = null;
@@ -624,7 +635,9 @@ export function makeLevel(n) {
     run = bestRide(course);
   }
   const par = run ? Math.ceil(run.time) : Math.ceil(course.length / 4);
-  return { ...course, par, pace: run?.pace ?? 0.5, checked: !!run };
+  // The par ride itself, every TRACK_DT, for the ghost that can race you.
+  const ghost = run ? run.path.map((p) => p.map((v) => Math.round(v * 100) / 100)) : [];
+  return { ...course, par, pace: run?.pace ?? 0.5, checked: !!run, ghost };
 }
 
 // Stars for a finish: against par, and the number of crashes along the way.

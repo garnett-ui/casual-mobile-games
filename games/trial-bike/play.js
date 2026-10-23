@@ -200,6 +200,7 @@ export class Play {
     }
     this.B = newBike(this.level);
     this.time = 0;
+    this.started = false; // the clock waits for the first touch of the gas
     this.bonus = 0; // seconds off the clock for flips landed
     this.flips = 0;
     this.roaring = false; // a flip's been landed: the whole crowd's out
@@ -375,7 +376,8 @@ export class Play {
         if (this.pilot) Object.assign(this.input, this.pilot(this.level, B));
         res = step(this.level, B, this.input, dt / n);
       }
-      this.time += dt;
+      if (this.input.gas) this.started = true;
+      if (this.started) this.time += dt;
       // Dust from the rear wheel when it spins up or the bike is moving
       // fast, and exhaust when the throttle's open.
       this.puffT += dt;

@@ -140,6 +140,7 @@ test('every course is ridable (the computer rider finishes it) and gets longer a
     const run = bestRide(level);
     assert.equal(run.kind, 'finished', `course ${n} finished`);
     assert.ok(level.par >= run.time && level.par < run.time + 1.5, `par ${level.par} is the rider's time ${run.time}`);
+    assert.ok(level.ghost.length > 50 && level.ghost.at(-1)[0] > level.finish - 2, 'the par ride is kept for the ghost');
   }
   const s3 = specFor(3);
   const s20 = specFor(20);
@@ -180,16 +181,19 @@ test('the rider reads the ground ahead: a log is a wall, a lip is an edge, a pit
 
 test('a fall onto the front wheel pitched down is a crash; the same fall on the rear wheel is a landing', () => {
   const course = flat();
-  const drop = (angle, height = 3) => {
+  const drop = (angle, lean, height = 3) => {
     const B = newBike(course);
     B.y += height;
     B.angle = angle;
-    const res = ride(course, B, idle, 2);
+    const res = ride(course, B, { lean }, 2);
     return { res, B };
   };
-  const nose = drop(-0.6, 3.5);
+  // Held nose-down all the way: a crash. Let go and the bike rights itself.
+  const nose = drop(-0.6, -1, 3.5);
   assert.equal(nose.res?.reason, 'Nose first');
-  const tail = drop(0.3);
+  const righted = drop(-0.6, 0, 3.5);
+  assert.ok(!righted.res || righted.res.kind !== 'crash', `let go, it levels: ${righted.res?.reason ?? 'rode on'}`);
+  const tail = drop(0.3, 0);
   assert.ok(!tail.res || tail.res.kind !== 'crash', `rear wheel first: ${tail.res?.reason ?? 'rode on'}`);
   const B = newBike(course);
   B.y += 8;
@@ -215,7 +219,7 @@ test('a climb is long and steep but never over 35 degrees; a cliff is sheer and 
   assert.equal(bestRide(makeLevel(9)).kind, 'finished', 'the computer rider manages them');
 });
 
-test('a full turn in the air, landed, is a flip; a half turn is a crash, not a trick', () => {
+test('a full turn in the air, landed, is a flip; half a turn held into the ground is a crash, not a trick', () => {
   const course = flat();
   const B = newBike(course);
   B.y += 6;
@@ -224,14 +228,15 @@ test('a full turn in the air, landed, is a flip; a half turn is a crash, not a t
   let trick = null;
   let res = null;
   for (let k = 0; k < 240 && !res && !trick; k++) {
-    res = step(course, B, { lean: 0 }, 1 / 60);
+    res = step(course, B, { lean: B.air < 4 ? 1 : 0 }, 1 / 60); // lean into it past halfway, then let go
     trick = B.trick;
   }
   assert.ok(trick && trick.flips === 1 && trick.back, `landed a backflip: ${JSON.stringify(trick)} ${JSON.stringify(res)}`);
+  // Half a turn held into the ground is a crash, and no trick.
   const C = newBike(course);
   C.y += 3;
-  C.omega = 3;
-  const out = ride(course, C, idle, 3);
+  C.omega = 2;
+  const out = ride(course, C, { lean: 0.4 }, 3);
   assert.equal(out.kind, 'crash');
   assert.equal(C.trick, null);
   assert.ok(FLIP_BONUS > 0);
