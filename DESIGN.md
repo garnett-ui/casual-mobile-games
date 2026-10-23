@@ -44,6 +44,21 @@ pictures and a sound for every touch.
   and between them houses, the post office, the dump, the builders' yard,
   the park, a shop, a café and empty lots. Cars and people potter about;
   tap one and it honks or hops.
+- Road safety, shown not told. Every street has a sidewalk down each side,
+  and people (the dog walker too) keep to them, crossing only at the zebra
+  crossings by the intersections. Three intersections, corner to corner
+  across town, have traffic lights: east-west and north-south take turns
+  (green, yellow, then a moment of all red); cars stop at the line on red,
+  and people wait at the curb for the little walking man -- the red hand
+  blinks when it's about to change, and nobody starts out then. At the
+  other intersections cars go through one at a time. Everywhere, a car
+  waits for anyone on a crosswalk it's about to drive over, and people
+  don't step out while a car is going over theirs. Cars keep to the
+  right-hand lane and queue behind each other; a truck parked at a door
+  stops clear of the crosswalk, and after a moment a held-up car squeezes
+  by, so nothing ever gridlocks. When a helper is held up at a red light,
+  the town says so: "Red light. Stop!" ... "Green light. Go!" (or "Wait
+  for the walking man!" ... "Walk!").
 - Helpers with jobs, shown in a tray of pictures that tick off: the
   **garbage truck** empties the bins put out by houses, then takes the load
   to the dump; the **mail van** delivers letters to the houses with a
@@ -58,8 +73,13 @@ pictures and a sound for every touch.
   it once, an animated finger show the way.
 - Every finished level is three stars, a shower of confetti and "Yay!
   Great job!" said out loud (with the sound on).
-- `town.js` (the town, routes along the streets, levels and jobs; tested
-  in Node), `draw.js` (the pictures), `play.js` (the screen).
+- `town.js` (the town, routes along the streets, levels and jobs),
+  `streets.js` (the sidewalks and crosswalks, and the lights' timing) and
+  `traffic.js` (lanes, stopping, queueing, waiting to cross) are all tested
+  in Node -- a few minutes of busy traffic, checking every step that cars
+  go on green, people start across on the walk signal, and nobody is ever
+  on a crosswalk with a car; `draw.js` (the pictures), `play.js` (the
+  screen).
 
 ## Car Jam
 

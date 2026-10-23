@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.74.0
+- Benji's Town: sidewalks, crosswalks and traffic lights. People (and the
+  dog walker) keep to the sidewalks and cross only at the zebra crossings;
+  at the three intersections with lights they wait at the curb for the
+  little walking man, and never start out on the red hand. Cars keep to
+  their lane, stop at the line on red and queue behind each other, take
+  turns where there are no lights, and always wait for anyone on the
+  crosswalk. "Red light. Stop!" ... "Green light. Go!"
+
 ## 1.73.0
 - New game: **Benji's Town**, for little ones. A little town full of cars
   and people: tap the garbage truck, the mail van, the dog walker and the

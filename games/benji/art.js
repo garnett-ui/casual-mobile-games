@@ -1,5 +1,6 @@
 // Card illustration for the arcade hub: a corner of Benji's Town -- a
-// street, a house with its bin out, and the garbage truck on its way.
+// street, a crosswalk and a traffic light, a house with its bin out, and the
+// garbage truck on its way.
 import * as D from './draw.js';
 
 export function paint(canvas) {
@@ -27,6 +28,11 @@ export function paint(canvas) {
   g.lineTo(W, ry);
   g.stroke();
   g.setLineDash([]);
+  // A crosswalk by the corner, and its traffic light.
+  g.fillStyle = '#f8f9fa';
+  const zx = W * 0.72 - s / 2 - s * 0.4;
+  for (let k = 0; k < 5; k++) g.fillRect(zx, ry - s / 2 + s * (0.06 + k * 0.2), s * 0.3, s * 0.1);
+  D.signal(g, W * 0.72 - s * 0.62, ry - s * 0.85, s * 1.3, 'red');
   D.tree(g, W * 0.12, H * 0.22, s);
   D.house(g, W * 0.38, ry - s * 0.95, s * 1.1, '#ffd166');
   D.bin(g, W * 0.5, ry - s * 0.6, s * 1.1);

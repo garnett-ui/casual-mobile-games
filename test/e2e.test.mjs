@@ -556,7 +556,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       return p.helpers.map((h) => ({ id: h.id, busy: h.path.length > 0 || h.pause > 0, x: r.left + p.ox + h.x * p.s, y: r.top + p.oy + (h.y - 0.1) * p.s }));
     });
     // Level 1: tap the garbage truck, again and again, till the jobs are done.
-    for (let k = 0; k < 60 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
+    for (let k = 0; k < 150 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
       for (const h of await spots()) if (!h.busy) await page.mouse.click(h.x, h.y);
       await page.waitForTimeout(400);
     }
@@ -574,7 +574,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     await page.mouse.click(truck.x, truck.y);
     await page.waitForTimeout(300);
     assert.equal(await page.evaluate(() => window.__benji.helpers[0].path.length), 0);
-    for (let k = 0; k < 12 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
+    for (let k = 0; k < 60 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
       const plan = await page.evaluate(async () => {
         const p = window.__benji;
         const { route } = await import('/games/benji/town.js');

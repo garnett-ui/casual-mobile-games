@@ -12,32 +12,115 @@ export function grass(g, w, h) {
   g.fillRect(0, 0, w, h);
 }
 
-// The streets: grey with a dashed white line down the middle of each.
-export function streets(g, s, size, isRoad) {
-  g.fillStyle = '#c9ccd3'; // pavement
+// The streets: grey, with a sidewalk down each side, a dashed white line
+// down the middle, and by the intersections (junctions: their tiles) zebra
+// crossings (crossings: { ix, iy, arm }), each with a stop line before it.
+export function streets(g, s, size, isRoad, junctions = [], crossings = []) {
+  const walk = 0.18; // the sidewalk's width
+  g.fillStyle = '#9aa0a8'; // the curb
   for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) if (isRoad(x, y)) g.fillRect(x * s - s * 0.06, y * s - s * 0.06, s * 1.12, s * 1.12);
+    for (let y = 0; y < size; y++) if (isRoad(x, y)) g.fillRect((x - walk) * s, (y - walk) * s, s * (1 + 2 * walk), s * (1 + 2 * walk));
+  }
+  g.fillStyle = '#dcdfe4'; // the sidewalk
+  for (let x = 0; x < size; x++) {
+    for (let y = 0; y < size; y++) if (isRoad(x, y)) g.fillRect((x - walk + 0.02) * s, (y - walk + 0.02) * s, s * (1 + 2 * walk - 0.04), s * (1 + 2 * walk - 0.04));
   }
   g.fillStyle = '#5d6470';
   for (let x = 0; x < size; x++) {
     for (let y = 0; y < size; y++) if (isRoad(x, y)) g.fillRect(x * s, y * s, s + 0.5, s + 0.5);
   }
+  const isJunction = (x, y) => junctions.some((j) => j.x === x && j.y === y);
+  // The middle line: along each street, stopping short of the intersections.
   g.strokeStyle = 'rgba(255,255,255,0.85)';
   g.lineWidth = Math.max(1.5, s * 0.05);
-  g.setLineDash([s * 0.22, s * 0.18]);
+  g.setLineDash([s * 0.18, s * 0.14]);
   g.beginPath();
-  for (let y = 0; y < size; y++) {
-    if (!Array.from({ length: size }, (_, x) => isRoad(x, y)).every(Boolean)) continue;
-    g.moveTo(0, (y + 0.5) * s);
-    g.lineTo(size * s, (y + 0.5) * s);
-  }
   for (let x = 0; x < size; x++) {
-    if (!Array.from({ length: size }, (_, y) => isRoad(x, y)).every(Boolean)) continue;
-    g.moveTo((x + 0.5) * s, 0);
-    g.lineTo((x + 0.5) * s, size * s);
+    for (let y = 0; y < size; y++) {
+      if (!isRoad(x, y) || isJunction(x, y)) continue;
+      const ns = isRoad(x, y - 1) || isRoad(x, y + 1);
+      const a = (ns ? isJunction(x, y - 1) : isJunction(x - 1, y)) ? 0.44 : 0;
+      const b = (ns ? isJunction(x, y + 1) : isJunction(x + 1, y)) ? 0.56 : 1;
+      if (ns) {
+        g.moveTo((x + 0.5) * s, (y + a) * s);
+        g.lineTo((x + 0.5) * s, (y + b) * s);
+      } else {
+        g.moveTo((x + a) * s, (y + 0.5) * s);
+        g.lineTo((x + b) * s, (y + 0.5) * s);
+      }
+    }
   }
   g.stroke();
   g.setLineDash([]);
+  // The crossings: white stripes across each arm, and the stop line (across
+  // the lane coming in).
+  g.fillStyle = '#f8f9fa';
+  const t = s * 0.05;
+  for (const { ix: x, iy: y, arm } of crossings) {
+    for (let k = 0; k < 5; k++) {
+      const o = 0.06 + k * 0.2;
+      if (arm === 'n') g.fillRect((x + o) * s, (y - 0.4) * s, s * 0.1, s * 0.3);
+      if (arm === 's') g.fillRect((x + o) * s, (y + 1.1) * s, s * 0.1, s * 0.3);
+      if (arm === 'w') g.fillRect((x - 0.4) * s, (y + o) * s, s * 0.3, s * 0.1);
+      if (arm === 'e') g.fillRect((x + 1.1) * s, (y + o) * s, s * 0.3, s * 0.1);
+    }
+    if (arm === 'n') g.fillRect(x * s, (y - 0.44) * s - t, s * 0.5, t);
+    if (arm === 's') g.fillRect((x + 0.5) * s, (y + 1.44) * s, s * 0.5, t);
+    if (arm === 'w') g.fillRect((x - 0.44) * s - t, (y + 0.5) * s, t, s * 0.5);
+    if (arm === 'e') g.fillRect((x + 1.44) * s, y * s, t, s * 0.5);
+  }
+}
+
+// A traffic light: red, yellow and green, one of them lit.
+export function signal(g, x, y, s, colour) {
+  const w = s * 0.17;
+  const h = s * 0.42;
+  g.fillStyle = '#555';
+  g.fillRect(x - s * 0.02, y + h / 2, s * 0.04, s * 0.1);
+  g.fillStyle = '#222';
+  rr(g, x - w / 2, y - h / 2, w, h, w * 0.3);
+  g.fill();
+  const lamps = [['red', '#ff3b30', '#5a1e1b'], ['yellow', '#ffcc00', '#5a4a12'], ['green', '#34e05c', '#1d4a27']];
+  lamps.forEach(([name, on, off], k) => {
+    g.fillStyle = name === colour ? on : off;
+    g.beginPath();
+    g.arc(x, y - h / 2 + h * (0.18 + k * 0.32), w * 0.32, 0, Math.PI * 2);
+    g.fill();
+  });
+}
+
+// A walk signal: the little walking man (walk), or the red hand (stop;
+// blinking when it's about to change).
+export function walkSign(g, x, y, s, sign, t) {
+  const b = s * 0.2;
+  g.fillStyle = '#222';
+  rr(g, x - b / 2, y - b / 2, b, b, b * 0.2);
+  g.fill();
+  if (sign === 'walk') {
+    g.strokeStyle = '#7dffa0';
+    g.fillStyle = '#7dffa0';
+    g.lineWidth = b * 0.12;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.arc(x + b * 0.04, y - b * 0.27, b * 0.09, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.moveTo(x, y - b * 0.15);
+    g.lineTo(x - b * 0.04, y + b * 0.08);
+    g.lineTo(x - b * 0.2, y + b * 0.32);
+    g.moveTo(x - b * 0.04, y + b * 0.08);
+    g.lineTo(x + b * 0.16, y + b * 0.32);
+    g.moveTo(x - b * 0.2, y - b * 0.02);
+    g.lineTo(x, y - b * 0.12);
+    g.lineTo(x + b * 0.2, y);
+    g.stroke();
+    return;
+  }
+  if (sign === 'flash' && Math.floor(t * 3) % 2) return;
+  g.fillStyle = '#ff5a3c';
+  rr(g, x - b * 0.22, y - b * 0.08, b * 0.4, b * 0.36, b * 0.1);
+  g.fill();
+  for (let k = 0; k < 4; k++) g.fillRect(x - b * 0.22 + k * b * 0.1, y - b * 0.3, b * 0.07, b * 0.26);
 }
 
 export function tree(g, x, y, s) {
