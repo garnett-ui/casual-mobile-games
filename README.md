@@ -124,9 +124,9 @@ https://games.mckoss.com/ (custom domain set in Settings → Pages). One-time se
 
 ## Contributing
 
-Pull requests are welcome -- new games, or fixes to the ones here. Follow
-the layout above (and the principles in [DESIGN.md](DESIGN.md)), add tests,
-make sure `npm test` passes, and bump the version with a changelog entry.
+Pull requests are welcome -- new games, or fixes to the ones here. See
+[CONTRIBUTING.md](CONTRIBUTING.md): one thing per pull request, rebased on
+the latest `main`, `npm test` passing; they're squash-merged by hand.
 
 ## License
 
