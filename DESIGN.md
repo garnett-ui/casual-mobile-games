@@ -154,7 +154,7 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   the engine is punchier than the missions' (as Eagle's was). The program
   alarms (1202, 1201), the gates, "60 seconds" / "30 seconds" (of fuel,
   hovering), "Contact light" and Aldrin-style altitude calls come up as
-  messages; ALT reads the radar altitude, RANGE the distance to where Eagle
+  messages -- the key ones in the real voices, from NASA's recordings; ALT reads the radar altitude, RANGE the distance to where Eagle
   landed. Here ASSIST is the LM's attitude hold: a turn button turns at a
   steady 20°/s and the lean holds when you let go. Scored like a mission,
   fuel counting full at a minute's hover; the card compares your fuel with

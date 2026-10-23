@@ -132,4 +132,10 @@ the latest `main`, `npm test` passing; they're squash-merged by hand.
 
 [MIT](LICENSE). The Lunar Lander scenery is cut from *Earthrise* (Apollo 8,
 AS08-14-2383, NASA), and its landing sound is Apollo 11's "The Eagle has
-landed" (NASA audio); both are in the public domain.
+landed" (NASA audio); both are in the public domain. The voices in its
+Apollo 11 flight (`games/lander/audio/a11-*.mp3`: "GO for powered descent",
+the 1202 and 1201 alarms, "60 seconds", "30 seconds", "Contact light") are
+cut from NASA's *Apollo 11 Audio Highlights* reel, also public domain
+([Internet Archive](https://archive.org/details/Apollo11AudioHighlights)),
+by way of [seankd3/orbital-mechanics](https://github.com/seankd3/orbital-mechanics).
+Using them implies no endorsement by NASA.

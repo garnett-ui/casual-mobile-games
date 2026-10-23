@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.72.1
+- Lunar Lander, Apollo 11: the real voices, from NASA's recordings, at the
+  big moments -- "GO for powered descent", the 1202 and 1201 alarms,
+  "60 seconds", "30 seconds" and "Contact light" -- before "The Eagle has
+  landed".
+
 ## 1.72.0
 - Lunar Lander: **Apollo 11** -- fly the first landing, down from orbit.
   Eagle's computer flies the 12-minute powered descent (sped up), through

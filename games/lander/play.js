@@ -128,9 +128,10 @@ export class Play {
     this.calloutAt = 0;
     this.alarm = 0;
     this.setWarp(this.computer ? 16 : 1);
+    this.hooks.voice?.('go-for-pdi');
     this.say(this.computer
-      ? 'Powered descent: 15 km up at 1,690 m/s. The computer is flying it -- touch a control to take over.'
-      : 'Powered descent: 15 km up at 1,690 m/s. You have control: lean right back and brake!', 6);
+      ? '“Eagle, Houston. If you read, you’re GO for powered descent.” 15 km up at 1,690 m/s; the computer’s flying -- touch a control to take over.'
+      : '“Eagle, Houston. If you read, you’re GO for powered descent.” 15 km up at 1,690 m/s: you have control. Lean right back and brake!', 7);
   }
 
   setWarp(scale) {
@@ -169,20 +170,22 @@ export class Play {
       return true;
     };
     if (this.computer && handedOver(this.start, L)) this.takeOver(L.prog >= 66 ? 'low' : 'high');
-    if (alt < 11000 && once('1202', 'PROGRAM ALARM 1202 -- the computer overloaded. Houston: "We’re GO on that alarm."', 6)) {
+    if (alt < 11000 && once('1202', 'PROGRAM ALARM 1202: the computer’s overloaded. Houston: “Roger, 1202. We copy it.” -- and it’s GO.', 6)) {
       this.alarm = L.t + 10;
       this.hooks.sfx?.('alarm');
+      setTimeout(() => this.hooks.voice?.('alarm-1202'), 700);
     }
-    if (alt < 900 && once('1201', 'PROGRAM ALARM 1201. Houston: "Same type -- we’re GO."', 4)) {
+    if (alt < 900 && once('1201', 'PROGRAM ALARM 1201. Houston: “We’re GO. Same type. We’re GO.”', 5)) {
       this.alarm = L.t + 6;
       this.hooks.sfx?.('alarm');
+      setTimeout(() => this.hooks.voice?.('alarm-1201'), 700);
     }
     if (this.computer && L.prog >= 64) once('p64', 'High Gate, 2 km up: pitch-over -- the landing site comes into view (P64).', 5);
     const hover = hoverSeconds(level, L);
-    if (hover < 60) once('60', '“60 seconds.” (Of fuel, hovering.)', 3);
-    if (hover < 30) once('30', '“30 seconds.”', 3);
+    if (hover < 60 && once('60', '“60 seconds.” (Of fuel, hovering.)', 3)) this.hooks.voice?.('sixty-seconds');
+    if (hover < 30 && once('30', '“30 seconds.”', 3)) this.hooks.voice?.('thirty-seconds');
     const near = Math.max(heightAt(level, L.x - FEET), heightAt(level, L.x + FEET));
-    if (!L.landed && L.y - near < 1.7) once('contact', '“Contact light.”', 3);
+    if (!L.landed && L.y - near < 1.7 && once('contact', '“Contact light.” “Okay, engine stop.”', 3)) this.hooks.voice?.('contact-light');
     if (!this.computer && alt < 160 && alt > 3 && L.t >= this.calloutAt && (!this.message || this.message.callout)) {
       this.calloutAt = L.t + 5;
       const v = (u) => Math.abs(u).toFixed(1);

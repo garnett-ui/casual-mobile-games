@@ -7,6 +7,10 @@ import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/
 // Apollo 11's touchdown, from NASA: "Houston, Tranquility Base here. The
 // Eagle has landed." Played on a landing, until you leave the score card.
 const EAGLE = new URL('./audio/eagle-has-landed.mp3', import.meta.url).href;
+// And on the way down in the Apollo 11 flight, the real voices: cut from
+// NASA's Apollo 11 Audio Highlights reel (public domain) -- see apollo.js.
+const VOICES = Object.fromEntries(['go-for-pdi', 'alarm-1202', 'alarm-1201', 'sixty-seconds', 'thirty-seconds', 'contact-light']
+  .map((name) => [name, new URL(`./audio/a11-${name}.mp3`, import.meta.url).href]));
 
 const ROT_L = '<svg viewBox="0 0 24 24"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const ROT_R = '<svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
@@ -131,6 +135,7 @@ export function mount(root, ctx, sub) {
     const warpBtn = root.querySelector('.ll-warp');
     ctx.track('level_start', { level: n, start });
     ctx.loadClip?.(EAGLE); // ready for the landing
+    if (apollo) Object.values(VOICES).forEach((url) => ctx.loadClip?.(url));
     const tip = root.querySelector('.tip');
     play = new Play(root.querySelector('canvas'), level, {
       sfx: ctx.sfx,
@@ -147,8 +152,14 @@ export function mount(root, ctx, sub) {
       },
       onCelebrate: () => {
         quiet();
-        stopClip = ctx.playClip?.(EAGLE);
+        // (Apollo 11: after "Contact light... engine stop" has been said.)
+        if (!apollo) stopClip = ctx.playClip?.(EAGLE);
+        else {
+          const t = setTimeout(() => (stopClip = ctx.playClip?.(EAGLE)), 2200);
+          stopClip = () => clearTimeout(t);
+        }
       },
+      voice: (name) => ctx.playClip?.(VOICES[name], 1),
       onCrash: (res) => crashed(n, res),
     }, { intro: !apollo, start });
     // Any touch ends the fly-over early.

@@ -553,6 +553,13 @@ test('lunar lander, Apollo 11: the computer flies down from orbit, hands over, a
     const start = await page.evaluate(() => ({ computer: window.__lander.computer, warp: window.__lander.timeScale, alt: window.__lander.L.y }));
     assert.ok(start.computer && start.warp === 16 && start.alt > 15000, JSON.stringify(start));
     assert.match(await page.locator('.ll-warp').textContent(), /16×/);
+    // The real voices come in at their moments (listened for from here on).
+    await page.evaluate(() => {
+      const p = window.__lander;
+      const say = p.hooks.voice;
+      window.__voices = [];
+      p.hooks.voice = (name) => (window.__voices.push(name), say(name));
+    });
     // Fast-forward: the computer flies it to Low Gate, then it's yours.
     await page.evaluate(() => window.__lander.setWarp(64));
     await page.waitForFunction(() => !window.__lander.computer, null, { timeout: 90000 });
@@ -568,6 +575,15 @@ test('lunar lander, Apollo 11: the computer flies down from orbit, hands over, a
     });
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 15000 });
     assert.match(await page.locator('.dialog h3').textContent(), /Eagle has landed/);
+    const voices = await page.evaluate(() => window.__voices);
+    for (const v of ['alarm-1202', 'alarm-1201', 'contact-light']) assert.ok(voices.includes(v), `${v} in ${voices}`);
+    // ...and each clip decodes.
+    const lengths = await page.evaluate(async () => {
+      const a = await import('/js/lib/audio.js');
+      const names = ['go-for-pdi', 'alarm-1202', 'alarm-1201', 'sixty-seconds', 'thirty-seconds', 'contact-light'];
+      return Promise.all(names.map(async (n) => (await a.loadClip(new URL(`/games/lander/audio/a11-${n}.mp3`, location.href).href))?.duration));
+    });
+    assert.ok(lengths.every((d) => d > 0.8 && d < 6), JSON.stringify(lengths));
     assert.match(await page.locator('.dialog').textContent(), /Fuel left: \d+ s/);
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:lander:progress')));
     assert.ok(saved.apollo.low >= 1);
