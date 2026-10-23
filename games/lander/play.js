@@ -1227,8 +1227,18 @@ export class Play {
     text('RANGE', 8, 12, 9, 'left', 600);
     text(`${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0)} M`, 100, 30, 18, 'right');
     text('PRPLNT QTY', 8, 52, 9, 'left', 600);
+    // A bar, marked in quarters, flashing red when low.
     glow(low ? RED : PHOSPHOR);
-    if (!low || !flashOff) text(`${Math.ceil(frac * 100)} %`, 100, 70, 18, 'right');
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(8.5, 61.5, 91, 15);
+    if (!low || !flashOff) ctx.fillRect(11, 64, 86 * frac, 10);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const q of [0.25, 0.5, 0.75]) {
+      ctx.moveTo(11 + 86 * q + 0.5, 77);
+      ctx.lineTo(11 + 86 * q + 0.5, 81);
+    }
+    ctx.stroke();
     glow(PHOSPHOR);
     text('TIME', 8, 92, 9, 'left', 600);
     const secs = Math.floor(L.t);

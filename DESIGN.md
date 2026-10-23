@@ -116,8 +116,8 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   shimmer as the view moves); craters lie only on gentle slopes, clipped
   to the ground.
 - Green-phosphor instrument panel, laid out like the Apollo lunar module's:
-  RANGE to the base, PRPLNT QTY (propellant, %) and the mission TIME as
-  readouts; the attitude ball (red past 10°) with the lean and spin rate;
+  RANGE to the base, PRPLNT QTY (propellant, a bar) and the mission TIME
+  as readouts; the attitude ball (red past 10°) with the lean and spin rate;
   the cross-pointer, its needles moving with the speed sideways and up or
   down (on a scale finer near zero), to be landed with the cross inside its
   dotted box; the ALT and RATE tapemeters, scales sliding past fixed

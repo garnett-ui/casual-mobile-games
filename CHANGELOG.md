@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.71.1
+- Lunar Lander: propellant (PRPLNT QTY) shows as a bar again, marked in
+  quarters.
+
 ## 1.71.0
 - Lunar Lander: the instrument panel is laid out like the Apollo lunar
   module's -- altitude and altitude-rate tapemeters side by side, a
