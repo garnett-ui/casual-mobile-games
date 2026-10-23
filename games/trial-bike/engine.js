@@ -303,7 +303,7 @@ export function newBike(course, x = course.start) {
     stall: 0, // seconds standing still
     hitRear: 0, hitFront: 0, noseFirst: false, impact: 0, // this step's landings
     air: 0, // how far the bike has turned since its wheels left the ground
-    trick: null, // a flip just landed: { flips, back } (for one step)
+    trick: null, // a flip landed and not yet celebrated: { flips, back }
   };
   const [rx] = wheelAt(B, -BASE / 2);
   const [fx] = wheelAt(B, BASE / 2);
@@ -329,12 +329,18 @@ function velocityAt(B, rx, ry) {
   return [B.vx - B.omega * ry, B.vy + B.omega * rx];
 }
 
+// A wrecked bike lies on whatever touches: besides the wheels, these points
+// of the frame (from the centre of mass) meet the ground like small soft
+// wheels, so it comes to rest on its side or its bars instead of standing
+// on the rider's helmet.
+const WRECK = [[0, 0.1, 0.4], [0.5, 0.35, 0.2], [-0.4, 0.3, 0.2]]; // [x, y, radius]
+
 // One wheel's forces on the frame this substep, as [fx, fy, torque], and
 // the contact for drawing. input.gas drives the rear; brake and lean are
-// shared by both.
-function wheelForces(course, B, along, input, drives) {
-  const [wx, wy] = wheelAt(B, along);
-  const c = contactAt(course, wx, wy);
+// shared by both. `at` is [x, y, radius] on the frame instead of a wheel.
+function wheelForces(course, B, along, input, drives, at = null) {
+  const [wx, wy] = at ? toWorld(B, at[0], at[1]) : wheelAt(B, along);
+  const c = contactAt(course, wx, wy, at ? at[2] : WHEEL);
   if (!c) return null;
   const rx = wx - B.x;
   const ry = wy - B.y;
@@ -361,12 +367,12 @@ function wheelForces(course, B, along, input, drives) {
 // Returns null while riding, or an outcome when the ride ends:
 // { kind: 'finished', time } or { kind: 'crash', reason }. A crashed bike
 // takes no input but keeps tumbling, so the fall can be watched. A flip
-// landed this step (a full turn in the air, nose over tail either way) is
-// left in B.trick for the view to celebrate; it's worth FLIP_BONUS seconds.
+// landed (a full turn in the air, nose over tail either way) is left in
+// B.trick for the caller to celebrate and clear; it's worth FLIP_BONUS
+// seconds.
 export function step(course, B, input, dt) {
   if (B.finished) return null;
   if (B.crashed) input = {};
-  B.trick = null;
   const lean = clamp(input.lean ?? 0, -1, 1);
   const steps = Math.max(1, Math.round(dt / DT));
   const h = dt / steps;
@@ -376,13 +382,19 @@ export function step(course, B, input, dt) {
     let fx = 0;
     let fy = -G * MASS;
     let torque = lean * LEAN * INERTIA;
-    for (const w of [rear, front]) {
+    const bodies = B.crashed ? WRECK.map((p) => wheelForces(course, B, 0, input, false, p)) : [];
+    for (const w of [rear, front, ...bodies]) {
       if (!w) continue;
       fx += w.fx;
       fy += w.fy;
       torque += w.torque;
     }
     if (!rear && !front) torque -= B.omega * SPIN_DAMP * INERTIA;
+    // A wreck scrubs off its spin and speed quickly.
+    if (B.crashed && bodies.some(Boolean)) {
+      B.omega *= Math.exp(-3 * h);
+      B.vx *= Math.exp(-2 * h);
+    }
     B.vx += (fx / MASS) * h;
     B.vy += (fy / MASS) * h;
     B.omega += (torque / INERTIA) * h;
