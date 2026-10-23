@@ -343,21 +343,25 @@ keyboard.
   centre of mass. Nothing is scripted: a wheelie, a loop, an endo and a
   nose-first landing all fall out of the same few forces.
 - **Crashes.** The rider's helmet touching the ground is a crash, as is
-  falling out of the world. Anything else -- a hard landing, a stall against
-  a ledge, a nose-wheelie -- is yours to recover from. The bike tumbles for a
-  moment, then the first touch puts you back on the last flag with the clock
-  still running. Stuck with nowhere to go, the ↶ button does the same at
-  the price of a crash.
+  falling out of the world, and so is a bad landing: coming down on the
+  front wheel pitched more than 20° nose-down into the ground at over 7 m/s
+  (about a 2.5 m fall), or on either wheel at over 11 m/s (about 6 m). So a
+  drop has to be landed on the back wheel or flat, and a cliff on both.
+  Anything else -- a stall against a ledge, a nose-wheelie -- is yours to
+  recover from. The bike tumbles for a moment, then the first touch puts
+  you back on the last flag with the clock still running. Stuck with
+  nowhere to go, the ↶ button does the same at the price of a crash.
 - **Endless courses from a seed**, and every one test-ridden. Course *n* is
   built from `seedFor(n)`: a slow rise and fall of the land, with obstacles
   along it in a random order drawn from the kinds that course allows.
   Everything the bike can do is met early -- course 1 is hills and one
-  small jump, then a log on course 2, a drop-off on 3, a ledge up and down
-  on 4 and a gap on 5 -- and from there they grow in size and number and,
-  more and more often, come one straight after another (a log at the foot
-  of a drop, a second jump off the first one's landing). Hills are never
-  steeper than about 35°, there's a run-up before every gap, and a wall
-  never stands where a jump comes down. The computer rider rides each
+  small jump, then a log and a long climb on course 2, a drop-off on 3, a
+  ledge up and down and a cliff on 4 and a gap on 5 -- and from there they
+  grow in size and number and, more and more often, come one straight after
+  another (a drop at the top of a climb, a cliff off the end of a jump).
+  Hills and climbs are never steeper than about 35°, there's a run-up
+  before every gap, and nothing but open ground stands where a jump, a
+  drop or a cliff comes down. The computer rider rides each
   course at three paces as it is generated; one it can't finish is
   re-rolled, and its best time is **par**.
 - **Stars** against par and your crashes: three for beating par clean, two

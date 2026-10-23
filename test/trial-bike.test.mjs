@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   makeCourse, makeLevel, specFor, newBike, step, rider, readAhead, simulate, bestRide, stars,
-  heightAt, slopeAt, contactAt, grounded, G, WHEEL, BASE, VMAX, DRIVE, GRIP,
+  heightAt, slopeAt, contactAt, grounded, G, WHEEL, BASE, VMAX, DRIVE, GRIP, HARD, STEP,
 } from '../games/trial-bike/engine.js';
 
 const idle = { gas: false, brake: false, lean: 0 };
@@ -145,12 +145,12 @@ test('every course is ridable (the computer rider finishes it) and gets longer a
   assert.ok(makeLevel(20).par > makeLevel(3).par);
 });
 
-test('course 1 is hills and one small jump; a log, a drop, a ledge and a gap arrive one a course after it', () => {
+test('course 1 is hills and one small jump; logs, climbs, drops, ledges, cliffs and gaps arrive over the next four', () => {
   const kinds = (n) => makeCourse(n).features.map((f) => f.kind);
   assert.deepEqual(kinds(1), ['hill', 'jump', 'hill', 'hill']);
   const first = {};
   for (let n = 1; n <= 8; n++) for (const k of kinds(n)) first[k] ??= n;
-  assert.deepEqual(first, { hill: 1, jump: 1, log: 2, drop: 3, step: 4, gap: 5 });
+  assert.deepEqual(first, { hill: 1, jump: 1, log: 2, climb: 2, drop: 3, step: 4, cliff: 4, gap: 5 });
   assert.ok(specFor(1).combo === 0 && specFor(10).combo > specFor(3).combo, 'obstacles come closer together as courses go on');
 });
 
@@ -175,8 +175,45 @@ test('the rider reads the ground ahead: a log is a wall, a lip is an edge, a pit
   assert.ok(rider(level, newBike(level)).gas, 'and opens the throttle');
 });
 
+test('a fall onto the front wheel pitched down is a crash; the same fall on the rear wheel is a landing', () => {
+  const course = flat();
+  const drop = (angle) => {
+    const B = newBike(course);
+    B.y += 3;
+    B.angle = angle;
+    const res = ride(course, B, idle, 2);
+    return { res, B };
+  };
+  const nose = drop(-0.6);
+  assert.equal(nose.res?.reason, 'Nose first');
+  const tail = drop(0.3);
+  assert.ok(!tail.res || tail.res.kind !== 'crash', `rear wheel first: ${tail.res?.reason ?? 'rode on'}`);
+  const B = newBike(course);
+  B.y += 8;
+  assert.equal(ride(course, B, idle, 3).reason, 'Hard landing', 'too far, any way up');
+  assert.ok(HARD.flat > HARD.nose);
+});
+
+test('a climb is long and steep but never over 35 degrees; a cliff is sheer and lands on the flat', () => {
+  const level = makeCourse(9);
+  const climb = level.features.find((f) => f.kind === 'climb');
+  const cliff = level.features.find((f) => f.kind === 'cliff');
+  assert.ok(climb && cliff, 'course 9 has both');
+  let steepest = 0;
+  let top = -Infinity;
+  for (let x = climb.x0; x <= climb.x1; x += STEP) {
+    steepest = Math.max(steepest, Math.abs(Math.atan(slopeAt(level, x))));
+    top = Math.max(top, heightAt(level, x));
+  }
+  assert.ok(top - heightAt(level, climb.x0) > 3, 'a real climb');
+  assert.ok(steepest < (36 * Math.PI) / 180, `steepest ${(steepest * 180) / Math.PI}°`);
+  const fall = heightAt(level, cliff.x0) - heightAt(level, cliff.x1 + 0.5);
+  assert.ok(fall > 2 && fall < 4, `cliff of ${fall} m`);
+  assert.equal(bestRide(makeLevel(9)).kind, 'finished', 'the computer rider manages them');
+});
+
 test('riding flat out into a ledge without lifting the front is a crash or a stall', () => {
-  const level = makeCourse(10);
+  const level = makeCourse(11);
   const ledge = level.features.find((f) => f.kind === 'step');
   const B = newBike(level, ledge.x0 - 12);
   const res = ride(level, B, { gas: true, lean: -0.3 }, 6);

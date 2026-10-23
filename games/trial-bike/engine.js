@@ -35,6 +35,11 @@ export const BRAKE = 3.5; // each wheel's brake at full squeeze (m/s^2): about 0
 export const VMAX = 14; // the engine runs out of puff here (m/s, ~31 mph)
 export const LEAN = 10; // rider's torque at full lean (rad/s^2)
 export const SPIN_DAMP = 1.2; // the air slows a tumbling bike (per second)
+// A landing is a crash when a wheel comes down on the ground this fast
+// (m/s): the front wheel alone, pitched nose down into the ground (nose
+// first), or either wheel at all. About a 2.5 m and a 6 m fall.
+export const HARD = { nose: 7, flat: 11 };
+export const NOSE_DOWN = (20 * Math.PI) / 180; // pitched this far below the ground's slope counts as nose first
 export const BASE_SEED = 20261021;
 export const DT = 1 / 240; // physics substep: stiff tires need small steps
 
@@ -104,9 +109,9 @@ export function contactAt(course, x, y, radius = WHEEL) {
 // What course n asks of you. Everything grows with n: the length, how many
 // obstacles there are and how big, and how often they come one on top of
 // another. Every kind is in play by course 5 -- rolling hills and a small
-// jump from the first course, then a log, a drop-off, a ledge and a gap,
-// one new kind a course -- because the bike is the game, and the sooner
-// you meet everything it can do, the better.
+// jump from the first course, then a log and a long climb, a drop-off, a
+// ledge and a cliff, and a gap -- because the bike is the game, and the
+// sooner you meet everything it can do, the better.
 export function specFor(n) {
   const k = n - 1;
   return {
@@ -119,24 +124,30 @@ export function specFor(n) {
     drop: n >= 3 ? Math.min(2.4, 0.4 + 0.11 * (n - 3)) : 0, // drop-off height
     step: n >= 4 ? Math.min(0.58, 0.28 + 0.03 * (n - 4)) : 0, // ledge height
     gap: n >= 5 ? Math.min(2.8, 1.0 + 0.14 * (n - 5)) : 0, // gap width
+    climb: n >= 2 ? Math.min(12, 4 + 0.6 * (n - 2)) : 0, // a long steep hill: its rise (m)
+    cliff: n >= 4 ? Math.min(3.6, 2.4 + 0.12 * (n - 4)) : 0, // a sheer drop to flat ground (m)
     combo: n >= 3 ? Math.min(0.5, 0.1 + 0.04 * (n - 3)) : 0, // chance the next obstacle comes straight after
   };
 }
 
-// The kinds of obstacle course n is made of, in order: the kind that is new
-// this course is always there, the rest are drawn from everything the
-// course allows, and course 1 is hills with one small jump in the middle.
+// The kinds of obstacle course n is made of, in order: whatever is new this
+// course is always there, the rest are drawn from everything the course
+// allows, and course 1 is hills with one small jump in the middle.
 function kindsFor(n, spec, r) {
   const allowed = ['hill', 'hill', 'jump', 'jump'];
   if (spec.log) allowed.push('log');
   if (spec.drop) allowed.push('drop');
   if (spec.step) allowed.push('step');
   if (spec.gap) allowed.push('gap', 'gap');
+  if (spec.climb) allowed.push('climb');
+  if (spec.cliff) allowed.push('cliff');
   if (n === 1) return ['hill', 'jump', 'hill', 'hill'];
-  const fresh = { 2: 'log', 3: 'drop', 4: 'step', 5: 'gap' }[n];
+  const fresh = { 2: ['log', 'climb'], 3: ['drop'], 4: ['step', 'cliff'], 5: ['gap'] }[n] ?? [];
   const kinds = [];
   for (let i = 0; i < spec.features; i++) kinds.push(allowed[Math.floor(r() * allowed.length)]);
-  if (fresh && !kinds.includes(fresh)) kinds[1 + Math.floor(r() * (kinds.length - 2))] = fresh;
+  for (const kind of fresh) {
+    if (!kinds.includes(kind)) kinds[1 + Math.floor(r() * (kinds.length - 2))] = kind;
+  }
   return kinds;
 }
 
@@ -211,6 +222,22 @@ export function makeCourse(n, attempt = 0) {
         piece('drop', 0.4, (d) => -h * smooth(d / 0.4), -h, h);
         break;
       }
+      case 'climb': {
+        // A long steep climb to a crest, then a gentler run back down: on
+        // the gas all the way up, or it stalls.
+        const h = spec.climb * s;
+        const up = h * 2.5; // the smooth rise is steepest in the middle: 1.5 h / up, about 31 degrees
+        const crest = 3 + 3 * r();
+        const down = h * 3;
+        piece('climb', up + crest + down, (d) => (d < up ? h * smooth(d / up) : d < up + crest ? h : h * (1 - smooth((d - up - crest) / down))));
+        break;
+      }
+      case 'cliff': {
+        // A cliff: a sheer drop to flat ground, to be landed on both wheels.
+        const h = spec.cliff * s;
+        piece('cliff', 0.6, (d) => -h * smooth(d / 0.6), -h, h);
+        break;
+      }
       case 'gap': {
         // A gap in the ground: too deep to climb out of, so clear it -- which
         // takes speed, so there's a run-up.
@@ -224,13 +251,14 @@ export function makeCourse(n, attempt = 0) {
     // Level ground between obstacles: room to land and settle after a
     // jump or drop, and longer early on, when there's more to learn than
     // to do. Sometimes (more often as courses go on) the next obstacle
-    // comes straight after instead -- a log at the foot of a drop, a
-    // second jump off the first's landing -- except a wall (a log or a
-    // ledge) right where a jump or drop comes down, which is a crash, not
-    // a combination.
+    // comes straight after instead -- a drop at the top of a climb, a
+    // cliff off the end of a jump -- but never a wall (a log or a ledge),
+    // which needs a clean approach, nor a gap, which needs its run-up, nor
+    // anything but a further fall where a jump or a drop comes down.
     const next = kinds[i + 1];
     const wall = next === 'log' || next === 'step';
-    const combo = next && next !== 'gap' && r() < spec.combo && !(landing && wall);
+    const falling = next === 'drop' || next === 'cliff';
+    const combo = next && next !== 'gap' && !wall && (!landing || falling) && r() < spec.combo;
     flat(combo ? Math.max(1.5, landing ? landing * 0.6 : 0) + r() : Math.max(landing, Math.max(4, 9 - 0.4 * (n - 1))) + 3 * r());
     if ((i + 1) % perFlag === 0 && i < spec.features - 1 && !combo) flags.push(x - 1.5);
   }
@@ -271,6 +299,7 @@ export function newBike(course, x = course.start) {
     rear: null, front: null, // ground contacts this moment
     crashed: false, finished: false,
     stall: 0, // seconds standing still
+    hitRear: 0, hitFront: 0, noseFirst: false, impact: 0, // this step's landings
   };
   const [rx] = wheelAt(B, -BASE / 2);
   const [fx] = wheelAt(B, BASE / 2);
@@ -320,7 +349,7 @@ function wheelForces(course, B, along, input, drives) {
   const tangent = clamp(push, -limit, limit);
   const fx = c.nx * normal + tx * tangent;
   const fy = c.ny * normal + ty * tangent;
-  return { fx, fy, torque: rx * fy - ry * fx, contact: { ...c, slip: Math.abs(push) > limit, vt } };
+  return { fx, fy, torque: rx * fy - ry * fx, contact: { ...c, slip: Math.abs(push) > limit, vt, vy } };
 }
 
 // Advance the bike by dt. input: { gas, brake, lean } -- gas and brake
@@ -352,6 +381,12 @@ export function step(course, B, input, dt) {
     B.y += B.vy * h;
     B.angle += B.omega * h;
     B.t += h;
+    // A wheel meeting the ground: how fast it came down on it. (Ground, not
+    // the side of something: running into a wall is a wall, not a landing.)
+    const hit = (w, was) => (w && !was && w.contact.ny > 0.8 ? Math.max(0, -w.contact.vy) : 0);
+    B.hitRear = Math.max(B.hitRear ?? 0, hit(rear, B.rear));
+    B.hitFront = Math.max(B.hitFront ?? 0, hit(front, B.front));
+    if (hit(front, B.front) && !rear && B.angle < Math.atan(slopeAt(course, B.x)) - NOSE_DOWN) B.noseFirst = true;
     B.rear = rear?.contact ?? null;
     B.front = front?.contact ?? null;
     B.spin += ((rear ? rear.contact.vt : B.vx) / WHEEL) * h;
@@ -365,6 +400,13 @@ export function step(course, B, input, dt) {
     B.vx = Math.abs(B.vx) * 0.2;
   }
   if (B.crashed) return null;
+  // Landings: too hard, or nose first too hard, and the rider is off.
+  const { hitRear, hitFront, noseFirst } = B;
+  B.impact = Math.max(hitRear, hitFront); // for the view: dust and a thump
+  B.hitRear = B.hitFront = 0;
+  B.noseFirst = false;
+  if (B.impact > HARD.flat) return crash(B, 'Hard landing');
+  if (noseFirst && hitFront > HARD.nose) return crash(B, 'Nose first');
   // Standing still (against a wall, or balanced on the back wheel).
   B.stall = grounded(B) && Math.abs(B.vx) < 0.25 ? (B.stall ?? 0) + dt : 0;
   while (B.flag + 1 < course.flags.length && B.x > course.flags[B.flag + 1]) B.flag++;
@@ -403,6 +445,7 @@ export function readAhead(course, B) {
   let wall = Infinity;
   let wallH = 0; // how high the wall is
   let edge = Infinity;
+  let fall = 0; // how far the ground drops past the edge
   let gap = 0;
   for (let d = STEP; d < 16; d += STEP) {
     const dh = at(d) - at(d - STEP);
@@ -414,6 +457,7 @@ export function readAhead(course, B) {
       edge = d - STEP;
       let e = d;
       while (e < d + 1.5 && at(e) - at(e - STEP) < -0.02) e += STEP;
+      fall = at(edge) - at(e);
       if (at(e) < at(edge) - 1.5) {
         // A pit: find where the far side comes back up to the lip.
         for (; e < edge + 12; e += STEP) {
@@ -428,7 +472,7 @@ export function readAhead(course, B) {
     if (wall !== Infinity && edge !== Infinity) break;
   }
   const pit = B.y - COM - WHEEL - at(0) > 1.5;
-  return { wall, wallH, edge, gap, pit };
+  return { wall, wallH, edge, fall, gap, pit };
 }
 
 // Where the bike comes down if it does nothing from here, by flying its
@@ -468,9 +512,9 @@ export function rider(course, B, pace = 0.5) {
     target = 0.2;
     gas = true;
   } else if (inAir) {
-    // Pitch to the ground where the bike will come down, a touch nose-up
-    // so the rear wheel lands first.
-    target = landing(course, B)[1] + 0.12;
+    // Pitch to the ground where the bike will come down, nose-up a little
+    // so the rear wheel lands first (never the front, pitched down).
+    target = landing(course, B)[1] + 0.22;
     gas = speed < cruise + 2;
   } else if (read.gap && read.edge < BASE + 2.5) {
     // Launching: full throttle, nose up, never the brake.
@@ -493,8 +537,10 @@ export function rider(course, B, pace = 0.5) {
     gas = speed < 5;
     brake = speed > 6.5;
   } else if (read.edge < BASE + 1.5 + 0.25 * speed) {
-    // Off a drop or a lip: a touch nose-up so the rear lands first.
-    target += 0.15;
+    // Off a drop or a lip: nose-up so the rear lands first -- the more so
+    // the further the fall, since the front wheel going first pitches the
+    // bike down.
+    target += 0.15 + Math.min(0.25, 0.08 * read.fall);
     gas = speed < cruise;
   }
   // Hold the pitch: a spring to the target, damped by the spin.

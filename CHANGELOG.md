@@ -16,10 +16,11 @@ anything taken away (not internal fixes or renames along the way).
   beat par with no crashes for three stars. A crash sends you back to the
   last flag with the clock still running, and **Show me** has the computer
   rider do the course while you watch. Everything the bike can do comes
-  early -- a jump on the first course, then a log, a drop, a ledge and a
-  gap, one a course -- and the courses never run out, getting longer and
-  rougher as you go, through meadow, forest, quarry and mountains, from
-  morning to night.
+  early -- a jump on the first course, then logs and long climbs, drops,
+  ledges and cliffs, and gaps, all by course 5 -- and the courses never
+  run out, getting longer and rougher as you go, through meadow, forest,
+  quarry and mountains, from morning to night. Land a drop on the front
+  wheel, nose down, and you're off; land a cliff flat on both.
 
 ## 1.62.3
 - Morse Rain, sending: fixed letters breaking apart -- a K read as T E T --
