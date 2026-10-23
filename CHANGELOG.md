@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.75.0
+- Benji's Town: a postal worker drives the mail van, delivering letters
+  and now packages too. At each house they hop out, carry the letter or
+  package up to the door ("Here's your letter!", "A package for you!") and
+  hop back in. The trucks have their drivers at the wheel.
+
 ## 1.74.0
 - Benji's Town: sidewalks, crosswalks and traffic lights. People (and the
   dog walker) keep to the sidewalks and cross only at the zebra crossings;

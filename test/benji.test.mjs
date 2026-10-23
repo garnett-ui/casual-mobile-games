@@ -80,6 +80,8 @@ test('the levels: tapping first, then driving; the town grows as houses are buil
   const truck = three.helpers.find((h) => h.kind === 'garbage');
   const dump = three.places.find((p) => p.id === 'dump').door;
   assert.equal(jobAt(three, truck, dump, new Set()), null, 'not the dump till the bins are in');
+  // The post: letters, and every other one a package.
+  assert.deepEqual(makeTown(2).jobs.map((j) => j.kind), ['letter', 'parcel', 'letter']);
 });
 
 // ------------------------------------------------- sidewalks and traffic

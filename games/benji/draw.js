@@ -313,7 +313,9 @@ const wheel = (g, x, y, r) => {
 
 // A vehicle, side on, facing right (face -1: left): the garbage truck, the
 // mail van, the cement mixer (its drum turning with t), or a little car.
-export function vehicle(g, kind, x, y, s, face = 1, t = 0, color = '#ef476f') {
+// Trucks have their driver at the wheel (unless driver is false: out on a
+// delivery).
+export function vehicle(g, kind, x, y, s, face = 1, t = 0, color = '#ef476f', driver = true) {
   g.save();
   g.translate(x, y);
   g.scale(face, 1);
@@ -344,6 +346,16 @@ export function vehicle(g, kind, x, y, s, face = 1, t = 0, color = '#ef476f') {
   g.fill();
   g.fillStyle = '#cdeffd';
   g.fillRect(u * 0.55, -u * 0.4, u * 0.28, u * 0.26);
+  if (driver) {
+    g.fillStyle = '#f1c27d';
+    g.beginPath();
+    g.arc(u * 0.68, -u * 0.24, u * 0.1, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = kind === 'mail' ? '#1d4e89' : kind === 'garbage' ? '#21867a' : '#ffb703';
+    g.beginPath();
+    g.arc(u * 0.68, -u * 0.28, u * 0.1, Math.PI, 0);
+    g.fill();
+  }
   // The back.
   if (kind === 'mixer') {
     g.fillStyle = '#6c757d';
@@ -382,6 +394,31 @@ export function vehicle(g, kind, x, y, s, face = 1, t = 0, color = '#ef476f') {
   wheel(g, -u * 0.55, u * 0.32, u * 0.2);
   wheel(g, u * 0.55, u * 0.32, u * 0.2);
   g.restore();
+}
+
+// The postal worker: blue uniform and cap, a mail bag -- and in hand,
+// going up to the door, the letter or package (icon).
+export function postie(g, x, y, s, face, t, icon) {
+  walker(g, x, y, s, face, '#1d4e89', false, t);
+  const u = s * 0.5;
+  g.save();
+  g.translate(x, y);
+  g.scale(face, 1);
+  g.fillStyle = '#1d4e89';
+  g.beginPath();
+  g.arc(-u * 0.12, -u * 0.6, u * 0.21, Math.PI, 0);
+  g.fill();
+  g.fillRect(-u * 0.12, -u * 0.64, u * 0.34, u * 0.07);
+  g.fillStyle = '#8d5524';
+  rr(g, -u * 0.44, -u * 0.14, u * 0.22, u * 0.26, u * 0.05);
+  g.fill();
+  g.restore();
+  if (icon) {
+    g.font = `${Math.round(s * 0.34)}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(icon, x + face * u * 0.4, y - u * 0.1);
+  }
 }
 
 // Someone out walking (with the dog, when they have it).

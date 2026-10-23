@@ -3,7 +3,7 @@
 // The town is a 9 x 9 grid of tiles: three streets each way, and between
 // them blocks of places -- houses, the post office, the dump, the builders'
 // yard, the park and lots to build on. Every place has a door on a street.
-// Helpers (the garbage truck, the mail van, a dog walker, the cement mixer)
+// Helpers (the garbage truck, the postal worker's van, a dog walker, the cement mixer)
 // drive or walk along the streets to do the level's jobs.
 
 export const SIZE = 9;
@@ -88,7 +88,8 @@ export function nearestRoad(px, py) {
 // Each level: some jobs, and whether you tap the helpers (they go by
 // themselves) or drive them with a finger.
 //   garbage: bins out at that many houses -- collect them, then to the dump
-//   mail:    that many letters to deliver
+//   mail:    that many letters and packages to deliver (every other one a
+//            package)
 //   dog:     that many dog walks to the park and home
 //   build:   that many houses to build (three trips each)
 const LEVELS = [
@@ -154,7 +155,7 @@ export function makeTown(n) {
   }
   if (plan.mail) {
     helpers.push({ id: 'mail', kind: 'mail', at: by('post').door, home: 'post' });
-    for (const h of pick(homes, plan.mail)) jobs.push({ helper: 'mail', kind: 'letter', place: h.id });
+    pick(homes, plan.mail).forEach((h, k) => jobs.push({ helper: 'mail', kind: k % 2 ? 'parcel' : 'letter', place: h.id }));
   }
   if (plan.dog) {
     for (let k = 0; k < plan.dog; k++) {

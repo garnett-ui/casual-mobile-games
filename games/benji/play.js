@@ -11,7 +11,9 @@ import * as D from './draw.js';
 const SPEED = { garbage: 2.2, mail: 2.6, mixer: 2, walker: 1.3, car: 1.6, person: 0.9 };
 export const COLORS = { garbage: '#2a9d8f', mail: '#e63946', mixer: '#ff9f1c', walker: '#7b2cbf' };
 // The jobs, as pictures in the tray.
-const ICONS = { bin: '🗑️', dump: '♻️', letter: '✉️', walk: '🐕', home: '🏠', build: '🧱' };
+const ICONS = { bin: '🗑️', dump: '♻️', letter: '✉️', parcel: '📦', walk: '🐕', home: '🏠', build: '🧱' };
+// How long the postal worker takes to hop out, go up to the door and back.
+const DELIVER = 2;
 const PEOPLE = ['#ef476f', '#118ab2', '#ffd166', '#06d6a0'];
 
 export class Play {
@@ -204,10 +206,16 @@ export class Play {
         this.hooks.sfx?.('crash');
         break;
       case 'letter':
-        h.pause = 0.6;
-        this.pop('💌', at);
-        this.hooks.sfx?.('ding');
-        break;
+      case 'parcel':
+        // The postal worker hops out, takes it up to the house (the front
+        // door, when the street's in front) and hops back in.
+        h.pause = DELIVER;
+        h.deliver = {
+          t: 0, from: { x: h.x, y: h.y }, at, kind: job.kind,
+          to: { x: Math.max(p.x + 0.2, Math.min(p.x + 0.8, h.x)), y: Math.max(p.y + 0.2, Math.min(p.y + 0.86, h.y)) },
+        };
+        this.hooks.sfx?.('pop');
+        return;
       case 'walk':
         // Play in the park a while, then (tapping) home again.
         h.pause = 2.4;
@@ -232,6 +240,16 @@ export class Play {
       default:
         break;
     }
+    this.hooks.haptic?.(20);
+    if (this.done.size === this.town.jobs.length) this.win();
+  }
+
+  // The postal worker at the door: here's your letter (or package)!
+  handOver(h) {
+    const d = h.deliver;
+    this.pop(d.kind === 'letter' ? '💌' : '🎁', d.at);
+    this.hooks.sfx?.('ding');
+    this.hooks.say?.(d.kind === 'letter' ? 'Here’s your letter!' : 'A package for you!');
     this.hooks.haptic?.(20);
     if (this.done.size === this.town.jobs.length) this.win();
   }
@@ -341,6 +359,12 @@ export class Play {
     for (const h of this.helpers) {
       move(h);
       h.hop = Math.max(0, h.hop - dt * 2.5);
+      if (h.deliver) {
+        const was = h.deliver.t;
+        h.deliver.t += dt;
+        if (was < DELIVER / 2 && h.deliver.t >= DELIVER / 2) this.handOver(h);
+        if (h.deliver.t >= DELIVER) h.deliver = null;
+      }
       // A helper held up at a red light: say so (now and then), and say go.
       if ((h.wait === 'light' || h.wait === 'walk') && !h.held && this.t - this.said > 15) {
         h.held = true;
@@ -397,7 +421,7 @@ export class Play {
     const waiting = new Map(); // place -> picture it's waiting for
     for (const j of this.town.jobs) {
       if (this.done.has(j.i)) continue;
-      if (j.kind === 'letter') waiting.set(j.place, '✉️');
+      if (j.kind === 'letter' || j.kind === 'parcel') waiting.set(j.place, ICONS[j.kind]);
     }
     // The places, back to front.
     for (const p of [...this.town.places].sort((a, b) => a.y - b.y)) {
@@ -477,12 +501,27 @@ export class Play {
       if (m.kind === 'person') D.walker(g, x, y - s * 0.15, s * 0.7, m.face, m.color, false, going ? this.t : 0);
       else if (m.kind === 'walker') {
         D.walker(g, x, y - s * 0.17, s * 0.8, m.face, COLORS.walker, true, going || m.playing ? this.t : 0);
-      } else D.vehicle(g, m.kind, x, y - s * 0.12, s * (m.kind === 'car' ? 0.8 : 0.92), m.face, this.t, m.color);
+      } else D.vehicle(g, m.kind, x, y - s * 0.12, s * (m.kind === 'car' ? 0.8 : 0.92), m.face, this.t, m.color, !m.deliver);
       if (m.kind === 'garbage' && m.load) {
         g.font = `${Math.round(s * 0.28)}px system-ui, sans-serif`;
         g.textAlign = 'center';
         g.fillText('🗑️'.repeat(Math.min(3, m.load)), x, y - s * 0.55);
       }
+    }
+    // The postal worker out of the van, up to the door with the letter or
+    // package, and back without it.
+    for (const h of this.helpers) {
+      const d = h.deliver;
+      if (!d) continue;
+      const f = d.t / DELIVER;
+      const out = f < 0.5;
+      const k = out ? Math.min(1, f / 0.4) : Math.max(0, 1 - (f - 0.6) / 0.4);
+      const e = k * k * (3 - 2 * k);
+      const px = d.from.x + (d.to.x - d.from.x) * e;
+      const py = d.from.y + (d.to.y - d.from.y) * e;
+      const face = Math.sign(d.to.x - d.from.x) * (out ? 1 : -1) || 1;
+      const moving = k > 0 && k < 1;
+      D.postie(g, px * s, py * s - s * 0.2, s * 0.95, face, moving ? this.t : 0, out ? ICONS[d.kind] : null);
     }
     if (this.hand && !this.driven) {
       g.font = `${Math.round(s * 0.7)}px system-ui, sans-serif`;

@@ -12,7 +12,7 @@ the whole arcade.
 
 ## Games
 
-- **Benji's Town** -- for little ones: tap the garbage truck, the mail van,
+- **Benji's Town** -- for little ones: tap the garbage truck, the postal worker's van,
   the dog walker and the cement mixer to send them off to work around a
   little town -- with sidewalks, crosswalks and traffic lights; later,
   drive them along the streets with a finger.

@@ -61,8 +61,10 @@ pictures and a sound for every touch.
   for the walking man!" ... "Walk!").
 - Helpers with jobs, shown in a tray of pictures that tick off: the
   **garbage truck** empties the bins put out by houses, then takes the load
-  to the dump; the **mail van** delivers letters to the houses with a
-  letter bubble; the **dog walker** takes the dog to the park to play, and
+  to the dump; the **mail van** takes letters and packages to the houses
+  with a letter or package bubble, and at each the **postal worker** hops
+  out, carries it up to the house ("Here's your letter!", "A package for
+  you!") and hops back in; the **dog walker** takes the dog to the park to play, and
   home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between.
   Houses built stay built: the town grows from level to level.
