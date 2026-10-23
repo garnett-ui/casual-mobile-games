@@ -180,14 +180,14 @@ test('the rider reads the ground ahead: a log is a wall, a lip is an edge, a pit
 
 test('a fall onto the front wheel pitched down is a crash; the same fall on the rear wheel is a landing', () => {
   const course = flat();
-  const drop = (angle) => {
+  const drop = (angle, height = 3) => {
     const B = newBike(course);
-    B.y += 3;
+    B.y += height;
     B.angle = angle;
     const res = ride(course, B, idle, 2);
     return { res, B };
   };
-  const nose = drop(-0.6);
+  const nose = drop(-0.6, 3.5);
   assert.equal(nose.res?.reason, 'Nose first');
   const tail = drop(0.3);
   assert.ok(!tail.res || tail.res.kind !== 'crash', `rear wheel first: ${tail.res?.reason ?? 'rode on'}`);
@@ -220,7 +220,7 @@ test('a full turn in the air, landed, is a flip; a half turn is a crash, not a t
   const B = newBike(course);
   B.y += 6;
   B.vx = 6;
-  B.omega = 12; // nose over tail, backwards, fast enough for a full turn before the ground
+  B.omega = 8.5; // nose over tail, backwards: about one turn before the ground
   let trick = null;
   let res = null;
   for (let k = 0; k < 240 && !res && !trick; k++) {

@@ -771,7 +771,9 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-end;
-  padding: 0 0 calc(12px + var(--safe-b)) calc(14px + var(--safe-l));
+  /* The hint sits a thumb's width in from the edge: a thumb put on it has
+     room to slide left as well as right. */
+  padding: 0 0 calc(12px + var(--safe-b)) calc(22% + var(--safe-l));
   box-sizing: border-box;
   color: #fff;
 }
@@ -835,9 +837,10 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .tb-gas.on svg { transform: rotate(-6deg); }
 .tb-brake.on svg { transform: translateY(3px) rotate(4deg); }
 .tb-demo, .tb-showme {
+  /* Up under the instrument band, clear of the wreck on the ground. */
   position: absolute;
   left: 50%;
-  bottom: calc(96px + var(--safe-b));
+  top: 40px;
   transform: translateX(-50%);
   z-index: 3;
   border: 1.5px solid #ffb347;

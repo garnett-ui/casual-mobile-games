@@ -34,7 +34,8 @@ export const DRIVE = 9; // rear-wheel push at full throttle (m/s^2)
 export const BRAKE = 3.5; // each wheel's brake at full squeeze (m/s^2): about 0.7 g together, short of an endo
 export const VMAX = 14; // the engine runs out of puff here (m/s, ~31 mph)
 export const LEAN = 10; // rider's torque at full lean (rad/s^2)
-export const SPIN_DAMP = 1.2; // the air slows a tumbling bike (per second)
+export const AIR_LEAN = 2; // the lean counts for this much more in the air
+export const SPIN_DAMP = 0.7; // the air slows a tumbling bike (per second)
 // A landing is a crash when a wheel comes down on the ground this fast
 // (m/s): the front wheel alone, pitched nose down into the ground (nose
 // first), or either wheel at all. About a 2.5 m and a 6 m fall.
@@ -121,7 +122,7 @@ export function specFor(n) {
     features: Math.min(18, 4 + Math.floor(k * 0.8)),
     hill: Math.min(3.0, 1.0 + 0.14 * k), // amplitude (m)
     roll: Math.min(2.5, 1 + 0.12 * k), // the lie of the land: a slow rise and fall under everything (m)
-    jump: Math.min(1.8, 0.35 + 0.08 * k), // ramp height
+    jump: Math.min(3, 0.35 + 0.1 * k), // kicker height
     log: n >= 2 ? Math.min(0.55, 0.25 + 0.03 * (n - 2)) : 0, // log height
     drop: n >= 3 ? Math.min(2.4, 0.4 + 0.11 * (n - 3)) : 0, // drop-off height
     step: n >= 4 ? Math.min(0.58, 0.28 + 0.03 * (n - 4)) : 0, // ledge height
@@ -172,13 +173,13 @@ export function makeCourse(n, attempt = 0) {
   };
   let landing = 0; // room the last obstacle needs to come down from
   let lastEnd = 0; // where the last obstacle ended
-  const piece = (kind, len, f, rise = 0, fall = 0) => {
+  const piece = (kind, len, f, rise = 0, fall = 0, flight = 0) => {
     pieces.push({ x0: x, x1: x + len, y0: y, f });
     features.push({ kind, x0: x, x1: x + len });
     x += len;
     lastEnd = x;
     y += rise;
-    landing = fall ? 5 + 4 * Math.sqrt(fall) : 0;
+    landing = fall ? flight + 5 + 4 * Math.sqrt(fall) : 0;
   };
   flat(x);
   const perFlag = n < 4 ? 3 : 4;
@@ -196,11 +197,13 @@ export function makeCourse(n, attempt = 0) {
         break;
       }
       case 'jump': {
-        // A ramp up to a lip and a sheer drop: carry speed and fly.
+        // A kicker: a ramp that steepens to its lip (about 30 degrees there,
+        // so it throws the bike upward) and a sheer drop behind. Carry speed
+        // and fly -- and turn, if you dare.
         const h = spec.jump * s;
         const up = h * 2.6;
         const land = 1 + 0.6 * r();
-        piece('jump', up + land, (d) => (d < up ? h * smooth(d / up) : 0), 0, h);
+        piece('jump', up + land, (d) => (d < up ? h * (d / up) ** 1.5 : 0), 0, h, 6 + 1.3 * h);
         break;
       }
       case 'log': {
@@ -377,11 +380,16 @@ export function step(course, B, input, dt) {
   const steps = Math.max(1, Math.round(dt / DT));
   const h = dt / steps;
   for (let k = 0; k < steps; k++) {
+    const vy0 = B.vy; // the fall before this substep's tyres start to take it
     const rear = wheelForces(course, B, -BASE / 2, input, true);
     const front = wheelForces(course, B, BASE / 2, input, false);
     let fx = 0;
     let fy = -G * MASS;
-    let torque = lean * LEAN * INERTIA;
+    // The rider's lean: on the ground it shifts weight between the wheels,
+    // in the air it turns the whole bike -- and harder, since there's
+    // nothing else to push against and a flip has to fit in a jump.
+    const airborne = !rear && !front;
+    let torque = lean * LEAN * (airborne ? AIR_LEAN : 1) * INERTIA;
     const bodies = B.crashed ? WRECK.map((p) => wheelForces(course, B, 0, input, false, p)) : [];
     for (const w of [rear, front, ...bodies]) {
       if (!w) continue;
@@ -389,7 +397,7 @@ export function step(course, B, input, dt) {
       fy += w.fy;
       torque += w.torque;
     }
-    if (!rear && !front) torque -= B.omega * SPIN_DAMP * INERTIA;
+    if (airborne) torque -= B.omega * SPIN_DAMP * INERTIA;
     // A wreck scrubs off its spin and speed quickly.
     if (B.crashed && bodies.some(Boolean)) {
       B.omega *= Math.exp(-3 * h);
@@ -402,9 +410,11 @@ export function step(course, B, input, dt) {
     B.y += B.vy * h;
     B.angle += B.omega * h;
     B.t += h;
-    // A wheel meeting the ground: how fast it came down on it. (Ground, not
-    // the side of something: running into a wall is a wall, not a landing.)
-    const hit = (w, was) => (w && !was && w.contact.ny > 0.8 ? Math.max(0, -w.contact.vy) : 0);
+    // A wheel meeting the ground: how fast the bike came down on it. (Ground,
+    // not the side of something: running into a wall is a wall, not a
+    // landing. And the bike's fall, not the wheel's: a spinning bike's wheel
+    // is moving much faster than the bike is.)
+    const hit = (w, was) => (w && !was && w.contact.ny > 0.8 ? Math.max(0, -vy0) : 0);
     B.hitRear = Math.max(B.hitRear ?? 0, hit(rear, B.rear));
     B.hitFront = Math.max(B.hitFront ?? 0, hit(front, B.front));
     if (hit(front, B.front) && !rear && B.angle < Math.atan(slopeAt(course, B.x)) - NOSE_DOWN) B.noseFirst = true;

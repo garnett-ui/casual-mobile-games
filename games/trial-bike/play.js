@@ -7,9 +7,10 @@
 // track; birds that take off as the bike comes, the crowd at the finish,
 // tyre tracks, flags, a headlight after dark, the bike and its rider, dust,
 // exhaust and the wind of speed); the instrument band along the top; and
-// the ride itself -- stepping the engine, crashes, checkpoints and the
-// finish.
-import { step, newBike, rider, heightAt, grounded, WHEEL, BASE, COM, VMAX, STEP, FLIP_BONUS } from './engine.js';
+// the ride itself -- stepping the engine, crashes (the wreck tumbling on
+// until it rests, the rider thrown clear to land in a heap), checkpoints
+// and the finish.
+import { step, newBike, rider, heightAt, slopeAt, grounded, G, WHEEL, BASE, COM, VMAX, STEP, FLIP_BONUS } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const FRAME = '#e63946';
@@ -28,6 +29,15 @@ const PARALLAX = 50;
 
 // The instrument band: its height, its type and its inks.
 const HUD = { h: 24, font: 'ui-monospace, Menlo, Consolas, monospace', band: 'rgba(5,7,12,.68)', rule: 'rgba(255,255,255,.1)', dim: 'rgba(205,214,222,.55)', ink: '#e4eaee', amber: '#ffb347', green: '#5fd38a', red: '#ff5a4d' };
+
+// How far the lowest of a thrown rider's hips, head and feet is into the
+// ground (his hips lie BODY off it).
+const BODY = 0.13;
+const sunk = (L, T) => {
+  const c = Math.cos(T.angle);
+  const s = Math.sin(T.angle);
+  return Math.max(...[-0.8, 0, 0.8].map((d) => heightAt(L, T.x + d * c) + BODY - (T.y + d * s)));
+};
 
 // ------------------------------------------------------------------ scenes
 
@@ -179,6 +189,8 @@ export class Play {
     this.crashes = 0;
     this.outcome = null;
     this.waiting = false; // crashed, waiting for the tap that goes again
+    this.wreck = null; // after a crash: { t, still } -- seconds since, and at rest
+    this.thrown = null; // the rider, thrown off in a crash
     this.dust = [];
     this.puffT = 0;
     this.shake = 0;
@@ -195,6 +207,8 @@ export class Play {
     this.B = newBike(this.level, flag >= 0 ? this.level.flags[flag] : this.level.start);
     this.outcome = null;
     this.waiting = false;
+    this.wreck = null;
+    this.thrown = null;
     this.message = null;
     this.dust = [];
     this.cam = null;
@@ -311,10 +325,15 @@ export class Play {
     const B = this.B;
     // Physics in small steps for stability.
     const n = Math.ceil(dt / (1 / 120));
-    // After a crash the bike tumbles on for a moment, then holds still.
-    if (this.outcome?.kind === 'crash' && !this.waiting && (this.tumble -= dt) > 0) {
+    // After a crash the wreck tumbles on until it has lain still a moment,
+    // or for three seconds; the rider flies off on his own.
+    const W = this.wreck;
+    if (this.outcome?.kind === 'crash' && W && W.t < 3 && W.still < 0.3) {
       for (let k = 0; k < n; k++) step(this.level, B, this.input, dt / n);
+      W.t += dt;
+      W.still = Math.abs(B.vx) < 0.3 && Math.abs(B.vy) < 0.3 && Math.abs(B.omega) < 0.3 ? W.still + dt : 0;
     }
+    if (this.thrown) this.fly(this.thrown, dt);
     if (!this.outcome && !this.waiting) {
       let res = null;
       const wasFlag = B.flag;
@@ -350,6 +369,7 @@ export class Play {
       // A flip landed: seconds off the clock, and a word about it.
       if (B.trick && !res) {
         const { flips, back } = B.trick;
+        B.trick = null;
         this.flips += flips;
         this.bonus += FLIP_BONUS * flips;
         this.hooks.sfx?.('star');
@@ -367,7 +387,8 @@ export class Play {
         if (res.kind === 'crash') {
           this.crashes++;
           this.shake = 1;
-          this.tumble = 0.7;
+          this.wreck = { t: 0, still: 0 };
+          this.throwRider();
           this.hooks.sfx?.('crash');
           this.hooks.haptic?.([30, 40, 60]);
           for (let i = 0; i < 24; i++) this.puff(B.x, B.y, 3, 'dust');
@@ -394,6 +415,54 @@ export class Play {
     // The rider's body follows the lean a beat behind, so a twitch of the
     // controls doesn't jerk it about.
     this.pose += ((B.lean ?? 0) - this.pose) * Math.min(1, dt * 9);
+  }
+
+  // The rider comes off from where his hips were (clear of the ground), at
+  // most of the speed the bike's frame had there but flung up, not down,
+  // tumbling on the way he was going from the line his body made on it.
+  throwRider() {
+    const B = this.B;
+    const R = seated(clamp(this.pose, -1, 1));
+    const [x, y] = this.onBike(R.hip[0], R.hip[1]);
+    const vx = 0.7 * (B.vx - B.omega * (y - B.y));
+    const vy = Math.max(0, B.vy + B.omega * (x - B.x)) + 2.5;
+    const T = (this.thrown = { x, y, vx, vy, angle: B.angle + Math.PI / 2 - R.tilt, omega: B.omega * 0.8 - vx * 0.25, down: false, bounced: false, t: 0, k: 0 });
+    T.y += Math.max(0, sunk(this.level, T));
+  }
+
+  // The thrown rider for dt: through the air, landing on whichever of his
+  // hips, head or feet comes down first -- one soft bounce, then down for
+  // good, sliding to a stop and settling flat along the ground (face down
+  // or on his back, whichever is nearer). Three seconds at most.
+  fly(T, dt) {
+    const L = this.level;
+    if ((T.t += dt) > 3) return;
+    const wasX = T.x;
+    T.vy -= G * dt;
+    T.x += T.vx * dt;
+    T.y += T.vy * dt;
+    T.angle += T.omega * dt;
+    if (T.down) {
+      const slope = Math.atan(slopeAt(L, T.x));
+      const flat = slope + Math.PI * Math.round((T.angle - slope) / Math.PI);
+      T.angle += (flat - T.angle) * Math.min(1, dt * 6);
+      T.vx = Math.sign(T.vx) * Math.max(0, Math.abs(T.vx) - 10 * dt);
+      T.k = Math.min(1, T.k + dt * 2.5);
+    }
+    const into = sunk(L, T);
+    if (into <= 0) return;
+    if (into > 0.5 && T.x !== wasX) {
+      Object.assign(T, { x: wasX, vx: T.vx * -0.3 }); // into the face of a ledge or a log: knocked back
+      return;
+    }
+    T.y += into;
+    const hit = T.vy;
+    T.vy = Math.max(0, T.vy);
+    if (T.down || hit >= 0) return;
+    // Coming down: a burst of dust as big as the landing was hard.
+    if (hit < -1) for (let i = 0; i < 8 + Math.min(16, -hit * 2); i++) this.puff(T.x, T.y - BODY, 1 + Math.min(2, -hit * 0.25), 'dust');
+    const bounce = !T.bounced && hit < -2.5;
+    Object.assign(T, bounce ? { bounced: true, vy: -hit * 0.3, vx: T.vx * 0.5, omega: T.omega * 0.4 } : { down: true, omega: 0 });
   }
 
   puff(x, y, size, kind) {
@@ -854,15 +923,20 @@ export class Play {
     ctx.lineCap = 'butt';
   }
 
+  // The bike, and the rider when he's been thrown off it, in front of the
+  // wreck: each in its own frame, at its place and angle.
   drawBike(sx, sy, scale) {
-    const { ctx } = this;
-    const B = this.B;
-    ctx.save();
-    ctx.translate(sx(B.x), sy(B.y));
-    ctx.rotate(-B.angle);
-    ctx.scale(scale, -scale);
-    paintBike(ctx, B, this.pose);
-    ctx.restore();
+    const { ctx, B, thrown: T } = this;
+    const framed = (it, paint) => {
+      ctx.save();
+      ctx.translate(sx(it.x), sy(it.y));
+      ctx.rotate(-it.angle);
+      ctx.scale(scale, -scale);
+      paint();
+      ctx.restore();
+    };
+    framed(B, () => paintBike(ctx, B, this.pose, { rider: !T }));
+    if (T) framed(T, () => paintRider(ctx, T.k, true));
   }
 
   // The instrument band along the top: the speed (in km/h, to go with the
@@ -1380,13 +1454,56 @@ FEATURE_ART.cliff = FEATURE_ART.drop;
 // The bike and its rider, drawn in the frame's own coordinates: metres from
 // the centre of mass, x forward, y up (the caller has set the transform).
 // The rider stands on the pegs and leans by `pose` (1 = back, -1 =
-// forward). Shared with the card picture on the hub.
+// forward), or is left off when he's been thrown (and is drawn on his own
+// by paintRider). Shared with the card picture on the hub.
 const INK = '#1d1b22';
 const RED_DARK = '#9d1b25';
 const RED_LIGHT = '#ff8f98';
 const JERSEY = ['#2a9d8f', '#1b6b61']; // near side, far side
 const PANTS = ['#264653', '#16303a'];
 const METAL = '#a7adb5';
+const PEG = [-0.06, -0.36]; // the near footpeg
+const BARS = [0.3, 0.47]; // the near grip
+const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+
+// Drawing on one context in the frame's metres: a path through points, a
+// stroke of it (a dashed one -- knobs, teeth, coils -- has square ends so
+// the dashes stay apart), a line, a filled outline and a disc.
+const pen = (ctx) => {
+  const trace = (pts) => {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  };
+  const stroke = (width, colour, dash = []) => {
+    ctx.lineWidth = width;
+    ctx.strokeStyle = colour;
+    ctx.setLineDash(dash);
+    ctx.lineCap = dash.length ? 'butt' : 'round';
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+  };
+  const finish = (fill, edge, width) => {
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (edge) stroke(width, edge);
+  };
+  const line = (pts, width, colour, dash) => {
+    trace(pts);
+    stroke(width, colour, dash);
+  };
+  const shape = (pts, fill, edge = INK, width = 0.012) => {
+    trace(pts);
+    ctx.closePath();
+    finish(fill, edge, width);
+  };
+  const disc = (x, y, r, fill, edge = null, width = 0.01) => {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    finish(fill, edge, width);
+  };
+  return { stroke, line, shape, disc };
+};
 
 // Two-bone reach: where the joint goes between a root and a tip, given the
 // two bone lengths. The joint sits to the left of the line root -> tip, which
@@ -1409,47 +1526,104 @@ const reach = (a, b, l1, l2, flat = 1) => {
 // Piecewise between the three poses: over the bars, neutral, and back.
 const byPose = (pose, fwd, mid, back) => (pose < 0 ? mid + (mid - fwd) * pose : mid + (back - mid) * pose);
 
-export function paintBike(ctx, B, pose = B.lean ?? 0) {
+// Where the rider's parts go on the bike: hips slide along the seat, the
+// torso pitches, the head stays level to look ahead; feet on the pegs and
+// hands on the grips. (Hips a little behind the pegs and the torso not too
+// far over, so the arms reach forward and down to the bars rather than
+// straight down.)
+const seated = (p) => {
+  const ankle = [PEG[0] - 0.03, PEG[1] + 0.07];
+  const hip = [byPose(p, -0.26, -0.3, -0.44), byPose(p, 0.45, 0.52, 0.3)];
+  const tilt = byPose(p, 0.62, 0.42, 0.2); // torso from upright, radians
+  const shoulder = [hip[0] + 0.5 * Math.sin(tilt), hip[1] + 0.5 * Math.cos(tilt)];
+  const nod = tilt * 0.4;
+  const head = [shoulder[0] + 0.25 * Math.sin(nod), shoulder[1] + 0.25 * Math.cos(nod)];
+  const neck = [head[0] - 0.02, head[1] - 0.07];
+  return { hip, tilt, shoulder, head, neck, turn: -nod * 0.5, toe: 0, foot: ankle, farFoot: [ankle[0] + 0.05, ankle[1]], hand: BARS, farHand: [BARS[0] + 0.05, BARS[1] + 0.01] };
+};
+
+// And thrown off: hips at the origin, the torso out along x with the chest
+// toward -y, the legs trailing one way and the arms flung the other -- in
+// the air at k = 0, stretched out lying at k = 1. The helmet and boots turn
+// with the body.
+const sprawled = (k) => ({
+  hip: [0, 0], tilt: Math.PI / 2, shoulder: [0.5, 0], head: [0.75, -0.04], neck: [0.68, -0.02], turn: -Math.PI / 2, toe: -Math.PI / 2,
+  foot: mix([-0.7, -0.32], [-0.78, -0.12], k), farFoot: mix([-0.8, 0.16], [-0.86, 0.02], k),
+  hand: mix([0.84, -0.44], [0.12, -0.12], k), farHand: mix([0.92, 0.36], [1.06, 0.03], k),
+});
+
+// The rider drawn from one of those, in three layers so the bike can go
+// between them: the far leg and arm (behind the bike, in shadow), the near
+// leg (the footpeg goes over its boot), then the body, the near arm and the
+// helmet on top.
+const riderLayers = (ctx, R) => {
+  const { line, shape, disc } = pen(ctx);
+  const leg = (h, a, colour, boot) => {
+    const [knee, foot] = reach(h, a, 0.44, 0.44);
+    line([h, knee], 0.16, colour[0]);
+    line([knee, foot], 0.125, colour[0]);
+    line([mix(knee, foot, 0.4), foot], 0.13, boot);
+    disc(knee[0] + 0.02, knee[1], 0.065, colour[1]); // knee guard
+    // The boot, toe forward and sole down on the pegs, turned by R.toe.
+    const c = Math.cos(R.toe);
+    const s = Math.sin(R.toe);
+    const at = (dx, dy) => [foot[0] + dx * c - dy * s, foot[1] + dx * s + dy * c];
+    shape([at(-0.08, 0.03), at(0.045, 0.035), at(0.15, -0.07), at(-0.09, -0.09)], boot, INK, 0.012);
+    line([at(-0.09, -0.09), at(0.15, -0.08)], 0.028, INK); // sole
+  };
+  const arm = (s, g, colour) => {
+    const [elbow, hand] = reach(s, g, 0.36, 0.34, 0.4);
+    line([s, elbow], 0.105, colour);
+    line([elbow, hand], 0.088, colour);
+    disc(hand[0], hand[1], 0.047, INK); // glove
+  };
+  const { hip, shoulder, head } = R;
+  const far = () => {
+    leg([hip[0] + 0.04, hip[1]], R.farFoot, PANTS.slice().reverse(), '#b9bec4');
+    arm([shoulder[0] + 0.04, shoulder[1]], R.farHand, JERSEY[1]);
+  };
+  const body = () => {
+    const t = [Math.sin(R.tilt), Math.cos(R.tilt)];
+    const f = [Math.cos(R.tilt), -Math.sin(R.tilt)]; // across the body, to the chest
+    const at = (o, a, b) => [o[0] + t[0] * a + f[0] * b, o[1] + t[1] * a + f[1] * b];
+    const torso = [[-0.02, -0.105], [0.17, -0.13], [0.36, -0.125], [0.48, -0.08], [0.55, 0], [0.52, 0.08], [0.39, 0.125], [0.19, 0.095], [0.03, 0.09]];
+    shape(torso.map(([a, b]) => at(hip, a, b)), JERSEY[0], '#164f48', 0.014);
+    shape([at(hip, -0.045, -0.105), at(hip, 0.025, 0.09), at(hip, 0.095, 0.09), at(hip, 0.085, -0.125)], PANTS[0], null);
+    line([at(hip, 0.275, -0.125), at(hip, 0.31, 0.105)], 0.04, '#f4f1e8'); // jersey stripe
+    line([at(shoulder, 0, 0.02), R.neck], 0.07, '#e0b07a'); // neck
+    arm(shoulder, R.hand, JERSEY[0]);
+    // Helmet: shell with a stripe, peak, goggles and strap, and a chin bar.
+    ctx.save();
+    ctx.translate(head[0], head[1]);
+    ctx.rotate(R.turn);
+    ctx.scale(0.95, 0.95);
+    disc(0, 0, 0.15, '#f8f9fa', INK, 0.014);
+    line([[0, 0.115], [-0.07, 0.093], [-0.11, 0.035], [-0.115, -0.01]], 0.035, FRAME);
+    shape([[0.02, 0.13], [0.24, 0.1], [0.22, 0.065], [0.06, 0.07]], FRAME, RED_DARK); // peak
+    shape([[0.1, -0.06], [0.2, -0.07], [0.2, -0.13], [0.07, -0.15]], '#d9dde2', INK); // chin bar
+    line([[-0.15, 0.03], [0.06, 0.02]], 0.035, '#f4b400'); // goggle strap
+    shape([[0.06, 0.055], [0.165, 0.045], [0.16, -0.035], [0.06, -0.025]], '#273c55', INK); // goggle lens
+    line([[0.085, 0.03], [0.13, 0.025]], 0.012, 'rgba(255,255,255,0.7)');
+    ctx.restore();
+  };
+  return [far, () => leg(hip, R.foot, PANTS, '#eef0f2'), body];
+};
+
+// The rider on his own: riding by `pose`, or limp, thrown clear of a crash
+// (drawn round his hips, `pose` then from 0 in the air to 1 lying down).
+function paintRider(ctx, pose, limp = false) {
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const layer of riderLayers(ctx, limp ? sprawled(clamp(pose, 0, 1)) : seated(clamp(pose, -1, 1)))) layer();
+}
+
+export function paintBike(ctx, B, pose = B.lean ?? 0, { rider = true } = {}) {
   const p = Math.max(-1, Math.min(1, pose));
   const spin = B.spin ?? 0;
   const rx = -BASE / 2;
   const fx = BASE / 2;
   const ay = -COM; // axle height
-  const trace = (pts) => {
-    ctx.beginPath();
-    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-  };
-  // Strokes the current path; a dashed one (knobs, teeth, coils) has square
-  // ends so the dashes stay apart.
-  const stroke = (width, colour, dash = []) => {
-    ctx.lineWidth = width;
-    ctx.strokeStyle = colour;
-    ctx.setLineDash(dash);
-    ctx.lineCap = dash.length ? 'butt' : 'round';
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.lineCap = 'round';
-  };
-  const line = (pts, width, colour, dash) => {
-    trace(pts);
-    stroke(width, colour, dash);
-  };
-  const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
-  const finish = (fill, edge, width) => {
-    ctx.fillStyle = fill;
-    ctx.fill();
-    if (edge) stroke(width, edge);
-  };
-  const shape = (pts, fill, edge = INK, width = 0.012) => {
-    trace(pts);
-    ctx.closePath();
-    finish(fill, edge, width);
-  };
-  const disc = (x, y, r, fill, edge = null, width = 0.01) => {
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    finish(fill, edge, width);
-  };
+  const { stroke, line, shape, disc } = pen(ctx);
   // A ring of tyre knobs or sprocket teeth, turning with the wheel.
   const teeth = (x, y, r, width, colour, count, turn) => {
     const gap = (Math.PI * 2 * r) / count;
@@ -1460,37 +1634,9 @@ export function paintBike(ctx, B, pose = B.lean ?? 0) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // The rider's pose: hips slide along the seat, the torso pitches, the head
-  // stays level to look ahead. Feet stay on the pegs and hands on the grips.
-  const peg = [-0.06, -0.36];
-  const ankle = [peg[0] - 0.03, peg[1] + 0.07];
-  const grip = [0.3, 0.47];
-  // (Hips a little behind the pegs and the torso not too far over, so the
-  // arms reach forward and down to the bars rather than straight down.)
-  const hip = [byPose(p, -0.26, -0.3, -0.44), byPose(p, 0.45, 0.52, 0.3)];
-  const tilt = byPose(p, 0.62, 0.42, 0.2); // torso from upright, radians
-  const shoulder = [hip[0] + 0.5 * Math.sin(tilt), hip[1] + 0.5 * Math.cos(tilt)];
-  const nod = tilt * 0.4;
-  const head = [shoulder[0] + 0.25 * Math.sin(nod), shoulder[1] + 0.25 * Math.cos(nod)];
-  const leg = (h, a, colour, boot) => {
-    const [knee, foot] = reach(h, a, 0.44, 0.44);
-    line([h, knee], 0.16, colour[0]);
-    line([knee, foot], 0.125, colour[0]);
-    line([mix(knee, foot, 0.4), foot], 0.13, boot);
-    disc(knee[0] + 0.02, knee[1], 0.065, colour[1]); // knee guard
-    shape([[foot[0] - 0.08, foot[1] + 0.03], [foot[0] + 0.045, foot[1] + 0.035], [foot[0] + 0.15, foot[1] - 0.07], [foot[0] - 0.09, foot[1] - 0.09]], boot, INK, 0.012);
-    line([[foot[0] - 0.09, foot[1] - 0.09], [foot[0] + 0.15, foot[1] - 0.08]], 0.028, INK); // sole
-  };
-  const arm = (s, g, colour) => {
-    const [elbow, hand] = reach(s, g, 0.36, 0.34, 0.4);
-    line([s, elbow], 0.105, colour);
-    line([elbow, hand], 0.088, colour);
-    disc(hand[0], hand[1], 0.047, INK); // glove
-  };
-
-  // The far leg and arm, behind the bike and in shadow.
-  leg([hip[0] + 0.04, hip[1]], [ankle[0] + 0.05, ankle[1]], PANTS.slice().reverse(), '#b9bec4');
-  arm([shoulder[0] + 0.04, shoulder[1]], [grip[0] + 0.05, grip[1] + 0.01], JERSEY[1]);
+  // The rider's far leg and arm, behind the bike and in shadow.
+  const [far, nearLeg, body] = rider ? riderLayers(ctx, seated(p)) : [];
+  far?.();
 
   // Wheels: knobbly tyres, rims, crossed spokes and hubs.
   const wheel = (x, y, turn, rear) => {
@@ -1585,33 +1731,11 @@ export function paintBike(ctx, B, pose = B.lean ?? 0) {
   line([[0.27, 0.22], [0.37, 0.22]], 0.035, '#4a4d52');
   line([[0.32, 0.08], [0.41, 0.08]], 0.035, '#4a4d52');
   shape([[0.38, 0.05], [0.46, 0.08], [0.45, 0.26], [0.37, 0.25]], FRAME, RED_DARK, 0.014);
-  line([[0.31, 0.22], [0.35, 0.36], [grip[0] - 0.02, grip[1] - 0.02]], 0.042, '#2b2b30');
-  line([[grip[0] + 0.005, grip[1]], [grip[0] + 0.1, grip[1] - 0.07]], 0.016, '#8d949c'); // brake lever
+  line([[0.31, 0.22], [0.35, 0.36], [BARS[0] - 0.02, BARS[1] - 0.02]], 0.042, '#2b2b30');
+  line([[BARS[0] + 0.005, BARS[1]], [BARS[0] + 0.1, BARS[1] - 0.07]], 0.016, '#8d949c'); // brake lever
 
-  // The rider: near leg, body, near arm, then the helmet on top.
-  leg(hip, ankle, PANTS, '#eef0f2');
-  line([peg, [peg[0] + 0.08, peg[1]]], 0.035, METAL); // footpeg
-  const t = [Math.sin(tilt), Math.cos(tilt)];
-  const f = [Math.cos(tilt), -Math.sin(tilt)]; // across the body, to the chest
-  const at = (o, a, b) => [o[0] + t[0] * a + f[0] * b, o[1] + t[1] * a + f[1] * b];
-  const torso = [[-0.02, -0.105], [0.17, -0.13], [0.36, -0.125], [0.48, -0.08], [0.55, 0], [0.52, 0.08], [0.39, 0.125], [0.19, 0.095], [0.03, 0.09]];
-  shape(torso.map(([a, b]) => at(hip, a, b)), JERSEY[0], '#164f48', 0.014);
-  shape([at(hip, -0.045, -0.105), at(hip, 0.025, 0.09), at(hip, 0.095, 0.09), at(hip, 0.085, -0.125)], PANTS[0], null);
-  line([at(hip, 0.275, -0.125), at(hip, 0.31, 0.105)], 0.04, '#f4f1e8'); // jersey stripe
-  line([at(shoulder, 0, 0.02), [head[0] - 0.02, head[1] - 0.07]], 0.07, '#e0b07a'); // neck
-  arm(shoulder, grip, JERSEY[0]);
-
-  // Helmet: shell with a stripe, peak, goggles and strap, and a chin bar.
-  ctx.save();
-  ctx.translate(head[0], head[1]);
-  ctx.rotate(-nod * 0.5);
-  ctx.scale(0.95, 0.95);
-  disc(0, 0, 0.15, '#f8f9fa', INK, 0.014);
-  line([[0, 0.115], [-0.07, 0.093], [-0.11, 0.035], [-0.115, -0.01]], 0.035, FRAME);
-  shape([[0.02, 0.13], [0.24, 0.1], [0.22, 0.065], [0.06, 0.07]], FRAME, RED_DARK); // peak
-  shape([[0.1, -0.06], [0.2, -0.07], [0.2, -0.13], [0.07, -0.15]], '#d9dde2', INK); // chin bar
-  line([[-0.15, 0.03], [0.06, 0.02]], 0.035, '#f4b400'); // goggle strap
-  shape([[0.06, 0.055], [0.165, 0.045], [0.16, -0.035], [0.06, -0.025]], '#273c55', INK); // goggle lens
-  line([[0.085, 0.03], [0.13, 0.025]], 0.012, 'rgba(255,255,255,0.7)');
-  ctx.restore();
+  // The rider's near leg, the footpeg over its boot, then the rest of him.
+  nearLeg?.();
+  line([PEG, [PEG[0] + 0.08, PEG[1]]], 0.035, METAL); // footpeg
+  body?.();
 }
