@@ -149,12 +149,20 @@ test('every course is ridable (the computer rider finishes it) and gets longer a
   assert.ok(makeLevel(20).par > makeLevel(3).par);
 });
 
-test('course 1 is hills and one small jump; logs, climbs, drops, ledges, cliffs and gaps arrive over the next four', () => {
+test('course 1 is hills and one small jump; logs, climbs, drops, ledges, cliffs and gaps arrive over the next four; then set pieces', () => {
   const kinds = (n) => makeCourse(n).features.map((f) => f.kind);
   assert.deepEqual(kinds(1), ['hill', 'jump', 'hill', 'hill']);
   const first = {};
   for (let n = 1; n <= 8; n++) for (const k of kinds(n)) first[k] ??= n;
+  delete first.down; // (the slope that closes a set piece)
   assert.deepEqual(first, { hill: 1, jump: 1, log: 2, climb: 2, drop: 3, step: 4, cliff: 4, gap: 5 });
+  // From course 3 every course has a set piece, packed close, with a flag just before it.
+  for (const n of [3, 7, 12]) {
+    const level = makeCourse(n);
+    const set = level.features.filter((f) => f.set);
+    assert.ok(set.length >= 1, `course ${n} has a set piece`);
+    assert.ok(level.flags.some((x) => x < set[0].x0 && x > set[0].x0 - 12), 'with a flag at its start');
+  }
   assert.ok(specFor(1).combo === 0 && specFor(10).combo > specFor(3).combo, 'obstacles come closer together as courses go on');
 });
 
@@ -202,10 +210,10 @@ test('a fall onto the front wheel pitched down is a crash; the same fall on the 
 });
 
 test('a climb is long and steep but never over 35 degrees; a cliff is sheer and lands on the flat', () => {
-  const level = makeCourse(9);
-  const climb = level.features.find((f) => f.kind === 'climb');
-  const cliff = level.features.find((f) => f.kind === 'cliff');
-  assert.ok(climb && cliff, 'course 9 has both');
+  const level = makeCourse(15);
+  const climb = level.features.find((f) => f.kind === 'climb' && !f.set);
+  const cliff = level.features.find((f) => f.kind === 'cliff' && !f.set);
+  assert.ok(climb && cliff, 'course 15 has both');
   let steepest = 0;
   let top = -Infinity;
   for (let x = climb.x0; x <= climb.x1; x += STEP) {
@@ -216,7 +224,7 @@ test('a climb is long and steep but never over 35 degrees; a cliff is sheer and 
   assert.ok(steepest < (36 * Math.PI) / 180, `steepest ${(steepest * 180) / Math.PI}°`);
   const fall = heightAt(level, cliff.x0) - heightAt(level, cliff.x1 + 0.5);
   assert.ok(fall > 2 && fall < 4, `cliff of ${fall} m`);
-  assert.equal(bestRide(makeLevel(9)).kind, 'finished', 'the computer rider manages them');
+  assert.equal(bestRide(makeLevel(15)).kind, 'finished', 'the computer rider manages them');
 });
 
 test('a full turn in the air, landed, is a flip; half a turn held into the ground is a crash, not a trick', () => {

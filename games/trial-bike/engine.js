@@ -140,9 +140,26 @@ export function specFor(n) {
   };
 }
 
-// The kinds of obstacle course n is made of, in order: whatever is new this
-// course is always there, the rest are drawn from everything the course
-// allows, and course 1 is hills with one small jump in the middle.
+// Every course from the third has a set piece: one big moment about two
+// thirds of the way along, built from the ordinary obstacles at a larger
+// size and packed close, with a flag just before it. Each is a list of
+// [kind, size] (size as a multiple of the course's usual), and needs the
+// kinds it's made of.
+const SET_PIECES = {
+  triple: { parts: [['jump', 1.2], ['jump', 1.2], ['jump', 1.2]], between: 1.5 }, // three kickers in a row: a rhythm section
+  wall: { parts: [['climb', 1.5]], between: 0 }, // one long climb
+  summit: { parts: [['ascent', 1], ['cliff', 'back']], between: 0 }, // a climb to a crest, and a cliff straight off it
+  stairs: { parts: [['ledge', 0.85], ['ledge', 0.85], ['ledge', 0.85], ['cliff', 'back']], between: 6 }, // three ledges up, then down the lot
+  canyon: { parts: [['gap', 1.3]], between: 0 }, // the big gap
+};
+const NEEDS = { ledge: 'step', ascent: 'climb' }; // which spec a composed kind draws on
+const setPiecesFor = (spec) => Object.keys(SET_PIECES).filter((name) => SET_PIECES[name].parts.every(([kind]) => spec[NEEDS[kind] ?? kind]));
+
+// The kinds of obstacle course n is made of, in order: a string for an
+// ordinary obstacle, or { kind, size, between } for part of the set piece
+// (`between`: the gap to its next part, in metres). Whatever is new this course
+// is always there, the rest are drawn from everything the course allows,
+// and course 1 is hills with one small jump in the middle.
 function kindsFor(n, spec, r) {
   const allowed = ['hill', 'hill', 'jump', 'jump'];
   if (spec.log) allowed.push('log');
@@ -157,6 +174,12 @@ function kindsFor(n, spec, r) {
   for (let i = 0; i < spec.features; i++) kinds.push(allowed[Math.floor(r() * allowed.length)]);
   for (const kind of fresh) {
     if (!kinds.includes(kind)) kinds[1 + Math.floor(r() * (kinds.length - 2))] = kind;
+  }
+  const sets = n >= 3 ? setPiecesFor(spec) : [];
+  if (sets.length) {
+    const { parts, between } = SET_PIECES[sets[Math.floor(r() * sets.length)]];
+    // (The set piece takes the place of a couple of ordinary obstacles.)
+    kinds.splice(Math.round(kinds.length * 0.65), Math.min(2, kinds.length - 3), ...parts.map(([kind, size], k) => ({ kind, size, between: k < parts.length - 1 ? between : null })));
   }
   return kinds;
 }
@@ -180,9 +203,10 @@ export function makeCourse(n, attempt = 0) {
   };
   let landing = 0; // room the last obstacle needs to come down from
   let lastEnd = 0; // where the last obstacle ended
+  let inSet = false; // building the set piece
   const piece = (kind, len, f, rise = 0, fall = 0, flight = 0) => {
     pieces.push({ x0: x, x1: x + len, y0: y, f });
-    features.push({ kind, x0: x, x1: x + len });
+    features.push(inSet ? { kind, x0: x, x1: x + len, set: true } : { kind, x0: x, x1: x + len });
     x += len;
     lastEnd = x;
     y += rise;
@@ -190,9 +214,19 @@ export function makeCourse(n, attempt = 0) {
   };
   flat(x);
   const perFlag = n < 4 ? 3 : 4;
-  for (let i = 0; i < spec.features; i++) {
-    const kind = kinds[i];
-    const s = 0.6 + 0.4 * r(); // this one's size, as a share of the spec
+  let setBase = null; // the ground's height where the set piece began
+  for (let i = 0; i < kinds.length; i++) {
+    const entry = kinds[i];
+    const { kind, size, between } = typeof entry === 'string' ? { kind: entry } : entry;
+    const s = size === 'back' ? 1 : size ?? 0.6 + 0.4 * r(); // this one's size, as a share of the spec
+    // The set piece opens on calm ground with a flag, so a crash in it
+    // starts you again right there.
+    if (size !== undefined && setBase === null) {
+      flat(8);
+      flags.push(x - 1.5);
+      setBase = y;
+    }
+    inSet = size !== undefined;
     switch (kind) {
       case 'hill': {
         // A rolling rise and fall, or a few of them.
@@ -244,16 +278,36 @@ export function makeCourse(n, attempt = 0) {
         piece('climb', up + crest + down, (d) => (d < up ? h * smooth(d / up) : d < up + crest ? h : h * (1 - smooth((d - up - crest) / down))));
         break;
       }
+      case 'ledge': {
+        // A ledge up that stays up (the stairs of a set piece).
+        const h = spec.step * s;
+        piece('step', 3 + r(), (d) => (d < 0.15 ? h * (d / 0.15) : h), h);
+        break;
+      }
+      case 'ascent': {
+        // The climb up to a crest, and no way down but what follows.
+        const h = spec.climb * s;
+        const up = h * 2.5;
+        piece('climb', up + 3, (d) => (d < up ? h * smooth(d / up) : h), h);
+        break;
+      }
       case 'cliff': {
-        // A cliff: a sheer drop to flat ground, to be landed on both wheels.
-        const h = spec.cliff * s;
+        // A cliff: a sheer drop to flat ground, to be landed on both wheels
+        // -- or, closing a set piece, back down to where it started: as
+        // much of that as can be fallen, then a slope for the rest.
+        const h = size === 'back' ? Math.min(3.6, Math.max(1.5, y - setBase)) : spec.cliff * s;
         piece('cliff', 0.6, (d) => -h * smooth(d / 0.6), -h, h);
+        const rest = size === 'back' ? y - setBase : 0;
+        if (rest > 0.3) {
+          flat(landing);
+          piece('down', rest * 2.8, (d) => -rest * smooth(d / (rest * 2.8)), -rest);
+        }
         break;
       }
       case 'gap': {
         // A gap in the ground: too deep to climb out of, so clear it -- which
         // takes speed, so there's a run-up.
-        const w = spec.gap * s;
+        const w = Math.min(3.3, spec.gap * s);
         flat(Math.max(0, 12 + 3 * w - (x - lastEnd)));
         const pit = 2 + w; // depth: a fall is a fall
         piece('gap', w + 0.8, (d) => (d < 0.4 ? -pit * smooth(d / 0.2) : d > w + 0.4 ? -pit * smooth((w + 0.8 - d) / 0.2) : -pit), 0, 0.5);
@@ -267,12 +321,15 @@ export function makeCourse(n, attempt = 0) {
     // cliff off the end of a jump -- but never a wall (a log or a ledge),
     // which needs a clean approach, nor a gap, which needs its run-up, nor
     // anything but a further fall where a jump or a drop comes down.
+    // Inside a set piece the parts follow straight on, as designed.
     const next = kinds[i + 1];
-    const wall = next === 'log' || next === 'step';
-    const falling = next === 'drop' || next === 'cliff';
-    const combo = next && next !== 'gap' && !wall && (!landing || falling) && r() < spec.combo;
-    flat(combo ? Math.max(1.5, landing ? landing * 0.6 : 0) + r() : Math.max(landing, Math.max(4, 9 - 0.4 * (n - 1))) + 3 * r());
-    if ((i + 1) % perFlag === 0 && i < spec.features - 1 && !combo) flags.push(x - 1.5);
+    const nextKind = typeof next === 'string' ? next : next?.kind;
+    const wall = nextKind === 'log' || nextKind === 'step' || nextKind === 'ledge';
+    const falling = nextKind === 'drop' || nextKind === 'cliff';
+    const combo = next && nextKind !== 'gap' && !wall && (!landing || falling) && r() < spec.combo;
+    if (between !== null && between !== undefined) flat(between + 0.5 * r());
+    else flat(combo ? Math.max(1.5, landing ? landing * 0.6 : 0) + r() : Math.max(landing, Math.max(4, 9 - 0.4 * (n - 1))) + 3 * r());
+    if ((i + 1) % perFlag === 0 && i < kinds.length - 1 && !combo && size === undefined) flags.push(x - 1.5);
   }
   flat(10);
   const finish = x - 3;
