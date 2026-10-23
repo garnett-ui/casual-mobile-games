@@ -97,14 +97,16 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
 
 - Realistic momentum and rotational inertia under lunar gravity (1.62 m/s²):
   the side thrusters change the spin rate, so you counter-fire to stop.
-  Equal bursts left and right cancel exactly. With assist off, the only
-  help is a gentle fade of slow spins: under 1.5°/s, with no turn button
-  held, the spin halves every second -- since nulling one that small by
-  hand is next to impossible. So a small tap is a nudge the way it points,
-  coasting to a stop, and a quick opposite pair still nudges the way of
-  the first: the moves for levelling up just before touchdown. (An earlier
-  attitude hold stopped spins under 4°/s at once, and swallowed the first
-  tap of such a pair.) The spin rate shows in tenths when it's slow. The main engine gets
+  Equal bursts left and right cancel exactly. Your turn buttons are
+  progressive: for the first 0.2 s of a press the side thrusters push
+  gently (5°/s², so a tenth-of-a-second tap is a touch of 0.5°/s),
+  building to full strength (26°/s²) by half a second -- fine trims and
+  quick big turns both. With assist off, a spin left alone ebbs away at
+  0.5°/s²: a tap's nudge coasts to a stop in about a second, a fast spin
+  hardly notices. (Earlier: an attitude hold that swallowed small taps,
+  then a fade that halved spins under 1.5°/s every second -- with
+  full-strength taps of nearly 2°/s, that left you forever chasing drift.)
+  The spin rate shows in tenths when it's slow. The main engine gets
   punchier as fuel burns off.
 - The camera follows the lander and zooms in as it gets close to anything
   -- the ground below, or the walls of a shaft, a cave or a tunnel, or rock

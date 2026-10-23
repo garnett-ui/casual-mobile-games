@@ -290,7 +290,7 @@ export class Play {
       for (let k = 0; k < n && !res; k++) {
         // Tests can fly with an autopilot that steers every physics step.
         if (this.pilot) Object.assign(this.input, this.pilot(this.level, L));
-        res = step(this.level, L, { ...this.input, assist: help && !apollo, hold: help && apollo }, h);
+        res = step(this.level, L, { ...this.input, assist: help && !apollo, hold: help && apollo, fine: !this.pilot }, h);
         fired ||= L.thrusting;
         turned ||= L.rcs;
       }

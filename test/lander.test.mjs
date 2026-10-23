@@ -36,18 +36,10 @@ test('side thrusters change the spin rate, not the angle directly (rotational in
   fly(level, L, { right: true }, 0.5);
   const w = L.omega;
   assert.ok(Math.abs(w - ROT_ACCEL * 0.5) < 0.01);
-  // Let go: a fast spin keeps going...
+  // Let go: a fast spin keeps going (ebbing only gently, 0.5°/s²)...
   fly(level, L, idle, 0.5);
-  assert.ok(Math.abs(L.omega - w) < 1e-9, 'keeps spinning');
-  // ...until countered; whatever's left (under 1.5°/s) fades, halving
-  // every second (assist off).
-  fly(level, L, { left: true }, 0.49);
-  const rest = L.omega;
-  assert.ok(rest > 0 && rest < ROT_ACCEL * 0.03, `a little left over (${rest})`);
-  fly(level, L, idle, 1);
-  assert.ok(Math.abs(L.omega / rest - 0.5) < 0.02, `halved in a second (${L.omega / rest})`);
-  fly(level, L, idle, 1);
-  assert.ok(Math.abs(L.omega / rest - 0.25) < 0.02, 'and again');
+  assert.ok(Math.abs(L.omega - (w - (0.25 * Math.PI) / 180)) < 1e-9, 'keeps spinning');
+  // ...until countered.
 });
 
 test('running out of fuel cuts the engines', () => {
@@ -289,39 +281,41 @@ test('side thrusters are balanced: equal bursts left and right cancel exactly (a
   }
 });
 
-test('small spins fade (under 1.5°/s, halving every second); faster ones keep going; taps nudge the way they point (assist off)', () => {
+test('your turn buttons are progressive: a quick tap is a touch of 0.5°/s, a long press builds to full strength; spins ebb at 0.5°/s² (assist off)', async () => {
+  const { ROT_FINE, SPIN_FADE } = await import('../games/lander/engine.js');
   const level = makeLevel(1);
   const deg = Math.PI / 180;
-  // Faster than 1.5°/s: no fade.
-  const fast = airborne(level);
-  fast.omega = 2 * deg;
-  fly(level, fast, {}, 3);
-  assert.ok(Math.abs(fast.omega - 2 * deg) < 1e-12);
-  // One small tap: a nudge the way it points, then it coasts to a stop.
-  for (const tap of [1 / 60, 0.04]) {
-    const L = airborne(level);
-    L.angle = 3 * deg;
-    L.omega = 0;
-    fly(level, L, { left: true }, tap);
-    const w = -L.omega;
-    fly(level, L, {}, 12);
-    assert.ok(Math.abs(L.omega) < 0.01 * deg, `stopped (${L.omega / deg}°/s)`);
-    // (The coast: w / ln 2 degrees, all told.)
-    assert.ok(Math.abs(3 * deg - L.angle - w / Math.LN2) < 0.05 * deg, `a nudge left of ${((3 * deg - L.angle) / deg).toFixed(2)}°`);
+  // A tenth-of-a-second tap: 0.5°/s.
+  const L = airborne(level);
+  fly(level, L, { right: true, fine: true }, 0.1);
+  assert.ok(Math.abs(L.omega - 0.5 * deg) < 0.05 * deg, `${(L.omega / deg).toFixed(2)}°/s`); // (to a physics step)
+  // ...which ebbs away in about a second, a nudge of about a quarter degree.
+  const a0 = L.angle;
+  const w = L.omega;
+  fly(level, L, { fine: true }, 2);
+  assert.equal(L.omega, 0);
+  assert.ok(Math.abs(L.angle - a0 - w ** 2 / (2 * SPIN_FADE)) < 0.01 * deg);
+  assert.ok(L.angle - a0 < 0.35 * deg);
+  // Held, it builds to full strength: past half a second, as the autopilot's.
+  const H = airborne(level);
+  fly(level, H, { right: true, fine: true }, 1.5);
+  const full = H.omega;
+  fly(level, H, { right: true, fine: true }, 0.5);
+  assert.ok(Math.abs(H.omega - full - ROT_ACCEL * 0.5) < 0.01);
+  assert.ok(full > ROT_ACCEL * 1.1 && full < ROT_ACCEL * 1.5, 'a long press still turns quickly');
+  // Equal taps left and right still cancel exactly.
+  for (const tap of [0.05, 0.1, 0.3, 0.8]) {
+    const T = airborne(level);
+    fly(level, T, { left: true, fine: true }, tap);
+    fly(level, T, { right: true, fine: true }, tap);
+    assert.ok(Math.abs(T.omega) < 1e-9, `${tap}s each`);
   }
-  // A quick tap left then right: still a nudge left, and nearly still.
-  for (const [tap, gap] of [[0.03, 0.1], [0.05, 0.2]]) {
-    const L = airborne(level);
-    L.angle = 3 * deg;
-    L.omega = 0;
-    fly(level, L, { left: true }, tap);
-    fly(level, L, {}, gap);
-    fly(level, L, { right: true }, tap);
-    assert.ok(Math.abs(L.omega) < 0.2 * deg, `nearly still (${(L.omega / deg).toFixed(2)}°/s)`);
-    fly(level, L, {}, 12);
-    assert.ok(L.angle < 3 * deg, 'the lean came down');
-    assert.ok(Math.abs(L.omega) < 0.01 * deg);
-  }
+  // A fast spin hardly notices the fade.
+  const F = airborne(level);
+  F.omega = 20 * deg;
+  fly(level, F, {}, 2);
+  assert.ok(Math.abs(F.omega - 19 * deg) < 0.01 * deg);
+  assert.ok(ROT_FINE < ROT_ACCEL / 4);
 });
 
 test('clearance: the nearest surface in any direction -- the walls of a shaft, not just the floor far below', async () => {

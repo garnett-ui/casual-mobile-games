@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.72.2
+- Lunar Lander: finer turn buttons. A quick tap now gives just a touch of
+  spin (about 0.5°/s), and holding builds to full strength for big turns.
+  With assist off, any spin ebbs gently away (0.5°/s every second), so a
+  tap nudges you over and coasts to a stop -- no more chasing drift.
+
 ## 1.72.1
 - Lunar Lander, Apollo 11: the real voices, from NASA's recordings, at the
   big moments -- "GO for powered descent", the 1202 and 1201 alarms,

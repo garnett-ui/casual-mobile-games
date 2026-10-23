@@ -11,11 +11,17 @@ export const HEIGHT = 5.2; // lander height, m
 export const MAIN_THRUST = 3.5; // m/s^2 when nearly empty (heavier when full)
 export const ROT_ACCEL = (26 * Math.PI) / 180; // rad/s^2 from the side thrusters
 export const ROT_MAX = (90 * Math.PI) / 180;
-// Assist off: a spin slower than this, with no turn button held, fades --
-// halving every FADE_HALF seconds -- since nulling one that small by hand
-// is next to impossible. Faster spins are all yours.
-export const FADE_BELOW = (1.5 * Math.PI) / 180;
-export const FADE_HALF = 1;
+// Your turn buttons are progressive (input.fine): for the first FINE_FOR
+// seconds of a press the side thrusters push gently, at ROT_FINE -- so a
+// quick tap (a tenth of a second) is a touch of 0.5°/s -- then build to
+// full strength by FULL_BY, for big turns. (The autopilots get full
+// strength at once.)
+export const ROT_FINE = (5 * Math.PI) / 180;
+export const FINE_FOR = 0.2;
+export const FULL_BY = 0.5;
+// Assist off: a spin, with no turn button held, ebbs away at SPIN_FADE
+// (rad/s^2) -- a small one soon, a fast one hardly at all.
+export const SPIN_FADE = (0.5 * Math.PI) / 180;
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
 // Touchdown limits, as for the Apollo LM: 3 m/s down, 1.2 m/s sideways.
 export const SAFE = { vy: 3, vx: 1.2, angle: (10 * Math.PI) / 180 };
@@ -29,6 +35,7 @@ export const ASSIST_DAMP = 0.6; // per second: how fast sideways drift dies away
 // Attitude hold (the Apollo 11 flight's assist, as on the real LM): a turn
 // button turns the lander at a steady rate; let go and it holds that lean.
 export const HOLD_RATE = (20 * Math.PI) / 180;
+export const HOLD_FINE = (3 * Math.PI) / 180;
 // The Moon's radius: flying fast enough round it, the ground curves away
 // beneath you (felt here, over flat ground, as a lift of vx^2/R).
 export const MOON_R = 1737400;
@@ -485,13 +492,18 @@ export function step(level, L, input, dt) {
     L.landed = null;
   }
 
-  // Rotation: side thrusters change the spin rate (assist off); only a
-  // slow spin, left alone, fades -- gently, so a small tap is a nudge the
-  // way it points, coasting to a stop. With assist on,
+  // Rotation: side thrusters change the spin rate (assist off); a spin, left
+  // alone, ebbs gently away -- so a small tap is a nudge the way it points,
+  // coasting to a stop. With assist on,
   // rotation is a spring: a held turn button pushes against it (settling at
   // 20°), and on release it springs back to level.
+  // How long this turn button has been held (for the progressive push).
+  L.held = rotating && L.rcs === L.heldWay ? (L.held || 0) + dt : rotating ? dt : 0;
+  L.heldWay = L.rcs;
+  const ramp = Math.max(0, Math.min(1, (L.held - dt / 2 - FINE_FOR) / (FULL_BY - FINE_FOR)));
   if (input.hold && L.fuel > 0) {
-    L.omega = rotating ? L.rcs * HOLD_RATE : 0;
+    // (Attitude hold: a quick tap turns slowly too, 3°/s, building to the full rate.)
+    L.omega = rotating ? L.rcs * (input.fine ? HOLD_FINE + (HOLD_RATE - HOLD_FINE) * ramp : HOLD_RATE) : 0;
     if (rotating) L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
   } else if (input.assist && L.fuel > 0) {
     const push = rotating ? L.rcs * SPRING * ASSIST_TILT : 0;
@@ -500,11 +512,10 @@ export function step(level, L, input, dt) {
     L.rcs = Math.abs(torque) > 0.05 ? Math.sign(torque) : 0;
     if (L.rcs) L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
   } else if (rotating) {
-    L.omega += L.rcs * ROT_ACCEL * dt;
+    L.omega += L.rcs * (input.fine ? ROT_FINE + (ROT_ACCEL - ROT_FINE) * ramp : ROT_ACCEL) * dt;
     L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
-  } else if (Math.abs(L.omega) < FADE_BELOW) {
-    L.omega *= 0.5 ** (dt / FADE_HALF);
-    if (Math.abs(L.omega) < 1e-5) L.omega = 0;
+  } else {
+    L.omega = Math.sign(L.omega) * Math.max(0, Math.abs(L.omega) - SPIN_FADE * dt);
   }
   L.omega = Math.max(-ROT_MAX, Math.min(ROT_MAX, L.omega));
   L.angle += L.omega * dt;
