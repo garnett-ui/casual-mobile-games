@@ -547,6 +547,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 /* Jigsaw */
 .jg-body { flex: 1; overflow-y: auto; padding: 4px calc(16px + var(--safe-r)) calc(24px + var(--safe-b)) calc(16px + var(--safe-l)); }
 .jg-label { font-weight: 800; margin: 18px 0 10px; }
+.jg-label small { font-weight: 600; opacity: .65; }
 .jg-continue { margin-top: 8px; }
 .jg-continue .btn { width: 100%; }
 .jg-add { display: flex; gap: 12px; }

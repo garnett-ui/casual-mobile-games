@@ -25,7 +25,8 @@ the whole arcade.
 - **15** -- the sliding puzzle, with numbers, pictures, sequences (a clock,
   the moon, the sun across the sky) or your own photos on any level, and a
   graph of every move against the best possible.
-- **Jigsaw** -- turn your own photos into jigsaw puzzles.
+- **Jigsaw** -- turn your own photos into jigsaw puzzles, or a pattern: a
+  colour wheel, stained glass, a map and more, new every time.
 
 How each one is meant to play, and the decisions behind it, are in
 [DESIGN.md](DESIGN.md).

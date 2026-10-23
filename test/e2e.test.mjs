@@ -1321,6 +1321,36 @@ test('morse rain: letters to work on -- ranked, decaying after each ordinary gam
   }
 });
 
+test('jigsaw: patterns from the shared library -- each a puzzle, the same again when resumed', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 412, height: 915 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/#/jigsaw`);
+    await page.locator('.jg-sizes button[data-n="24"]').click();
+    const tiles = page.locator('[data-list=patterns] .jg-tile');
+    await tiles.first().waitFor();
+    assert.equal(await tiles.count(), 9);
+    await page.locator('[data-list=patterns] [data-pattern=wheel]').click();
+    await page.waitForFunction(() => window.__jigsaw && window.__jigsaw.pieces.length > 0, null, { timeout: 20000 });
+    const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:jigsaw:current') || 'null'));
+    // Back to the menu (saved), and resume: the same pattern, drawn again.
+    await page.locator('[data-act=menu]').click();
+    const first = await saved();
+    assert.match(first.id, /^pattern:wheel:\d+$/);
+    await page.locator('.jg-continue button').click();
+    await page.waitForFunction(() => window.__jigsaw && window.__jigsaw.pieces.length > 0, null, { timeout: 20000 });
+    await page.locator('[data-act=menu]').click();
+    assert.equal((await saved()).id, first.id);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('elevator operator: tap a shaft to send a lift, deliver everyone, scored against the dispatcher', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

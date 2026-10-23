@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.68.0
+- Jigsaw: **Patterns** -- nine designs to make a puzzle from (gradients, a
+  colour wheel, a spiral, stained glass, a topographic map, marble, a
+  woven pattern, a landscape), a new one every time you pick it.
+
 ## 1.67.3
 - Lunar Lander: the camera zooms in close to shaft, cave and tunnel walls
   too, not just to the ground below -- so you can judge the gap, in

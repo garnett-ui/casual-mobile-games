@@ -1,10 +1,26 @@
-// Jigsaw: pick a photo (gallery, camera, a saved one, or a built-in picture),
-// choose how many pieces, and solve. Photos are saved on the device; the
+// Jigsaw: pick a photo (gallery, camera, a saved one, a built-in picture, or
+// a pattern -- a new one each time), choose how many pieces, and solve. Photos are saved on the device; the
 // puzzle in progress is saved so you can come back to it.
 import { Play } from './play.js';
 import { SAMPLES, sampleImage } from './samples.js';
 import { ICON, showDialog } from '../../js/lib/campaign.js';
 import { savePhoto, listPhotos, getPhoto, deletePhoto, decode } from '../../js/lib/photos.js';
+import { PICTURES, render } from '../../js/lib/patterns.js';
+
+// A pattern from js/lib/patterns.js (shared with 15), as a picture: id
+// 'pattern:<design>:<seed>', so a puzzle in progress draws the same again.
+function patternImage(id, w = 1200, h = 900) {
+  const [, design, seed] = id.split(':');
+  const p = PICTURES.find((q) => q.id === design) || PICTURES[0];
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  const img = g.createImageData(w, h);
+  render(p.make(Number(seed)), w, h, img.data);
+  g.putImageData(img, 0, 0);
+  return c;
+}
 
 const SIZES = [24, 48, 100, 150, 200];
 const CAMERA = '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
@@ -42,6 +58,10 @@ export function mount(root, ctx) {
 
   async function imageFor(id) {
     if (id.startsWith('sample:')) return sampleImage(id);
+    if (id.startsWith('pattern:')) {
+      await new Promise((r) => setTimeout(r, 30)); // (the screen first)
+      return patternImage(id);
+    }
     const rec = await getPhoto(id);
     if (!rec) throw new Error('missing photo');
     return decode(rec.blob);
@@ -72,6 +92,8 @@ export function mount(root, ctx) {
           <div class="jg-grid" data-list="photos"><p class="jg-empty">Photos you add are saved on this device only.</p></div>
           <p class="jg-label">Built-in pictures</p>
           <div class="jg-grid" data-list="samples"></div>
+          <p class="jg-label">Patterns <small>· a new one each time</small></p>
+          <div class="jg-grid" data-list="patterns"></div>
         </div>
       </div>`;
     root.querySelector('[data-act=home]').onclick = () => ctx.back('#/');
@@ -109,6 +131,20 @@ export function mount(root, ctx) {
       tile.insertAdjacentHTML('beforeend', `<span>${s.title}</span>`);
       tile.onclick = () => start(s.id);
       samples.append(tile);
+    }
+
+    // Patterns: a fresh seed each time.
+    const patterns = root.querySelector('[data-list=patterns]');
+    for (const p of PICTURES) {
+      const c = patternImage(`pattern:${p.id}:3`, 160, 120);
+      const tile = document.createElement('button');
+      tile.className = 'jg-tile';
+      tile.dataset.pattern = p.id;
+      c.className = 'jg-thumb';
+      tile.append(c);
+      tile.insertAdjacentHTML('beforeend', `<span>${p.name}</span>`);
+      tile.onclick = () => start(`pattern:${p.id}:${Math.floor(Math.random() * 1e9)}`);
+      patterns.append(tile);
     }
 
     // Continue the last puzzle

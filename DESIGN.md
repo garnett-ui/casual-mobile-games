@@ -405,7 +405,13 @@ any tiles between; every tile moved counts as a move.
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo
 picker and **Take photo** the camera; the picture is scaled to at most 2048 px
 and saved on the device in IndexedDB (nothing is uploaded), so it's there for
-future puzzles. Two built-in pictures are included too.
+future puzzles. Two built-in pictures are included too, and nine patterns
+from the library 15 uses (js/lib/patterns.js) -- gradients, a colour
+wheel, a spiral, stained glass, a topographic map, marble, a Truchet weave,
+a landscape -- each a new one every time you pick it (its seed is kept with
+the puzzle in progress, so it draws the same again when you come back).
+Every piece has its own shape, so even the subtle gradient has one
+solution.
 
 - About 100 pieces by default (24 / 48 / 100 / 150 / 200), with the grid fitted
   to the photo so pieces are near-square, and classic tab-and-blank shapes.
