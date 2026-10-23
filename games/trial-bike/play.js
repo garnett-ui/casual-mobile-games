@@ -1,32 +1,41 @@
-// Trial Bike in play: the camera, the drawing (the sky at the course's time
-// of day with its sun, or moon and stars; the country each band of courses
+// Trial Bike in play: the camera, which pulls back and looks further ahead
+// as the bike gathers speed; the drawing (the sky at the course's time of
+// day with its sun, or moon and stars; the country each band of courses
 // rides through -- meadow, forest, quarry, alpine -- as backdrop layers that
-// slide at their own pace; the dirt with rock ledges, plank ramps, pits and
-// logs, tufts and stones on top and boulders beside the track; birds that
-// take off as the bike comes, the crowd at the finish, tyre tracks, flags,
-// a headlight after dark, the bike and its rider, dust and exhaust), the
-// course strip at the top, and the ride itself -- stepping the engine,
-// crashes, checkpoints and the finish.
+// slide at their own pace into a haze; the dirt with rock faces, plank
+// ramps, pits and logs, tufts and stones on top and boulders beside the
+// track; birds that take off as the bike comes, the crowd at the finish,
+// tyre tracks, flags, a headlight after dark, the bike and its rider, dust,
+// exhaust and the wind of speed); the instrument band along the top; and
+// the ride itself -- stepping the engine, crashes, checkpoints and the
+// finish.
 import { step, newBike, rider, heightAt, grounded, WHEEL, BASE, COM, VMAX, STEP } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
-const LOOK = 0.36; // the bike sits this far across the screen, looking ahead
 const FRAME = '#e63946';
-const DEG = 180 / Math.PI;
 const SHEER = STEP * 2.5; // ground rising or falling faster than this holds no grass
 const DASH = [5, 4];
 const SOLID = [];
 
+// How the camera frames the ride, sideways and upright: the metres across
+// the screen when slow and when flat out, and how far up the screen the
+// ground ahead of the bike sits.
+const FRAMING = { wide: { near: 13, far: 19, ground: 0.4 }, tall: { near: 8.5, far: 11.5, ground: 0.28 } };
+
+// The backdrop slides this many pixels for each metre the camera moves,
+// whatever the zoom, so pulling back doesn't drag the hills along.
+const PARALLAX = 50;
+
+// The instrument band: its height, its type and its inks.
+const HUD = { h: 24, font: 'ui-monospace, Menlo, Consolas, monospace', band: 'rgba(5,7,12,.68)', rule: 'rgba(255,255,255,.1)', dim: 'rgba(205,214,222,.55)', ink: '#e4eaee', amber: '#ffb347', green: '#5fd38a', red: '#ff5a4d' };
+
 // ------------------------------------------------------------------ scenes
 
-// The country each band of five courses rides through, in this order and
-// round again from course 21:
-//   courses 1-5    meadow  soft hills, a few trees, grass and flowers
-//   courses 6-10   forest  rows of trees at two depths, trunks by the track
-//   courses 11-15  quarry  terraced rock walls, boulders, bare scree
-//   courses 16-20  alpine  snow-capped peaks, sparse pines, snow underfoot
+// The country course n rides through: two courses each for the first
+// eight, so all four are met early (meadow 1-2, forest 3-4, quarry 5-6,
+// alpine 7-8), then five each from course 9, round and round.
 const BANDS = ['meadow', 'forest', 'quarry', 'alpine'];
-const sceneFor = (n) => SCENES[BANDS[Math.floor((n - 1) / 5) % BANDS.length]];
+const sceneFor = (n) => SCENES[BANDS[Math.floor(n <= 8 ? (n - 1) / 2 : (n - 9) / 5) % BANDS.length]];
 
 // Each scene: its colours by plain daylight (the backdrop far to near, the
 // dirt and its deeper shade, what's on top of it, the rock of ledges and the
@@ -38,67 +47,68 @@ const sceneFor = (n) => SCENES[BANDS[Math.floor((n - 1) / 5) % BANDS.length]];
 // top surface is (m); and what's scattered on it.
 const SCENES = {
   meadow: {
-    colours: { far: '#a9c9a0', mid: '#7fae6e', near: '#5f9455', dirt: '#8a5a2b', deep: '#6b431f', top: '#5a9e3a', tuft: '#3f8a2a', bush: '#4b8a3c', stone: '#6e6a66', rock: '#8b8174', wood: '#b98549', root: '#4a2e16', dust: '#c9a87c' },
+    colours: { far: '#4f7a68', mid: '#355f45', near: '#22472f', dirt: '#5a3820', deep: '#2c1a0e', top: '#4f8f2a', tuft: '#356e1e', bush: '#2f5f2c', stone: '#57514c', rock: '#776a5c', wood: '#a8743c', root: '#3a2210', dust: '#a88a62' },
     layers: [
       { art: 'hills', colour: 'far', drift: 0.2, base: 0.55, count: 44, size: 1 },
       { art: 'hills', colour: 'mid', drift: 0.4, base: 0.6, count: 56, size: 0.7 },
       { art: 'trees', colour: 'near', drift: 0.5, base: 0.63, count: 9, size: 0.9 },
     ],
-    rocks: 0, surface: 0.22, tuftGap: 2.5, stones: 0.25, flowers: 0.3, clouds: 10,
+    rocks: 0, surface: 0.2, tuftGap: 2.5, stones: 0.25, flowers: 0.15, clouds: 7,
   },
   forest: {
-    colours: { far: '#7d9c8a', mid: '#45705a', near: '#2c5240', dirt: '#6b4a2e', deep: '#4f3520', top: '#4c8a34', tuft: '#2e6b24', bush: '#3b6e3a', stone: '#6a665e', rock: '#7d776c', wood: '#a8763f', root: '#3a2414', dust: '#a88a66' },
+    colours: { far: '#46695e', mid: '#264c3c', near: '#143327', dirt: '#4a3120', deep: '#22150b', top: '#3f7a26', tuft: '#285a1a', bush: '#24502c', stone: '#54504a', rock: '#6a645a', wood: '#9a6834', root: '#2c1a0e', dust: '#8a7052' },
     layers: [
       { art: 'hills', colour: 'far', drift: 0.15, base: 0.52, count: 40, size: 0.6 },
       { art: 'conifers', colour: 'mid', drift: 0.3, base: 0.62, count: 220, size: 1.3 },
       { art: 'trees', colour: 'near', drift: 0.55, base: 0.72, count: 30, size: 2.4 },
       { art: 'conifers', colour: 'near', drift: 0.55, base: 0.72, count: 30, size: 2.6 },
     ],
-    rocks: 0, surface: 0.22, tuftGap: 2, stones: 0.2, flowers: 0.05, clouds: 6,
+    rocks: 0, surface: 0.2, tuftGap: 2, stones: 0.2, flowers: 0.03, clouds: 5,
   },
   quarry: {
-    colours: { far: '#dcc6a0', mid: '#b49878', near: '#8f8174', dirt: '#9a8166', deep: '#7a6450', top: '#cdbd9f', tuft: '#8a7d55', bush: '#8f8174', stone: '#73685d', rock: '#bba98b', wood: '#b98549', root: '#5a4632', dust: '#d6c8ad' },
+    colours: { far: '#b5875c', mid: '#8a5f42', near: '#5c4434', dirt: '#74503a', deep: '#3a271b', top: '#a8865e', tuft: '#7a6440', bush: '#5c4434', stone: '#5a4e44', rock: '#a08464', wood: '#a8743c', root: '#4a3626', dust: '#c2a27a' },
     layers: [
       { art: 'terraces', colour: 'far', drift: 0.15, base: 0.58, count: 16, size: 1.2 },
       { art: 'terraces', colour: 'mid', drift: 0.3, base: 0.64, count: 20, size: 0.8 },
       { art: 'boulders', colour: 'near', drift: 0.5, base: 0.69, count: 40, size: 1 },
     ],
-    rocks: 7, surface: 0.15, tuftGap: 1.6, stones: 0.85, flowers: 0, clouds: 4,
+    rocks: 7, surface: 0.14, tuftGap: 1.6, stones: 0.85, flowers: 0, clouds: 3,
   },
   alpine: {
-    colours: { far: '#a3b4cc', mid: '#6f7f97', near: '#2d4a3f', field: '#aab8c9', cap: '#f4f8fd', dirt: '#5f524a', deep: '#463b35', top: '#eef3f9', tuft: '#9fb0bf', bush: '#2d4a3f', stone: '#4f4843', rock: '#7d7883', wood: '#a8763f', root: '#3a2c24', dust: '#f4f7fb' },
+    colours: { far: '#6a80a4', mid: '#41557a', near: '#1b352d', field: '#7487a6', cap: '#cdd7e4', dirt: '#463b37', deep: '#211a17', top: '#bcc8d8', tuft: '#8696a8', bush: '#1b352d', stone: '#3c3633', rock: '#66626e', wood: '#9a6834', root: '#2e221c', dust: '#dde4ee' },
     layers: [
       { art: 'peaks', colour: 'far', drift: 0.1, base: 0.6, count: 18, size: 1.3 },
       { art: 'peaks', colour: 'mid', drift: 0.25, base: 0.65, count: 22, size: 0.8 },
       { art: 'conifers', colour: 'near', floor: 'field', drift: 0.5, base: 0.69, count: 14, size: 1.2 },
     ],
-    rocks: 9, snow: true, surface: 0.3, tuftGap: 3, stones: 1, flowers: 0, clouds: 7,
+    rocks: 9, snow: true, surface: 0.26, tuftGap: 3, stones: 1, flowers: 0, clouds: 6,
   },
 };
 
 // How far each part of the backdrop fades into the horizon's colour.
 const HAZE = { far: 0.45, mid: 0.25, near: 0.1, field: 0.15, cap: 0.3 };
 
-// The time of day, round a day of thirty courses: course 1 rides in the
-// morning with the sun low on the left, noon comes around course 7, golden
-// hour around 15, the sun sets in the high teens, it's night from course 21
-// and first light just before course 31 starts the round again. Each key is
-// a moment of the day: the sky top to horizon, the sun's colour and place
-// (shares of the screen), the tint the light lends the land and how much,
-// and how dark it is (stars, moon and the headlight).
-const DAY = 30;
+// The time of day, round a day of sixteen courses: course 1 rides at first
+// light with the sun low on the left, the late morning is clear, the
+// afternoon dusty, golden hour comes around course 8 and dusk around 10,
+// it's night from course 12, and first light comes back just before course
+// 17 starts the round again. Each key is a moment of the day: the sky top
+// to horizon, the sun's colour and place (shares of the screen), the tint
+// the light lends the land and how much, and how dark it is (stars, moon
+// and the headlight).
+const DAY = 16;
 const SKIES = [
-  { at: 0, top: '#7fb2e6', horizon: '#fde2c8', sun: '#fff2cc', pos: [0.15, 0.4], tint: '#bcd0ff', k: 0.1, night: 0 },
-  { at: 0.22, top: '#4ea6f2', horizon: '#d6ecff', sun: '#fffbe8', pos: [0.48, 0.15], tint: '#ffffff', k: 0, night: 0 },
-  { at: 0.36, top: '#5a9ee6', horizon: '#e9eef0', sun: '#fff4d6', pos: [0.68, 0.2], tint: '#ffd08a', k: 0.06, night: 0 },
-  { at: 0.47, top: '#6b86c9', horizon: '#ffc57d', sun: '#ffb24a', pos: [0.8, 0.34], tint: '#ff9640', k: 0.2, night: 0 },
-  { at: 0.57, top: '#333a75', horizon: '#f3876a', sun: '#ff6a3d', pos: [0.88, 0.5], tint: '#3d2f6e', k: 0.36, night: 0.35 },
-  { at: 0.65, top: '#0a1230', horizon: '#1f2f5c', sun: '#ff6a3d', pos: [0.94, 0.75], tint: '#0d1838', k: 0.55, night: 1 },
-  { at: 0.92, top: '#0a1230', horizon: '#1f2f5c', sun: '#ffd0a0', pos: [0.04, 0.75], tint: '#0d1838', k: 0.55, night: 1 },
-  { at: 0.97, top: '#26336a', horizon: '#d79a86', sun: '#ffd0a0', pos: [0.08, 0.6], tint: '#2c3366', k: 0.35, night: 0.4 },
+  { at: 0, top: '#1f3766', horizon: '#c48a66', sun: '#ffd9a8', pos: [0.14, 0.42], tint: '#ff9a5c', k: 0.14, night: 0 },
+  { at: 0.18, top: '#1d4a88', horizon: '#86a8c2', sun: '#fff0cc', pos: [0.42, 0.16], tint: '#ffe2b8', k: 0.04, night: 0 },
+  { at: 0.34, top: '#274a80', horizon: '#c09c78', sun: '#ffe2a8', pos: [0.66, 0.22], tint: '#ffb469', k: 0.1, night: 0 },
+  { at: 0.46, top: '#2b2f66', horizon: '#d97a4a', sun: '#ff9a3c', pos: [0.8, 0.36], tint: '#ff7a2e', k: 0.24, night: 0 },
+  { at: 0.56, top: '#141638', horizon: '#a0463c', sun: '#ff5a2e', pos: [0.88, 0.52], tint: '#36255e', k: 0.4, night: 0.4 },
+  { at: 0.66, top: '#05081a', horizon: '#141f40', sun: '#ff5a2e', pos: [0.94, 0.75], tint: '#0a1230', k: 0.6, night: 1 },
+  { at: 0.9, top: '#05081a', horizon: '#141f40', sun: '#ffc890', pos: [0.04, 0.75], tint: '#0a1230', k: 0.6, night: 1 },
+  { at: 0.96, top: '#1a2050', horizon: '#9a5c58', sun: '#ffc890', pos: [0.08, 0.6], tint: '#2c2a60', k: 0.38, night: 0.45 },
 ];
 SKIES.push({ ...SKIES[0], at: 1 });
-const MOON = [0.76, 0.2];
+const MOON = [0.76, 0.22];
 
 // The sky over course n: the keys either side of its moment of the day,
 // blended.
@@ -129,7 +139,6 @@ const blend = (a, b, k) => {
   return `#${channels(a).map((v, i) => Math.round(v + (q[i] - v) * k).toString(16).padStart(2, '0')).join('')}`;
 };
 const fade = (c, a) => `rgba(${channels(c).join(',')},${a})`;
-
 
 export class Play {
   constructor(canvas, level, hooks) {
@@ -169,27 +178,24 @@ export class Play {
     this.outcome = null;
     this.waiting = false; // crashed, waiting for the tap that goes again
     this.dust = [];
-    this.puffs = [];
     this.puffT = 0;
     this.shake = 0;
     this.message = null;
     this.cam = null;
     this.flagShown = -1;
     this.pose = 0; // the rider's drawn lean, eased toward the input
-    this.hooks.onState?.(this);
   }
 
-  // After a crash: back to the last flag, with the clock where it was.
+  // After a crash: back to the last flag, with the clock where it was (and
+  // the camera cut straight there).
   retry() {
     const flag = this.B.flag;
-    const time = this.time;
     this.B = newBike(this.level, flag >= 0 ? this.level.flags[flag] : this.level.start);
-    this.time = time;
     this.outcome = null;
     this.waiting = false;
     this.message = null;
     this.dust = [];
-    this.hooks.onState?.(this);
+    this.cam = null;
   }
 
   // Watch the computer rider do it, from the start.
@@ -237,19 +243,21 @@ export class Play {
       track: fade(blend(P.top, '#000000', 0.6), 0.4),
       bird: blend('#2b2b33', sky.tint, sky.k),
       pants: blend('#33415c', sky.tint, sky.k),
-      cloud: fade(blend('#ffffff', sky.tint, Math.min(1, sky.k * 1.3)), 0.85 - 0.5 * sky.night),
-      strip: fade(blend(sky.top, '#000000', 0.45), 0.75),
+      cloud: fade(blend(sky.horizon, '#ffffff', 0.35), 0.5 - 0.42 * sky.night),
     });
     this.P = P;
-    // The backdrop's layers, each with its things spread along it.
+    // The backdrop's layers, each with its things spread along it, and the
+    // haze that falls in front of all but the nearest.
     this.layers = scene.layers.map((l) => {
       const art = BACKDROP[l.art];
       const fill = P[l.colour];
       const items = Array.from({ length: l.count }, () => art.make(r));
       return { ...l, paint: art.paint, items, fill, floor: P[l.floor] ?? fill, dark: blend(fill, '#000000', 0.22), light: blend(fill, '#ffffff', 0.2), cap: P.cap, sx: new Float32Array(l.count) };
     });
-    this.clouds = Array.from({ length: scene.clouds }, () => ({ x: r() * 400, y: 0.1 + r() * 0.3, w: 30 + r() * 50 }));
+    this.hazeAt = scene.layers.findIndex((l) => l.colour === 'near');
+    this.clouds = Array.from({ length: scene.clouds }, () => ({ x: r() * 400, y: 0.12 + r() * 0.3, w: 40 + r() * 90 }));
     this.stars = Array.from({ length: 70 }, () => ({ x: r(), y: r() * 0.55, s: 1 + r() * 1.4, a: 0.4 + r() * 0.6, ph: r() * TAU }));
+    this.streaks = Array.from({ length: 14 }, () => ({ x: r(), y: 0.12 + r() * 0.55, len: 0.4 + r() }));
     // Boulders beside the track, clear of the obstacles, the flags and the
     // finish (where the crowd stands).
     const clear = (x) => !L.features.some((f) => x > f.x0 - 1.5 && x < f.x1 + 1.5) && !L.flags.some((fx) => Math.abs(x - fx) < 1.2) && (x < L.finish - 2.5 || x > L.finish + 6);
@@ -284,16 +292,13 @@ export class Play {
     const first = Math.floor(r() * 5);
     const lit = (c) => blend(c, sky.tint, sky.k);
     this.crowd = [-1.7, 3.1, 3.8, 4.7].map((dx, i) => ({ x: L.finish + dx, h: 1.5 + r() * 0.3, ph: r() * TAU, shirt: lit(shirts[(first + i) % 5]), skin: lit(skins[Math.floor(r() * 4)]) }));
-    // Tyre tracks: the rear wheel's last 200 contact points, a ring of
-    // [x, y] pairs, NaN where the line breaks.
-    this.tracks = new Float32Array(400);
-    this.trackHead = 0;
-    this.trackCount = 0;
-    this.trackOpen = false;
+    // Tyre tracks: the rear wheel's last 200 contact points, [x, y], with a
+    // null where the line breaks.
+    this.tracks = [];
     this.trackBike = null;
     // What the obstacle art needs to draw, refreshed each frame, and the
     // gradients, made once for a size and kept.
-    this.view = { L, sx: null, sy: null, m: 1, H: 1, surface: 3, pit: null, wall: null };
+    this.view = { L };
     this.cache = {};
     this.horizonRef = null;
   }
@@ -302,15 +307,14 @@ export class Play {
 
   update(dt) {
     const B = this.B;
+    // Physics in small steps for stability.
+    const n = Math.ceil(dt / (1 / 120));
     // After a crash the bike tumbles on for a moment, then holds still.
     if (this.outcome?.kind === 'crash' && !this.waiting && (this.tumble -= dt) > 0) {
-      const n = Math.ceil(dt / (1 / 120));
       for (let k = 0; k < n; k++) step(this.level, B, this.input, dt / n);
     }
     if (!this.outcome && !this.waiting) {
-      // Physics in fixed small steps for stability.
       let res = null;
-      const n = Math.ceil(dt / (1 / 120));
       const wasFlag = B.flag;
       const wasAir = !grounded(B);
       const vyBefore = B.vy;
@@ -332,11 +336,14 @@ export class Play {
           this.puff(ex, ey, 0.5, 'smoke');
         }
       }
-      // Landing after a flight: a thump and some dust.
+      // Landing after a flight: a thump, then dust and a jolt of the camera
+      // as big as the landing was hard.
       if (wasAir && grounded(B) && vyBefore < -3) {
+        const hard = Math.min(1, (-vyBefore - 3) / 7);
         this.hooks.sfx?.('bump');
         this.hooks.haptic?.(20);
-        for (let i = 0; i < 8; i++) this.puff(B.x, B.y - COM - WHEEL, 1.5, 'dust');
+        for (let i = 0; i < 6 + 20 * hard; i++) this.puff(B.x, B.y - COM - WHEEL, 1.2 + 2 * hard, 'dust');
+        this.shake = Math.max(this.shake, 0.7 * hard);
       }
       if (B.flag > wasFlag && B.flag > this.flagShown) {
         this.flagShown = B.flag;
@@ -360,7 +367,6 @@ export class Play {
           setTimeout(() => this.hooks.onFinished?.(res), 900);
         }
       }
-      this.hooks.onState?.(this);
     }
     // The engine note follows the speed, with a blip for the throttle.
     const running = !this.outcome && !this.waiting;
@@ -410,21 +416,24 @@ export class Play {
     this.canvas.height = Math.round(this.cssH * dpr);
   }
 
-  // The camera follows the bike, which rides a third of the way across the
-  // screen so there's room to see what's coming, and keeps the ground in
-  // the lower half.
+  // The camera pulls back as the bike speeds up and slides the bike back
+  // across the screen to look further ahead the way it's going. It keeps
+  // the ground ahead low on the screen and eases up and down after it, so
+  // a jump lifts the bike in the frame; only near the top or bottom does
+  // the camera follow the bike itself, and never lets it out of sight.
   camera() {
-    const { cssW: W, cssH: H } = this;
-    const B = this.B;
-    const wide = W > H;
-    const scale = W / (wide ? 15.5 : 10);
-    const ground = heightAt(this.level, B.x + 2);
-    const wantY = Math.min(B.y, ground + 1.5) - (H / scale) * (wide ? 0.42 : 0.3);
-    const want = { x: B.x - (W / scale) * LOOK, bottom: wantY };
-    if (!this.cam) this.cam = want;
-    this.cam.x += (want.x - this.cam.x) * 0.25;
-    this.cam.bottom += (want.bottom - this.cam.bottom) * 0.08;
-    return { scale, left: this.cam.x, bottom: this.cam.bottom };
+    const { cssW: W, cssH: H, B } = this;
+    const f = FRAMING[W > H ? 'wide' : 'tall'];
+    const pace = clamp(B.vx / VMAX, -1, 1);
+    const c = (this.cam ??= { span: f.near, look: 0.4, bottom: null });
+    c.span += (f.near + (f.far - f.near) * Math.abs(pace) - c.span) * 0.03;
+    c.look += (0.4 - 0.14 * pace - c.look) * 0.04;
+    const scale = W / c.span;
+    const tall = H / scale;
+    const ahead = Math.max(...[0, 2, 4].map((dx) => heightAt(this.level, B.x + dx)));
+    const want = clamp(ahead - tall * f.ground, B.y - tall * 0.72, B.y - tall * 0.15);
+    c.bottom = clamp(c.bottom === null ? want : c.bottom + (want - c.bottom) * 0.06, B.y - tall * 0.88, B.y - tall * 0.08);
+    return { scale, left: B.x - c.span * c.look, bottom: c.bottom };
   }
 
   // A gradient (or anything else) made for one size and kept until the size
@@ -446,9 +455,8 @@ export class Play {
     const sx = (x) => (x - cam.left) * m;
     const sy = (y) => H - (y - cam.bottom) * m;
     const now = performance.now();
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const shake = this.shake * 10;
-    ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    ctx.setTransform(dpr, 0, 0, dpr, (Math.random() - 0.5) * shake * dpr, (Math.random() - 0.5) * shake * dpr);
 
     // The sky at this time of day, then the backdrop far to near, each layer
     // sliding at its own fraction of the ground's pace.
@@ -461,12 +469,7 @@ export class Play {
     const i1 = Math.min(hs.length - 1, Math.ceil((cam.left + W / m + 2) / STEP));
     const x0 = i0 * STEP;
     const x1 = i1 * STEP;
-    const v = this.view;
-    v.sx = sx;
-    v.sy = sy;
-    v.m = m;
-    v.H = H;
-    v.surface = Math.max(3, this.scene.surface * m);
+    const v = Object.assign(this.view, { sx, sy, m, H, surface: Math.max(3, this.scene.surface * m) });
     v.pit = this.cached('pit', m, () => {
       const g = ctx.createLinearGradient(0, 0, 0, 2.2 * m);
       g.addColorStop(0, P.pit);
@@ -483,13 +486,19 @@ export class Play {
     // Boulders beside the track stand behind it: the dirt hides their feet.
     for (const it of this.rocks) if (it.x > x0 - 3 && it.x < x1 + 3) boulder(ctx, it, sx(it.x), sy(heightAt(L, it.x)), m, P, this.scene.snow);
 
-    // The dirt, then what shows inside it: rock ledges, plank ramps, pits.
+    // The dirt, darkening with depth, then what shows inside it: rock
+    // faces, plank ramps, pits.
     ctx.beginPath();
     ctx.moveTo(sx(x0), H + 20);
     for (let i = i0; i <= i1; i++) ctx.lineTo(sx(i * STEP), sy(hs[i]));
     ctx.lineTo(sx(x1), H + 20);
     ctx.closePath();
-    ctx.fillStyle = P.dirt;
+    ctx.fillStyle = this.cached('dirt', H, () => {
+      const g = ctx.createLinearGradient(0, H * 0.45, 0, H);
+      g.addColorStop(0, P.dirt);
+      g.addColorStop(1, P.deep);
+      return g;
+    });
     ctx.fill();
     for (const d of this.art) if (d.under && d.b > x0 - 1 && d.a < x1 + 1) d.under(ctx, d, v, P);
 
@@ -512,7 +521,7 @@ export class Play {
     ctx.stroke();
 
     // On top: tufts and stones, the ramps' decks and the logs, the tracks,
-    // the birds, the crowd and the flags.
+    // the birds, the crowd, the flags, then the bike in its dust and wind.
     for (const t of this.tufts) if (t.x >= x0 && t.x <= x1) t.paint(ctx, t, sx(t.x), sy(heightAt(L, t.x)), m, P);
     for (const d of this.art) if (d.over && d.b > x0 - 1 && d.a < x1 + 1) d.over(ctx, d, v, P);
     ctx.lineCap = 'butt';
@@ -520,29 +529,35 @@ export class Play {
     this.drawBirds(sx, sy, m, W, now);
     this.drawCrowd(sx, sy, m, x0, x1, now);
     this.drawFlags(cam, sx, sy, x0, x1);
+    this.drawWind(W, H, cam);
     this.drawLamp(sx, sy, m, false);
     this.drawDust(sx, sy, m);
     this.drawBike(sx, sy, m);
     this.drawLamp(sx, sy, m, true);
-    this.drawStrip(W);
-    if (this.message) {
-      ctx.font = `800 ${Math.round(Math.min(26, W * 0.04))}px ui-monospace, Menlo, monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(0,0,0,.45)';
-      ctx.fillText(this.message.text, W / 2 + 2, H * 0.3 + 2);
-      ctx.fillStyle = '#fff';
-      ctx.fillText(this.message.text, W / 2, H * 0.3);
-    }
+
+    // Held still over the picture: the darkened edges, the instruments and
+    // any message.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = this.cached('vignette', W * 4096 + H, () => {
+      const g = ctx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.3, W / 2, H * 0.55, Math.hypot(W, H) * 0.62);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,.45)');
+      return g;
+    });
+    ctx.fillRect(0, 0, W, H);
+    this.drawHud(W);
+    if (this.message) this.drawMessage(W, H);
   }
 
   // The sky: its gradient, the stars and the moon after dark, the sun by day
-  // (a low one sets behind the backdrop, drawn after), and the clouds.
+  // (a low one sets behind the backdrop, drawn after), and thin streaks of
+  // high cloud.
   drawSky(W, H, cam, now) {
     const { ctx, sky, P } = this;
     ctx.fillStyle = this.cached('sky', H, () => {
       const g = ctx.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, sky.top);
-      g.addColorStop(0.75, sky.horizon);
+      g.addColorStop(0.7, sky.horizon);
       return g;
     });
     ctx.fillRect(-20, -20, W + 40, H + 40);
@@ -555,12 +570,12 @@ export class Play {
       }
       const x = MOON[0] * W;
       const y = MOON[1] * H;
-      const rr = Math.max(9, 0.045 * Math.min(W, H));
+      const rr = Math.max(8, 0.035 * Math.min(W, H));
       ctx.globalAlpha = sky.night;
-      ctx.fillStyle = this.cached('moon', size, () => glow(ctx, x, y, rr * 6, '#dfe8ff', 0.35));
+      ctx.fillStyle = this.cached('moon', size, () => glow(ctx, x, y, rr * 6, '#dfe8ff', 0.3));
       ctx.fillRect(x - rr * 6, y - rr * 6, rr * 12, rr * 12);
-      fillWith(ctx, '#f3f0e2', () => blob(ctx, x, y, rr));
-      fillWith(ctx, 'rgba(176,170,150,.55)', () => {
+      fillWith(ctx, '#e6e2d2', () => blob(ctx, x, y, rr));
+      fillWith(ctx, 'rgba(160,154,136,.55)', () => {
         blob(ctx, x - rr * 0.3, y - rr * 0.2, rr * 0.22);
         blob(ctx, x + rr * 0.35, y + rr * 0.1, rr * 0.15);
         blob(ctx, x - rr * 0.05, y + rr * 0.45, rr * 0.12);
@@ -569,88 +584,92 @@ export class Play {
     if (sky.night < 0.95) {
       const x = sky.pos[0] * W;
       const y = sky.pos[1] * H;
-      const rr = Math.max(10, 0.05 * Math.min(W, H));
+      const rr = Math.max(8, 0.035 * Math.min(W, H));
       ctx.globalAlpha = 1 - sky.night;
-      ctx.fillStyle = this.cached('sun', size, () => glow(ctx, x, y, rr * 10, sky.sun, 0.6));
+      ctx.fillStyle = this.cached('sun', size, () => glow(ctx, x, y, rr * 10, sky.sun, 0.5));
       ctx.fillRect(x - rr * 10, y - rr * 10, rr * 20, rr * 20);
       fillWith(ctx, sky.sun, () => blob(ctx, x, y, rr));
     }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = P.cloud;
-    for (const c of this.clouds) {
-      const x = (((c.x - cam.left * 0.1) % 400) + 400) % 400 / 400 * (W + 160) - 80;
-      const y = c.y * H;
-      ctx.beginPath();
-      ctx.ellipse(x, y, c.w, c.w * 0.35, 0, 0, Math.PI * 2);
-      ctx.ellipse(x + c.w * 0.4, y - c.w * 0.15, c.w * 0.6, c.w * 0.3, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    fillWith(ctx, P.cloud, () => {
+      for (const c of this.clouds) {
+        const x = (((c.x - cam.left * 0.1) % 400) + 400) % 400 / 400 * (W + 240) - 120;
+        const y = c.y * H;
+        ctx.moveTo(x + c.w, y);
+        ctx.ellipse(x, y, c.w, c.w * 0.06, 0, 0, TAU);
+        ctx.moveTo(x + c.w * 0.95, y - c.w * 0.07);
+        ctx.ellipse(x + c.w * 0.4, y - c.w * 0.07, c.w * 0.55, c.w * 0.04, 0, 0, TAU);
+      }
+    });
   }
 
   // The backdrop, far to near: each layer's things slide by at its own
-  // fraction of the ground's pace, rise and fall a little with the camera,
-  // and stand on a floor of their own colour that runs down under the
-  // ground.
+  // fraction of the camera's pace, rise and fall a little with it, and stand
+  // on a floor of their own colour that runs down under the ground. A haze
+  // of the horizon's colour, thickening toward it, falls in front of all
+  // but the nearest layers.
   drawBackdrop(W, H, cam) {
     const { ctx } = this;
     const z = clamp(H / 360, 0.8, 1.6);
     if (this.horizonRef === null) this.horizonRef = cam.bottom;
-    const lift = (cam.bottom - this.horizonRef) * cam.scale * 0.5;
-    for (const layer of this.layers) {
-      const off = cam.left * cam.scale * layer.drift;
+    const lift = (cam.bottom - this.horizonRef) * PARALLAX * 0.5;
+    this.layers.forEach((layer, i) => {
+      if (i === this.hazeAt) {
+        ctx.fillStyle = this.cached('haze', H, () => {
+          const g = ctx.createLinearGradient(0, H * 0.3, 0, H * 0.72);
+          g.addColorStop(0, fade(this.sky.horizon, 0));
+          g.addColorStop(1, fade(this.sky.horizon, 0.5));
+          return g;
+        });
+        ctx.fillRect(-20, -20, W + 40, H + 40);
+      }
+      const off = cam.left * PARALLAX * layer.drift;
       const base = H * layer.base + clamp(lift * layer.drift, -40, 40);
-      for (let i = 0; i < layer.items.length; i++) layer.sx[i] = wrap(layer.items[i].x - off);
+      for (let j = 0; j < layer.items.length; j++) layer.sx[j] = wrap(layer.items[j].x - off);
       layer.paint(ctx, layer, base, W, z);
       ctx.fillStyle = layer.floor;
       ctx.fillRect(-20, base - 0.5, W + 40, H - base + 60);
-    }
+    });
   }
 
   drawFlags(cam, sx, sy, x0, x1) {
     const { ctx } = this;
-    const pole = (x, h, colour, flag) => {
-      const gy = sy(heightAt(this.level, x));
-      ctx.strokeStyle = '#444';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(sx(x), gy);
-      ctx.lineTo(sx(x), gy - h * cam.scale);
-      ctx.stroke();
-      if (flag) {
-        ctx.fillStyle = colour;
-        ctx.beginPath();
-        ctx.moveTo(sx(x), gy - h * cam.scale);
-        ctx.lineTo(sx(x) + 0.7 * cam.scale, gy - (h - 0.25) * cam.scale);
-        ctx.lineTo(sx(x), gy - (h - 0.5) * cam.scale);
-        ctx.fill();
-      }
+    const m = cam.scale;
+    // A pole standing h metres on the ground at x, with a pennant if it has
+    // a colour.
+    const pole = (x, h, colour) => {
+      const X = sx(x);
+      const top = sy(heightAt(this.level, x) + h);
+      strokeWith(ctx, '#2a2a2e', 2, () => {
+        ctx.moveTo(X, top + h * m);
+        ctx.lineTo(X, top);
+      });
+      if (colour) fillWith(ctx, colour, () => trace(ctx, [0, 0, 0.7, -0.25, 0, -0.5], X, top, m, m));
     };
     this.level.flags.forEach((x, i) => {
-      if (x < x0 - 1 || x > x1 + 1) return;
-      pole(x, 2.2, i <= this.B.flag ? '#3dff7a' : '#ffb703', true);
+      if (x > x0 - 1 && x < x1 + 1) pole(x, 2.2, i <= this.B.flag ? HUD.green : HUD.amber);
     });
     // The finish: a chequered banner between two poles.
     const fx = this.level.finish;
     if (fx > x0 - 1 && fx < x1 + 3) {
-      pole(fx, 3, '#000', false);
-      pole(fx + 2, 3, '#000', false);
-      const y = sy(heightAt(this.level, fx)) - 3 * cam.scale;
-      const cell = 0.25 * cam.scale;
+      pole(fx, 3);
+      pole(fx + 2, 3);
+      const y = sy(heightAt(this.level, fx)) - 3 * m;
+      const cell = 0.25 * m;
       for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 3; j++) {
-          ctx.fillStyle = (i + j) % 2 ? '#111' : '#fff';
+          ctx.fillStyle = (i + j) % 2 ? '#111' : '#e8e8e8';
           ctx.fillRect(sx(fx) + i * cell, y + j * cell, cell + 0.5, cell + 0.5);
         }
       }
     }
     // The start line.
-    if (this.level.start > x0 - 2) {
-      ctx.strokeStyle = 'rgba(255,255,255,.7)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(sx(this.level.start - 1), sy(heightAt(this.level, this.level.start - 1)) + 2);
-      ctx.lineTo(sx(this.level.start - 1), sy(heightAt(this.level, this.level.start - 1)) - 1.2 * cam.scale);
-      ctx.stroke();
+    const start = this.level.start - 1;
+    if (start > x0 - 1) {
+      strokeWith(ctx, 'rgba(255,255,255,.6)', 3, () => {
+        ctx.moveTo(sx(start), sy(heightAt(this.level, start)) + 2);
+        ctx.lineTo(sx(start), sy(heightAt(this.level, start)) - 1.2 * m);
+      });
     }
   }
 
@@ -659,43 +678,24 @@ export class Play {
   // afresh (a restart or a flag), drawn as a faint dashed rut.
   drawTracks(sx, sy, m, x0, x1) {
     const { ctx, B, tracks: T } = this;
-    const cap = T.length / 2;
-    const push = (x, y) => {
-      T[this.trackHead * 2] = x;
-      T[this.trackHead * 2 + 1] = y;
-      this.trackHead = (this.trackHead + 1) % cap;
-      this.trackCount = Math.min(cap, this.trackCount + 1);
-    };
     const c = B.rear;
     if (B !== this.trackBike || !c) {
-      if (this.trackOpen) push(NaN, NaN);
-      this.trackOpen = false;
+      if (T.at(-1)) T.push(null);
       this.trackBike = B;
     }
-    if (c) {
-      const k = ((this.trackHead + cap - 1) % cap) * 2;
-      if (!this.trackOpen || Math.hypot(c.px - T[k], c.py - T[k + 1]) >= 0.3) {
-        push(c.px, c.py);
-        this.trackOpen = true;
-      }
-    }
-    ctx.strokeStyle = this.P.track;
-    ctx.lineWidth = Math.max(1.5, 0.05 * m);
+    const last = T.at(-1);
+    if (c && (!last || Math.hypot(c.px - last[0], c.py - last[1]) >= 0.3)) T.push([c.px, c.py]);
+    if (T.length > 200) T.shift();
     ctx.setLineDash(DASH);
-    ctx.beginPath();
-    let pen = false;
-    for (let j = 0; j < this.trackCount; j++) {
-      const k = ((this.trackHead - this.trackCount + j + cap) % cap) * 2;
-      const x = T[k];
-      if (Number.isNaN(x) || x < x0 - 1 || x > x1 + 1) {
-        pen = false;
-        continue;
+    strokeWith(ctx, this.P.track, Math.max(1.5, 0.05 * m), () => {
+      let pen = false;
+      for (const p of T) {
+        const on = p && p[0] > x0 - 1 && p[0] < x1 + 1;
+        if (on && pen) ctx.lineTo(sx(p[0]), sy(p[1]) + 1.5);
+        else if (on) ctx.moveTo(sx(p[0]), sy(p[1]) + 1.5);
+        pen = on;
       }
-      if (pen) ctx.lineTo(sx(x), sy(T[k + 1]) + 1.5);
-      else ctx.moveTo(sx(x), sy(T[k + 1]) + 1.5);
-      pen = true;
-    }
-    ctx.stroke();
+    });
     ctx.setLineDash(SOLID);
   }
 
@@ -810,17 +810,37 @@ export class Play {
     ctx.restore();
   }
 
-  drawDust(sx, sy, scale) {
+  // The wind of speed: from about half of flat out, faint streaks
+  // through the air, sliding by faster than the ground and longer the faster
+  // the bike goes.
+  drawWind(W, H, cam) {
+    const k = clamp((Math.abs(this.B.vx) / VMAX - 0.5) / 0.4, 0, 1);
+    if (!k) return;
+    strokeWith(this.ctx, `rgba(255,255,255,${0.2 * k})`, 1, () => {
+      for (const s of this.streaks) {
+        const x = (((s.x * 2 * W - cam.left * cam.scale * 1.8) % (2 * W)) + 2 * W) % (2 * W) - W / 2;
+        this.ctx.moveTo(x, s.y * H);
+        this.ctx.lineTo(x + s.len * k * W * 0.12, s.y * H);
+      }
+    });
+  }
+
+  // Dust and exhaust, each puff thinning as it spreads, and drawn out into a
+  // streak along the bike's way when it's going fast.
+  drawDust(sx, sy, m) {
     const { ctx } = this;
+    const smear = this.B.vx * 0.04;
+    ctx.lineCap = 'round';
     for (const p of this.dust) {
       const k = 1 - p.t / p.life;
       ctx.globalAlpha = k * (p.kind === 'smoke' ? 0.35 : 0.6);
-      ctx.fillStyle = p.kind === 'smoke' ? '#9aa' : this.P.dust;
-      ctx.beginPath();
-      ctx.arc(sx(p.x), sy(p.y), (p.r + (1 - k) * 0.15) * scale, 0, Math.PI * 2);
-      ctx.fill();
+      strokeWith(ctx, p.kind === 'smoke' ? '#8a9494' : this.P.dust, 2 * (p.r + (1 - k) * 0.15) * m, () => {
+        ctx.moveTo(sx(p.x), sy(p.y));
+        ctx.lineTo(sx(p.x + smear), sy(p.y));
+      });
     }
     ctx.globalAlpha = 1;
+    ctx.lineCap = 'butt';
   }
 
   drawBike(sx, sy, scale) {
@@ -834,46 +854,68 @@ export class Play {
     ctx.restore();
   }
 
-  // A strip along the top, in the scene's colours: the course's profile,
-  // the flags, and where you are on it.
-  drawStrip(W) {
-    const { ctx, P } = this;
-    const L = this.level;
-    const w = Math.min(W - 24, 520);
-    const x0 = (W - w) / 2;
-    const y0 = 10;
-    const h = 22;
-    const k = w / L.length;
+  // The instrument band along the top: the speed (in km/h, to go with the
+  // engine's metres), the clock against par, any crashes, and in the rest of
+  // the band the course's profile as a thin line, with its flags, the
+  // finish and the bike on it. Values are padded so nothing shuffles about.
+  drawHud(W) {
+    const { ctx, B, level: L } = this;
+    ctx.fillStyle = HUD.band;
+    ctx.fillRect(0, 0, W, HUD.h);
+    ctx.fillStyle = HUD.rule;
+    ctx.fillRect(0, HUD.h, W, 1);
+    ctx.font = `600 ${W > 600 ? 12 : 11}px ${HUD.font}`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const y = HUD.h / 2 + 1;
+    let x = reading(ctx, 12, y, 'KM/H', String(Math.round(Math.abs(B.vx) * 3.6)).padStart(2));
+    x = reading(ctx, x, y, 'TIME', this.time.toFixed(1).padStart(5), this.time > L.par ? HUD.amber : HUD.ink);
+    x = reading(ctx, x, y, 'PAR', String(L.par).padStart(3));
+    if (this.crashes) x = reading(ctx, x, y, 'CRASH', String(this.crashes), HUD.red);
+    const left = x + 4;
+    const k = (W - 14 - left) / L.length;
+    if (k <= 0) return;
     const span = Math.max(1, L.maxY - L.minY);
-    const at = (i) => y0 + h - ((L.heights[i] - L.minY) / span) * h * 0.8;
-    ctx.fillStyle = P.strip;
-    ctx.beginPath();
-    ctx.roundRect?.(x0 - 4, y0 - 4, w + 8, h + 8, 6);
-    ctx.fill();
-    ctx.fillStyle = P.dirt;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0 + h);
-    for (let i = 0; i < L.heights.length; i += 4) ctx.lineTo(x0 + i * STEP * k, at(i));
-    ctx.lineTo(x0 + w, y0 + h);
-    ctx.fill();
-    ctx.strokeStyle = P.top;
-    ctx.lineWidth = 1.5;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    for (let i = 0; i < L.heights.length; i += 4) ctx.lineTo(x0 + i * STEP * k, at(i));
-    ctx.stroke();
-    L.flags.forEach((x, i) => {
-      ctx.fillStyle = i <= this.B.flag ? '#3dff7a' : '#ffb703';
-      ctx.fillRect(x0 + x * k - 1, y0, 2, h);
+    const at = (h) => HUD.h - 6 - ((h - L.minY) / span) * (HUD.h - 12);
+    strokeWith(ctx, HUD.dim, 1, () => {
+      for (let i = 0; i < L.heights.length; i += 4) ctx.lineTo(left + i * STEP * k, at(L.heights[i]));
     });
-    ctx.fillStyle = '#111';
-    ctx.fillRect(x0 + L.finish * k - 1, y0, 2, h);
-    ctx.fillStyle = FRAME;
-    ctx.beginPath();
-    ctx.arc(x0 + Math.min(L.length, Math.max(0, this.B.x)) * k, y0 + h - ((heightAt(L, this.B.x) - L.minY) / span) * h * 0.8, 4, 0, Math.PI * 2);
-    ctx.fill();
+    const tick = (fx, colour) => {
+      ctx.fillStyle = colour;
+      ctx.fillRect(Math.round(left + fx * k) - 1, 5, 2, HUD.h - 10);
+    };
+    L.flags.forEach((fx, i) => tick(fx, i <= B.flag ? HUD.green : HUD.amber));
+    tick(L.finish, HUD.ink);
+    fillWith(ctx, FRAME, () => blob(ctx, left + clamp(B.x, 0, L.length) * k, at(heightAt(L, B.x)), 3.5));
+  }
+
+  // A message -- a checkpoint, a crash -- in the instruments' style: amber
+  // capitals on a dark slip below the band.
+  drawMessage(W, H) {
+    const { ctx } = this;
+    const text = this.message.text;
+    ctx.font = `700 ${W > 600 ? 14 : 12}px ${HUD.font}`;
+    ctx.textAlign = 'center';
+    const w = ctx.measureText(text).width + 32;
+    const y = Math.max(HUD.h + 34, H * 0.24);
+    ctx.fillStyle = HUD.band;
+    ctx.fillRect((W - w) / 2, y - 15, w, 30);
+    ctx.fillStyle = HUD.amber;
+    ctx.fillRect((W - w) / 2, y - 15, 2, 30);
+    ctx.fillText(text, W / 2, y + 1);
   }
 }
+
+// One instrument reading at (x, y): a dim label and then its value, left
+// to right; gives back where the next one starts.
+const reading = (ctx, x, y, label, value, colour = HUD.ink) => {
+  ctx.fillStyle = HUD.dim;
+  ctx.fillText(label, x, y);
+  x += ctx.measureText(label).width + 6;
+  ctx.fillStyle = colour;
+  ctx.fillText(value, x, y);
+  return x + ctx.measureText(value).width + 16;
+};
 
 // ------------------------------------------------------------- scenery art
 
@@ -1071,17 +1113,12 @@ const BACKDROP = {
 // screen point (x, y) where the ground is; snow on it where there's snow.
 const boulder = (ctx, it, x, y, m, P, snow) => {
   const rr = it.s * m;
-  ctx.beginPath();
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * TAU;
-    ctx.lineTo(x + Math.cos(a) * rr * it.k[i] * 1.2, y + 0.25 * rr - Math.sin(a) * rr * it.k[i]);
-  }
-  ctx.closePath();
-  ctx.fillStyle = P.rock;
-  ctx.fill();
-  ctx.strokeStyle = P.rockDark;
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+  const outline = () => {
+    for (let i = 0; i < 7; i++) ctx.lineTo(x + Math.cos((i / 7) * TAU) * rr * it.k[i] * 1.2, y + 0.25 * rr - Math.sin((i / 7) * TAU) * rr * it.k[i]);
+    ctx.closePath();
+  };
+  fillWith(ctx, P.rock, outline);
+  strokeWith(ctx, P.rockDark, 1.5, outline);
   if (snow) fillWith(ctx, P.top, () => ctx.ellipse(x, y - 0.6 * rr, rr * 0.8, rr * 0.28, 0, 0, TAU));
 };
 
@@ -1092,16 +1129,14 @@ const TUFTS = {
     fillWith(ctx, P.stone, () => ctx.ellipse(x, y + 0.04 * m, 0.09 * t.s * m, 0.06 * t.s * m, 0, 0, TAU));
   },
   tuft(ctx, t, x, y, m, P) {
-    ctx.strokeStyle = P.tuft;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let d = -1; d <= 1; d++) {
-      ctx.moveTo(x + 0.06 * d * m, y);
-      ctx.lineTo(x + 0.11 * d * m, y - 0.18 * t.s * m);
-    }
-    ctx.moveTo(x + 0.02 * m, y);
-    ctx.lineTo(x + 0.08 * m, y - 0.26 * t.s * m);
-    ctx.stroke();
+    strokeWith(ctx, P.tuft, 1.5, () => {
+      for (let d = -1; d <= 1; d++) {
+        ctx.moveTo(x + 0.06 * d * m, y);
+        ctx.lineTo(x + 0.11 * d * m, y - 0.18 * t.s * m);
+      }
+      ctx.moveTo(x + 0.02 * m, y);
+      ctx.lineTo(x + 0.08 * m, y - 0.26 * t.s * m);
+    });
     if (t.c) fillWith(ctx, t.c, () => blob(ctx, x + 0.08 * m, y - 0.26 * t.s * m, 0.045 * m));
   },
 };
@@ -1135,27 +1170,24 @@ const rockFace = (ctx, d, v, P) => {
   const { sx, sy, m } = v;
   ctx.save();
   clipGround(ctx, v, d.a - 0.3, d.b + 0.3);
-  ctx.beginPath();
-  for (let k = 0; k < d.shape.length; k += 2) ctx.lineTo(sx(d.shape[k]), sy(d.shape[k + 1]));
-  ctx.closePath();
-  ctx.fillStyle = P.rock;
-  ctx.fill();
-  ctx.strokeStyle = P.rockDark;
-  ctx.lineWidth = Math.max(1.5, 0.03 * m);
-  ctx.stroke();
+  const outline = () => {
+    for (let k = 0; k < d.shape.length; k += 2) ctx.lineTo(sx(d.shape[k]), sy(d.shape[k + 1]));
+    ctx.closePath();
+  };
+  fillWith(ctx, P.rock, outline);
+  strokeWith(ctx, P.rockDark, Math.max(1.5, 0.03 * m), outline);
   ctx.clip();
-  ctx.lineWidth = Math.max(1, 0.018 * m);
-  ctx.beginPath();
-  for (const y of d.strata) {
-    ctx.moveTo(sx(d.a - 0.2), sy(y));
-    ctx.lineTo(sx(d.b + 0.2), sy(y));
-  }
-  for (const c of d.cracks) {
-    ctx.moveTo(sx(c), sy(d.top + 0.1));
-    ctx.lineTo(sx(c + 0.06), sy(d.top - 0.2));
-    ctx.lineTo(sx(c - 0.02), sy(d.top - 0.45));
-  }
-  ctx.stroke();
+  strokeWith(ctx, P.rockDark, Math.max(1, 0.018 * m), () => {
+    for (const y of d.strata) {
+      ctx.moveTo(sx(d.a - 0.2), sy(y));
+      ctx.lineTo(sx(d.b + 0.2), sy(y));
+    }
+    for (const c of d.cracks) {
+      ctx.moveTo(sx(c), sy(d.top + 0.1));
+      ctx.lineTo(sx(c + 0.06), sy(d.top - 0.2));
+      ctx.lineTo(sx(c - 0.02), sy(d.top - 0.45));
+    }
+  });
   ctx.restore();
 };
 
@@ -1212,60 +1244,42 @@ const FEATURE_ART = {
       const hs = v.L.heights;
       const floor = (i) => d.ya + ((d.yb - d.ya) * (i - d.ia)) / (d.lip + 1 - d.ia);
       ctx.save();
-      ctx.beginPath();
-      for (let i = d.ia; i <= d.lip; i++) ctx.lineTo(sx(i * STEP), sy(hs[i]));
-      ctx.lineTo(sx(d.lip * STEP), sy(floor(d.lip)));
-      ctx.closePath();
-      ctx.fillStyle = P.wood;
-      ctx.fill();
+      fillWith(ctx, P.wood, () => {
+        for (let i = d.ia; i <= d.lip; i++) ctx.lineTo(sx(i * STEP), sy(hs[i]));
+        ctx.lineTo(sx(d.lip * STEP), sy(floor(d.lip)));
+      });
       ctx.clip();
-      ctx.strokeStyle = P.woodLight;
-      ctx.lineWidth = Math.max(1, 0.02 * m);
-      ctx.beginPath();
-      for (let k = 1; k < 13; k++) {
-        for (let i = d.ia; i <= d.lip; i++) {
-          if (i === d.ia) ctx.moveTo(sx(i * STEP), sy(hs[i] - k * 0.14));
-          else ctx.lineTo(sx(i * STEP), sy(hs[i] - k * 0.14));
+      strokeWith(ctx, P.woodLight, Math.max(1, 0.02 * m), () => {
+        for (let k = 1; k < 13; k++) {
+          ctx.moveTo(sx(d.ia * STEP), sy(hs[d.ia] - k * 0.14));
+          for (let i = d.ia + 1; i <= d.lip; i++) ctx.lineTo(sx(i * STEP), sy(hs[i] - k * 0.14));
         }
-      }
-      ctx.stroke();
-      ctx.strokeStyle = P.woodDark;
-      ctx.lineWidth = Math.max(1.5, 0.04 * m);
-      ctx.beginPath();
-      for (let i = d.ia + 5; i < d.lip - 1; i += 6) {
-        ctx.moveTo(sx(i * STEP), sy(hs[i]));
-        ctx.lineTo(sx(i * STEP), sy(floor(i)));
-      }
-      ctx.stroke();
+      });
+      strokeWith(ctx, P.woodDark, Math.max(1.5, 0.04 * m), () => {
+        for (let i = d.ia + 5; i < d.lip - 1; i += 6) {
+          ctx.moveTo(sx(i * STEP), sy(hs[i]));
+          ctx.lineTo(sx(i * STEP), sy(floor(i)));
+        }
+      });
       ctx.restore();
-      ctx.strokeStyle = P.woodDark;
-      ctx.lineWidth = Math.max(2, 0.07 * m);
-      ctx.beginPath();
-      ctx.moveTo(sx(d.lip * STEP - 0.035), sy(hs[d.lip]));
-      ctx.lineTo(sx(d.lip * STEP - 0.035), sy(floor(d.lip)));
-      ctx.stroke();
+      strokeWith(ctx, P.woodDark, Math.max(2, 0.07 * m), () => {
+        ctx.moveTo(sx(d.lip * STEP - 0.035), sy(hs[d.lip]));
+        ctx.lineTo(sx(d.lip * STEP - 0.035), sy(floor(d.lip)));
+      });
     },
     over(ctx, d, v, P) {
       const { sx, sy } = v;
       const hs = v.L.heights;
       const deck = () => {
-        ctx.beginPath();
         for (let i = d.ia; i <= d.lip; i++) ctx.lineTo(sx(i * STEP), sy(hs[i]));
-        ctx.stroke();
       };
-      ctx.lineWidth = v.surface;
-      ctx.strokeStyle = P.wood;
-      deck();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = P.woodLight;
-      deck();
+      strokeWith(ctx, P.wood, v.surface, deck);
+      strokeWith(ctx, P.woodLight, 1.5, deck);
       ctx.lineCap = 'butt';
-      ctx.lineWidth = v.surface * 0.8;
-      ctx.strokeStyle = P.woodDark;
-      ctx.beginPath();
-      ctx.moveTo(sx((d.lip - 1) * STEP), sy(hs[d.lip - 1]));
-      ctx.lineTo(sx(d.lip * STEP), sy(hs[d.lip]));
-      ctx.stroke();
+      strokeWith(ctx, P.woodDark, v.surface * 0.8, () => {
+        ctx.moveTo(sx((d.lip - 1) * STEP), sy(hs[d.lip - 1]));
+        ctx.lineTo(sx(d.lip * STEP), sy(hs[d.lip]));
+      });
       ctx.lineCap = 'round';
     },
   },
@@ -1311,24 +1325,16 @@ const FEATURE_ART = {
       ctx.fillStyle = v.wall;
       ctx.fillRect(0, lip, m + 4, v.H - lip + 40);
       ctx.restore();
-      ctx.strokeStyle = P.root;
-      ctx.lineWidth = Math.max(1, 0.025 * m);
       ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (const t of d.roots) {
-        ctx.moveTo(sx(t.x), sy(t.y));
-        ctx.quadraticCurveTo(sx(t.x + t.dir * t.len * 0.35), sy(t.y - t.len * 0.15), sx(t.x + t.dir * t.len * (0.25 + t.bend * 0.3)), sy(t.y - t.len));
-      }
-      ctx.stroke();
-      ctx.fillStyle = P.deep;
-      ctx.beginPath();
-      for (const t of d.drips) {
-        ctx.moveTo(sx(t.x - t.dir * 0.03), sy(t.y + 0.03));
-        ctx.lineTo(sx(t.x + t.dir * t.len * 0.5), sy(t.y));
-        ctx.lineTo(sx(t.x + t.dir * 0.04), sy(t.y - t.len));
-        ctx.closePath();
-      }
-      ctx.fill();
+      strokeWith(ctx, P.root, Math.max(1, 0.025 * m), () => {
+        for (const t of d.roots) {
+          ctx.moveTo(sx(t.x), sy(t.y));
+          ctx.quadraticCurveTo(sx(t.x + t.dir * t.len * 0.35), sy(t.y - t.len * 0.15), sx(t.x + t.dir * t.len * (0.25 + t.bend * 0.3)), sy(t.y - t.len));
+        }
+      });
+      fillWith(ctx, P.deep, () => {
+        for (const t of d.drips) trace(ctx, [-0.03, 0.03, t.len * 0.5, 0, 0.04, -t.len], sx(t.x), sy(t.y), t.dir * v.m, v.m);
+      });
       ctx.restore();
     },
   },
@@ -1344,28 +1350,21 @@ const FEATURE_ART = {
       const x = v.sx(d.cx);
       const y = v.sy(d.cy);
       const rr = d.r * v.m;
-      ctx.fillStyle = P.logEnd;
-      ctx.beginPath();
-      blob(ctx, x, y, rr);
-      ctx.fill();
-      ctx.strokeStyle = P.ring;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      for (const k of [0.25, 0.48, 0.7]) blob(ctx, x, y, rr * k);
-      for (const a of [0.5, 2.6, 4.4]) {
-        ctx.moveTo(x + Math.cos(a) * rr * 0.12, y + Math.sin(a) * rr * 0.12);
-        ctx.lineTo(x + Math.cos(a) * rr * 0.62, y + Math.sin(a) * rr * 0.62);
-      }
-      ctx.stroke();
+      fillWith(ctx, P.logEnd, () => blob(ctx, x, y, rr));
+      strokeWith(ctx, P.ring, 1.2, () => {
+        for (const k of [0.25, 0.48, 0.7]) blob(ctx, x, y, rr * k);
+        for (const a of [0.5, 2.6, 4.4]) {
+          ctx.moveTo(x + Math.cos(a) * rr * 0.12, y + Math.sin(a) * rr * 0.12);
+          ctx.lineTo(x + Math.cos(a) * rr * 0.62, y + Math.sin(a) * rr * 0.62);
+        }
+      });
       const bark = Math.min(rr * 0.4, Math.max(2, 0.07 * v.m));
-      ctx.strokeStyle = P.woodDark;
-      ctx.lineWidth = bark;
-      ctx.beginPath();
-      blob(ctx, x, y, rr - bark / 2);
-      ctx.stroke();
+      strokeWith(ctx, P.woodDark, bark, () => blob(ctx, x, y, rr - bark / 2));
     },
   },
 };
+// A cliff is a drop-off on a grander scale, with the same rock face.
+FEATURE_ART.cliff = FEATURE_ART.drop;
 
 // The bike and its rider, drawn in the frame's own coordinates: metres from
 // the centre of mass, x forward, y up (the caller has set the transform).

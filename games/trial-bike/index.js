@@ -1,20 +1,21 @@
 // Trial Bike: course select, the riding screen with its two-thumb controls
-// (lean on the left, GAS and BRAKE on the right), crash and finish cards.
+// (a drag anywhere on the left half leans the rider, the brake lever and the
+// throttle grip sit in the bottom-right corner), crash and finish cards.
 import { makeLevel, stars, BASE_SEED } from './engine.js';
 import { Play } from './play.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 import { levelSource } from '../../js/lib/level-source.js';
 
 // Bump when generation changes, so courses cached on devices are rebuilt.
-export const GEN_VERSION = 1;
+export const GEN_VERSION = 2;
 
+// The left half's hint: a ghost of the rider that tilts with the lean.
 const RIDER = '<svg class="tb-rider" viewBox="0 0 48 48"><circle cx="12" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="36" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M12 36l10-8h8l6 8M22 28l-2-8h8l4 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="13" r="4" fill="currentColor"/></svg>';
-// The right handlebar, end on: the brake lever reaching forward over the
-// grip, and the twist grip itself.
+// The right handlebar's two controls: the brake lever and the twist grip.
 const LEVER = '<svg viewBox="0 0 120 44"><path d="M8 30c20-12 54-18 104-18" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="8" cy="30" r="6" fill="currentColor"/></svg>';
-const GRIP = '<svg viewBox="0 0 120 60"><rect x="4" y="14" width="112" height="32" rx="16" fill="currentColor" opacity=".25"/><rect x="4" y="14" width="112" height="32" rx="16" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 18v24M42 18v24M58 18v24M74 18v24M90 18v24" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".7"/><circle cx="110" cy="30" r="8" fill="currentColor"/></svg>';
+const GRIP = '<svg viewBox="0 0 120 60"><rect x="4" y="14" width="112" height="32" rx="16" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 18v24M42 18v24M58 18v24M74 18v24M90 18v24" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".7"/><circle cx="110" cy="30" r="8" fill="currentColor"/></svg>';
 const TIPS = {
-  1: 'Right thumb: hold the GAS grip. Left thumb: drag back to lift the front wheel, forward to bring it down. In the air, lean to land on both wheels. Sideways is easier to see ahead!',
+  1: 'Right thumb: hold the GAS grip. Left thumb: drag anywhere on the left -- back to lift the front wheel, forward to bring it down. In the air, lean to land on both wheels. Sideways is easier to see ahead!',
   2: 'A log: slow down, then drag back and give it gas just before, so the front wheel rides up and over.',
   3: 'A drop-off: a touch of lean back as you go over, so the back wheel lands first.',
   4: 'Ledges: lift the front wheel onto the top, keep the gas on, and the back wheel climbs up after it.',
@@ -80,18 +81,15 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Courses">${ICON.back}</button>
           <h2>Course ${n}</h2>
-          <span class="pill tb-clock"><b data-time>0.0</b>s · par ${level.par}s<b class="tb-crashes" data-crashes hidden></b></span>
           <button class="icon-btn" data-act="flag" aria-label="Back to the last flag" title="Back to the last flag (counts as a crash)">${ICON.undo}</button>
           <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
           <button class="icon-btn" data-act="restart" aria-label="Restart">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas>
-          <div class="tb-controls">
-            <div class="tb-lean" aria-label="Lean: drag back or forward">${RIDER}<span>◀ BACK · LEAN · FORWARD ▶</span></div>
-            <div class="tb-bars" aria-label="Right handlebar">
-              <button class="tb-grip tb-brake" data-key="brake" aria-label="Brake">${LEVER}<span>BRAKE</span></button>
-              <button class="tb-grip tb-gas" data-key="gas" aria-label="Gas">${GRIP}<span>GAS</span></button>
-            </div>
+          <div class="tb-lean" aria-label="Lean: drag back or forward">${RIDER}<span>◀ LEAN ▶</span></div>
+          <div class="tb-bars" aria-label="Right handlebar">
+            <button class="tb-grip tb-brake" data-key="brake" aria-label="Brake">${LEVER}<span>BRAKE</span></button>
+            <button class="tb-grip tb-gas" data-key="gas" aria-label="Gas">${GRIP}<span>GAS</span></button>
           </div>
         </div>
         <button class="tb-demo" hidden aria-label="Computer rider demo speed">RIDER DEMO · <b>1×</b></button>
@@ -100,29 +98,16 @@ export function mount(root, ctx, sub) {
         <div class="tip" hidden></div>
         <div class="dialog" hidden></div>
       </div>`;
-    const timeEl = root.querySelector('[data-time]');
-    const crashesEl = root.querySelector('[data-crashes]');
     const demoBtn = root.querySelector('.tb-demo');
     const showMeBtn = root.querySelector('.tb-showme');
     const tip = root.querySelector('.tip');
     const dialog = root.querySelector('.dialog');
-    let shownTime = -1;
     play = new Play(root.querySelector('canvas'), level, {
       sfx: ctx.sfx,
       haptic: ctx.haptic,
       onMotor: (on, vol) => {
         ctx.setLoop?.('motor', on && !play?.paused);
         if (on) ctx.loopLevel?.('motor', vol);
-      },
-      onState: (p) => {
-        // (The clock in the bar, to a tenth, without churning the DOM.)
-        const t = Math.floor(p.time * 10) / 10;
-        if (t !== shownTime) {
-          shownTime = t;
-          timeEl.textContent = t.toFixed(1);
-        }
-        crashesEl.hidden = !p.crashes;
-        crashesEl.textContent = ` · ${p.crashes} crash${p.crashes === 1 ? '' : 'es'}`;
       },
       onDemo: (on) => {
         demoBtn.hidden = !on;
@@ -142,10 +127,14 @@ export function mount(root, ctx, sub) {
       demoBtn.querySelector('b').textContent = `${play.timeScale}×`;
     });
 
-    // Left thumb: lean. Drag back (left) to lift the front wheel, forward
-    // (right) to bring it down; let go and the rider sits back up.
+    // Left thumb: lean, anywhere on the left half. Drag back (left) to lift
+    // the front wheel, forward (right) to bring it down, a thumb's easy
+    // reach for a full lean; let go and the rider sits back up. Once you've
+    // leant, the ghost rider fades to a faint mark, for good.
     const leanEl = root.querySelector('.tb-lean');
     const riderEl = leanEl.querySelector('.tb-rider');
+    const REACH = 64; // px
+    leanEl.classList.toggle('used', ctx.load('leanHint', false));
     let grab = null;
     const setLean = (v) => {
       if (!play || play.pilot) return;
@@ -165,13 +154,14 @@ export function mount(root, ctx, sub) {
     });
     leanEl.addEventListener('pointermove', (e) => {
       if (!grab || e.pointerId !== grab.id) return;
-      const full = Math.max(50, leanEl.clientWidth * 0.45);
-      setLean(Math.max(-1, Math.min(1, -(e.clientX - grab.x) / full)));
+      setLean(Math.max(-1, Math.min(1, -(e.clientX - grab.x) / REACH)));
     });
     const release = (e) => {
       if (!grab || e.pointerId !== grab.id) return;
       grab = null;
       leanEl.classList.remove('on');
+      leanEl.classList.add('used');
+      ctx.save('leanHint', true);
       setLean(0);
     };
     leanEl.addEventListener('pointerup', release);
@@ -329,7 +319,7 @@ export function mount(root, ctx, sub) {
     }
     ctx.track('level_fail', { level: n, reason: res.reason });
     play.waiting = true;
-    play.say(`${res.reason.toUpperCase()} -- TAP TO GO AGAIN`, 60);
+    play.say(`${res.reason.toUpperCase()} · TAP TO GO AGAIN`, 60);
     root.querySelector('.tb-showme').hidden = false;
   }
 
