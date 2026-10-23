@@ -1,6 +1,6 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
-import { step, newLander, heightAt, clearance, underRock, flightPath, autopilot, bestTilt, G, SAFE, FEET, HEIGHT, TRACK_DT } from './engine.js';
+import { step, newLander, heightAt, clearance, underRock, highestPeak, flightPath, autopilot, bestTilt, G, SAFE, FEET, HEIGHT, TRACK_DT } from './engine.js';
 import { bestFlight, follow } from './pilot.js';
 
 // The autopilot's best flight for a level (worked out once), and the route
@@ -38,6 +38,9 @@ const HORIZON = photo('horizon');
 const REGOLITH = photo('regolith');
 const ready = (img) => img.complete && img.naturalWidth > 0;
 const TILE_M = 70; // metres of ground per surface tile
+// The instrument panel: PANEL_W units wide (168 high), drawn panelWidth(W) px wide.
+const PANEL_W = 290;
+const panelWidth = (W) => Math.min(W * 0.74, 345);
 const DEG = 180 / Math.PI;
 
 export class Play {
@@ -417,33 +420,66 @@ export class Play {
     ctx.fillStyle = sky;
     ctx.fillRect(-20, -20, W + 40, H + 40);
     const t = performance.now() / 1000;
+    // Sky, Earth and the far hills: not seen from down among rock (a shaft,
+    // a cave or a tunnel) -- there the hills would look like ground just
+    // below, and the sky shouldn't show through the roof.
+    const under = underRock(this.level, this.L.x, this.L.y + HEIGHT);
+    const open = 1 - Math.max(0, Math.min(1, under / 15));
     for (const s of this.stars) {
       const x = (((s.x * W * 1.4 - cam.left * 0.02) % (W * 1.4)) + W * 1.4) % (W * 1.4) - W * 0.2;
-      ctx.globalAlpha = 0.55 + 0.45 * Math.sin(t * 1.3 + s.tw);
+      ctx.globalAlpha = (0.55 + 0.45 * Math.sin(t * 1.3 + s.tw)) * open;
       ctx.fillStyle = '#fff';
       ctx.fillRect(x, s.y * H, s.s, s.s);
     }
     ctx.globalAlpha = 1;
     // Earth hangs in the open sky left of the instrument panel.
-    const free = W - Math.min(W * 0.66, 300) - 8;
+    const free = W - panelWidth(W) - 8;
     const er = Math.max(4, Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12));
+    ctx.globalAlpha = open;
     this.drawEarth(free * 0.5 - cam.left * 0.01, Math.max(er + 16, H * 0.2), er);
-    // The far hills: not seen from down among rock (a shaft, a cave or a
-    // tunnel) -- there they'd look like ground just below.
-    const under = underRock(this.level, this.L.x, this.L.y + HEIGHT);
-    ctx.globalAlpha = 1 - Math.max(0, Math.min(1, under / 15));
     this.drawHorizon(cam, W, H);
     ctx.globalAlpha = 1;
 
-    // Terrain
+    // Terrain: the ground and any overhanging rock filled as one shape (so
+    // no seams show where they meet), through the terrain's own points (so
+    // the outline doesn't shimmer as the view moves).
+    const level = this.level;
     const x0 = Math.max(0, cam.left - 10);
-    const x1 = Math.min(this.level.width, cam.left + W / cam.scale + 10);
+    const x1 = Math.min(level.width, cam.left + W / cam.scale + 10);
+    const i0 = Math.max(0, Math.floor(x0 / level.step));
+    const i1 = Math.min(level.terrain.length - 1, Math.ceil(x1 / level.step));
+    const surface = () => {
+      for (let i = i0; i <= i1; i++) ctx.lineTo(sx(i * level.step), sy(level.terrain[i]));
+    };
+    const groundPath = () => {
+      ctx.moveTo(sx(i0 * level.step), H + 20);
+      surface();
+      ctx.lineTo(sx(i1 * level.step), H + 20);
+      ctx.closePath();
+    };
+    const rocks = (level.rocks || []).filter((p) => p.x1 >= x0 - 10 && p.x0 <= x1 + 10);
+    const rockPath = (p) => {
+      // (Round the same way as the ground: over the top, back along the bottom.)
+      p.hi.forEach((y, k) => (k ? ctx.lineTo : ctx.moveTo).call(ctx, sx(p.x0 + k * level.step), sy(y)));
+      for (let k = p.lo.length - 1; k >= 0; k--) ctx.lineTo(sx(p.x0 + k * level.step), sy(p.lo[k]));
+      ctx.closePath();
+    };
+    // Down among rock, the air under it is in shadow.
+    ctx.fillStyle = 'rgba(0,0,10,0.55)';
+    for (const p of rocks) {
+      ctx.beginPath();
+      p.lo.forEach((y, k) => (k ? ctx.lineTo : ctx.moveTo).call(ctx, sx(p.x0 + k * level.step), sy(y)));
+      for (let k = p.lo.length - 1; k >= 0; k--) {
+        const x = p.x0 + k * level.step;
+        ctx.lineTo(sx(x), sy(Math.min(p.lo[k], heightAt(level, x))));
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.beginPath();
-    ctx.moveTo(sx(x0), H + 20);
-    for (let x = x0; x <= x1; x += Math.max(1, 2 / cam.scale)) ctx.lineTo(sx(x), sy(heightAt(this.level, x)));
-    ctx.lineTo(sx(x1), H + 20);
-    ctx.closePath();
-    const ground = ctx.createLinearGradient(0, sy(this.level.maxH), 0, H);
+    groundPath();
+    for (const p of rocks) rockPath(p);
+    const ground = ctx.createLinearGradient(0, sy(level.maxH), 0, H);
     if (ready(REGOLITH)) {
       // The photo's surface, pinned to the world so it scrolls with the camera,
       // shaded darker with depth.
@@ -460,29 +496,46 @@ export class Play {
     }
     ctx.fillStyle = ground;
     ctx.fill();
+    // Sunlit edges: the ground's skyline and the tops of the rock; the
+    // undersides of the rock dark.
     ctx.strokeStyle = 'rgba(236,233,224,0.75)';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    for (let x = x0; x <= x1; x += Math.max(1, 2 / cam.scale)) {
-      if (x === x0) ctx.moveTo(sx(x), sy(heightAt(this.level, x)));
-      else ctx.lineTo(sx(x), sy(heightAt(this.level, x)));
-    }
+    ctx.moveTo(sx(i0 * level.step), sy(level.terrain[i0]));
+    surface();
+    for (const p of rocks) p.hi.forEach((y, k) => (k ? ctx.lineTo : ctx.moveTo).call(ctx, sx(p.x0 + k * level.step), sy(y)));
     ctx.stroke();
-    this.drawRocks(sx, sy, x0, x1, ground);
+    ctx.strokeStyle = 'rgba(20,20,26,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (const p of rocks) p.lo.forEach((y, k) => (k ? ctx.lineTo : ctx.moveTo).call(ctx, sx(p.x0 + k * level.step), sy(y)));
+    ctx.stroke();
+    // Craters, on the gentler slopes (lying along them), and never showing
+    // past the ground's edge.
+    ctx.save();
+    ctx.beginPath();
+    groundPath();
+    ctx.clip();
     for (const c of this.craters) {
       if (c.x < x0 - 10 || c.x > x1 + 10) continue;
-      if (this.level.rocks?.some((p) => c.x > p.x0 - c.r && c.x < p.x1 + c.r)) continue;
-      const gy = heightAt(this.level, c.x);
+      if (level.rocks?.some((p) => c.x > p.x0 - c.r - 8 && c.x < p.x1 + c.r + 8)) continue;
+      const slope = (heightAt(level, c.x + c.r) - heightAt(level, c.x - c.r)) / (2 * c.r);
+      if (Math.abs(slope) > 0.35) continue;
+      const a = -Math.atan(slope);
+      const gy = heightAt(level, c.x);
+      const cx = sx(c.x);
+      const cy = sy(gy - c.r * 0.35);
       ctx.fillStyle = 'rgba(30,30,30,0.16)';
       ctx.beginPath();
-      ctx.ellipse(sx(c.x), sy(gy - c.r * 0.35), c.r * cam.scale, c.r * c.d * cam.scale, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy, c.r * cam.scale, c.r * c.d * cam.scale, a, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = 'rgba(240,238,230,0.22)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.ellipse(sx(c.x), sy(gy - c.r * 0.35), c.r * cam.scale, c.r * c.d * cam.scale, 0, Math.PI * 1.05, Math.PI * 1.95);
+      ctx.ellipse(cx, cy, c.r * cam.scale, c.r * c.d * cam.scale, a, Math.PI * 1.05, Math.PI * 1.95);
       ctx.stroke();
     }
+    ctx.restore();
     this.drawPad(this.level.startPad, sx, sy, cam.scale, false);
     this.drawPad(this.level.base, sx, sy, cam.scale, true);
 
@@ -795,45 +848,6 @@ export class Play {
   // Overhanging rock (cave roofs, the mountain over a tunnel, a cavern's
   // roof): the hollow beneath in deep shadow, then the rock in the same
   // regolith as the ground, lit along its top and dark along its underside.
-  drawRocks(sx, sy, x0, x1, shade) {
-    const { ctx, level } = this;
-    for (const p of level.rocks || []) {
-      if (p.x1 < x0 - 10 || p.x0 > x1 + 10) continue;
-      const xs = p.lo.map((_, k) => p.x0 + k * level.step);
-      const trace = (ys, reverse) => {
-        const ks = xs.map((_, k) => k);
-        if (reverse) ks.reverse();
-        ks.forEach((k, j) => (j || reverse ? ctx.lineTo(sx(xs[k]), sy(ys[k])) : ctx.moveTo(sx(xs[k]), sy(ys[k]))));
-      };
-      ctx.beginPath();
-      trace(p.lo);
-      trace(xs.map((x, k) => Math.min(p.lo[k], heightAt(level, x))), true);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(0,0,10,0.55)';
-      ctx.fill();
-      ctx.beginPath();
-      trace(p.lo);
-      trace(p.hi, true);
-      ctx.closePath();
-      if (this.regolith) {
-        ctx.fillStyle = this.regolith;
-        ctx.fill();
-      }
-      ctx.fillStyle = shade;
-      ctx.fill();
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = 'rgba(236,233,224,0.75)';
-      ctx.beginPath();
-      trace(p.hi);
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(20,20,26,0.9)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      trace(p.lo);
-      ctx.stroke();
-    }
-  }
-
   // The Stars and Stripes, popping up out of the hatch on a telescoping mast
   // and unfurling. Like the Apollo flags it hangs from a crossbar (there's no
   // air to hold it out), rippling from the jolt and slowly settling.
@@ -1091,13 +1105,20 @@ export class Play {
     }
     label('START', sx((level.startPad.x0 + level.startPad.x1) / 2), sy(level.startPad.y + 7));
     label('▼ BASE', sx((level.base.x0 + level.base.x1) / 2), sy(level.base.y + 4));
+    // The highest peak on the way, as its height on the ALT readout (above
+    // the base).
+    const peak = (level.peak ??= highestPeak(level));
+    const peakAlt = Math.round(peak.y - level.base.y);
+    if (peak.y > level.startPad.y + 8 && Math.abs(sx(peak.x) - sx(level.startPad.x1)) > 50 && Math.abs(sx(peak.x) - sx(level.base.x0)) > 50) {
+      label(`▲ ${peakAlt} M`, sx(peak.x), sy(peak.y) + 30); // (just under the summit)
+    }
     // Caption
     const dist = Math.round((level.base.x0 + level.base.x1) / 2 - (level.startPad.x0 + level.startPad.x1) / 2);
     ctx.font = '700 15px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const cap = this.lastTry ? 'Red: your last try · yellow: the autopilot’s fastest' : `Mission ${level.n}: ${dist} m to the base`;
-    const sub = `A dot every ${every} s: close together = slow · tap to skip`;
+    const sub = `Highest peak: ALT ${peakAlt} m · a dot every ${every} s · tap to skip`;
     const w = Math.max(ctx.measureText(cap).width, (ctx.font = '600 12px system-ui, sans-serif', ctx.measureText(sub).width)) + 24;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     // Above the thrust buttons; on a wide screen, down between them.
@@ -1154,8 +1175,8 @@ export class Play {
   drawPanel(W) {
     const { ctx } = this;
     const L = this.L;
-    const pw = Math.min(W * 0.66, 300);
-    const k = pw / 250;
+    const pw = panelWidth(W);
+    const k = pw / PANEL_W;
     const ph = 168 * k;
     const px = W - pw - 8;
     const py = 8;
@@ -1166,8 +1187,8 @@ export class Play {
     ctx.fillStyle = 'rgba(0,18,6,0.74)';
     ctx.strokeStyle = 'rgba(61,255,122,0.6)';
     ctx.lineWidth = 1.5;
-    ctx.fillRect(0, 0, 250, 168);
-    ctx.strokeRect(0.5, 0.5, 249, 167);
+    ctx.fillRect(0, 0, PANEL_W, 168);
+    ctx.strokeRect(0.5, 0.5, PANEL_W - 1, 167);
     ctx.shadowColor = PHOSPHOR;
     ctx.shadowBlur = 5;
     ctx.textBaseline = 'middle';
@@ -1314,12 +1335,77 @@ export class Play {
       ctx.font = '600 10px ui-monospace, Menlo, Consolas, monospace';
       ctx.fillText('ASSIST', 10, 156);
     }
+    this.drawRateTape(L, flying, RED);
     // Scanlines
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(0,0,0,0.16)';
-    for (let yy = 0; yy < 168; yy += 3) ctx.fillRect(0, yy, 250, 1);
+    for (let yy = 0; yy < 168; yy += 3) ctx.fillRect(0, yy, PANEL_W, 1);
     ctx.restore();
     this.panelBottom = py + ph;
+  }
+
+  // The altitude-rate tape, as on the Apollo lunar module's panel: a scale
+  // that slides past a fixed pointer -- up while climbing, down while
+  // sinking -- reading the vertical speed in m/s. Marked red past the
+  // fastest safe touchdown.
+  drawRateTape(L, flying, RED) {
+    const { ctx } = this;
+    const x0 = 254;
+    const w = 30;
+    const y0 = 8;
+    const h = 152;
+    const mid = y0 + h / 2;
+    const per = 8; // tape length (panel units) per m/s
+    const v = flying ? L.vy : 0;
+    const Y = (u) => mid - (u - v) * per;
+    const fast = flying && -L.vy > SAFE.vy;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0, y0, w, h);
+    ctx.clip();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(x0, y0, w, h);
+    // Too fast to land: the red part of the tape.
+    ctx.fillStyle = 'rgba(255,77,61,0.38)';
+    const red = Y(-SAFE.vy);
+    if (red < y0 + h) ctx.fillRect(x0, Math.max(y0, red), w, y0 + h - Math.max(y0, red));
+    ctx.shadowBlur = 4;
+    ctx.strokeStyle = PHOSPHOR;
+    ctx.fillStyle = PHOSPHOR;
+    ctx.shadowColor = PHOSPHOR;
+    ctx.lineWidth = 1;
+    ctx.font = '700 9px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    const span = h / 2 / per + 1;
+    for (let u = Math.ceil(v - span); u <= Math.floor(v + span); u++) {
+      const y = Math.round(Y(u)) + 0.5;
+      const major = u % 2 === 0;
+      ctx.beginPath();
+      ctx.moveTo(x0, y);
+      ctx.lineTo(x0 + (major ? 6 : 3), y);
+      ctx.stroke();
+      if (major) ctx.fillText(u < 0 ? `−${-u}` : String(u), x0 + w - 1, y);
+    }
+    ctx.restore();
+    // The fixed pointer, and the tape's frame.
+    const col = fast ? RED : PHOSPHOR;
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.shadowColor = col;
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(x0, y0, w, h);
+    ctx.beginPath();
+    ctx.moveTo(x0 - 7, mid - 5);
+    ctx.lineTo(x0 + 1, mid);
+    ctx.lineTo(x0 - 7, mid + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x0, mid);
+    ctx.lineTo(x0 + w, mid);
+    ctx.stroke();
   }
 
   drawMessage(text, W, H) {

@@ -73,6 +73,16 @@ export function topAt(level, x) {
   return top;
 }
 
+// The highest point between the launch pad and the base: { x, y }.
+export function highestPeak(level) {
+  let best = { x: level.startPad.x1, y: -Infinity };
+  for (let x = level.startPad.x1; x <= level.base.x0; x += level.step) {
+    const y = topAt(level, x);
+    if (y > best.y) best = { x, y };
+  }
+  return best;
+}
+
 // How far the nearest solid surface is from (x, y), within R metres either
 // side: ground below (or, where it rises higher than y, its face beside),
 // and rock above, below or beside -- the walls of a shaft or a tunnel as
@@ -113,12 +123,24 @@ export function underRock(level, x, y, R = 40) {
 // What kind of course mission n is. The first ten each have a shape of
 // their own; from 11 the caves, tunnels and shafts come in turn, with an
 // open course between, each a little tighter than the last time round.
+// From 27 two more join them: the switchback (down a shaft, along a gallery,
+// down another and back under it to the base) and the zigzag (a tunnel
+// that climbs and dives).
 const KIND = { 1: 'hop', 2: 'hop', 3: 'hill', 4: 'down', 5: 'twin', 6: 'mesa', 7: 'ridge', 8: 'range', 9: 'mesa', 10: 'crater' };
 const OPEN = ['range', 'mesa', 'crater', 'down', 'ridge', 'twin'];
+const LATER = ['switchback', 'tunnel', 'shaft', 'open', 'zigzag', 'cave'];
 export function missionKind(n) {
   if (KIND[n]) return KIND[n];
-  const k = (n - 11) % 4;
-  return ['cave', 'tunnel', 'shaft'][k] || OPEN[Math.floor((n - 11) / 4) % OPEN.length];
+  if (n < 27) return ['cave', 'tunnel', 'shaft'][(n - 11) % 4] || OPEN[Math.floor((n - 11) / 4) % OPEN.length];
+  const k = LATER[(n - 27) % LATER.length];
+  return k === 'open' ? OPEN[(4 + Math.floor((n - 27) / LATER.length)) % OPEN.length] : k;
+}
+
+// How many times mission n's kind of feature has come before.
+function seen(n, kind) {
+  if (n < 27) return Math.max(0, Math.floor((n - 11) / 4));
+  const round = Math.floor((n - 27) / LATER.length);
+  return kind === 'switchback' || kind === 'zigzag' ? round : 4 + round;
 }
 
 const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
@@ -131,7 +153,7 @@ const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 export function makeTerrain(n, attempt = 0) {
   const r = rng(seedFor(n * 16 + attempt, BASE_SEED));
   const kind = missionKind(n);
-  const c = Math.max(0, Math.floor((n - 11) / 4)); // times this feature came before
+  const c = seen(n, kind); // times this feature came before
   const step = 4;
   const snap = (x) => Math.round(x / step) * step;
   const Y0 = 100;
@@ -222,7 +244,7 @@ export function makeTerrain(n, attempt = 0) {
   } else if (kind === 'cave') {
     // The base is inside a cave at the foot of a cliff: fly in under the
     // overhang and set down inside.
-    const clear = Math.max(12.5, 22 - 2.5 * c);
+    const clear = Math.max(11, 22 - 2.5 * c);
     const over = Math.min(70, 25 + 12 * c);
     baseY = startY + (r() - 0.5) * rise * 0.5;
     base = { x0: bx - baseW / 2, x1: bx + baseW / 2, y: baseY };
@@ -239,20 +261,25 @@ export function makeTerrain(n, attempt = 0) {
     keys.push({ x: mouth - 35, y: baseY + room(clear) }, { x: bx, y: baseY + room(clear), direct: true });
     hover = room(clear);
     baseBlend = 0;
-  } else if (kind === 'tunnel') {
+  } else if (kind === 'tunnel' || kind === 'zigzag') {
     // A mountain far too high to fly over cheaply, with a tunnel through it;
-    // after the first, the tunnel bends up and down.
-    const clear = Math.max(12, 22 - 2.5 * c);
-    const len = snap(Math.min(300, 170 + 30 * c));
+    // after the first, the tunnel bends up and down. A zigzag climbs and
+    // dives in turn, more turns each time round.
+    const zig = kind === 'zigzag';
+    const clear = zig ? Math.max(13, 18 - 1.5 * c) : Math.max(10.5, 22 - 2.5 * c);
+    const len = snap(zig ? Math.min(420, 300 + 40 * c) : Math.min(300, 170 + 30 * c));
     const high = Math.min(560, 360 + 40 * c);
-    const amp = c ? Math.min(24, 8 * c) : 0;
+    const amp = zig ? Math.min(34, 22 + 3 * c) : c ? Math.min(24, 8 * c) : 0;
+    const turns = 3 + c; // (zigzag) climbs and dives
     const ta = snap(sx + Math.max(120, hop * 0.35));
     const tb = ta + len;
     bx = Math.max(sx + hop, tb + 130);
     baseY = startY + (r() - 0.5) * rise * 0.6;
     base = { x0: bx - baseW / 2, x1: bx + baseW / 2, y: baseY };
     const ty = startY;
-    const off = (x) => amp * Math.sin((Math.PI * (x - ta)) / len);
+    const off = zig
+      ? (x) => (amp * Math.asin(0.95 * Math.sin((Math.PI * turns * (x - ta)) / len))) / Math.asin(0.95)
+      : (x) => amp * Math.sin((Math.PI * (x - ta)) / len);
     transition = (x) => smooth((x - (tb + 40)) / Math.max(1, base.x0 - 30 - (tb + 40)));
     zones = [[startPad.x1 + 30, ta - 90], [tb + 70, base.x0 - 40]];
     calm = [[ta - 60, tb + 60]];
@@ -266,8 +293,8 @@ export function makeTerrain(n, attempt = 0) {
   } else if (kind === 'shaft') {
     // The base is in a cavern deep under a mesa, reached down a narrow shaft
     // drilled from the top; after the first, the base is off to one side.
-    const sw = c < 1 ? 20 : c < 3 ? 16 : 12;
-    const clear = Math.max(13, 20 - 1.5 * c);
+    const sw = c < 1 ? 20 : c < 3 ? 16 : c < 4 ? 12 : c < 5 ? 11 : 10;
+    const clear = Math.max(11.5, 20 - 1.5 * c);
     const depth = Math.min(220, 50 + 30 * c);
     const offset = c === 0 ? 0 : snap(Math.min(56, 16 + 12 * c));
     baseY = Y0 + (r() - 0.5) * rise * 0.3;
@@ -290,6 +317,43 @@ export function makeTerrain(n, attempt = 0) {
     piece(s1, cx1 + step, () => baseY + clear, (x) => top + jag(x));
     keys.push({ x: sc, y: top + 20 }, { x: sc, y: baseY + room(clear), direct: true });
     if (offset) keys.push({ x: bx, y: baseY + room(clear), direct: true });
+    hover = room(clear);
+    baseBlend = 0;
+  } else if (kind === 'switchback') {
+    // Down a shaft from the top of a mesa into a gallery, along it to a
+    // second shaft, down that into the cavern below -- and back the way you
+    // came, under the gallery, to the base beneath the first shaft.
+    const sw = c < 2 ? 16 : 12;
+    const g = Math.max(12, 17 - c); // the gallery's height
+    const clear = Math.max(12.5, 18 - c); // the cavern's
+    const drop = Math.min(140, 50 + 15 * c); // the first shaft, to the gallery floor
+    const drop2 = Math.min(100, 30 + 10 * c); // the second, gallery to cavern roof
+    const run = snap(Math.min(220, 100 + 25 * c)); // the gallery's length
+    baseY = Y0 + (r() - 0.5) * rise * 0.3;
+    const y1 = baseY + clear + drop2; // the gallery floor
+    const top = y1 + g + drop;
+    const a0 = snap(sx + Math.max(200, hop * 0.5));
+    const a1 = a0 + sw;
+    const b1 = a0 + run;
+    const b0 = b1 - sw;
+    bx = (a0 + a1) / 2;
+    base = { x0: bx - baseW / 2, x1: bx + baseW / 2, y: baseY };
+    const cx0 = a0 - 16;
+    const cx1 = b1 + 14;
+    const mx0 = cx0 - 70;
+    width = Math.ceil(cx1 + 160);
+    zones = [[startPad.x1 + 30, mx0 - 70]];
+    calm = [[mx0 - 40, width]];
+    floor = (x) => (x < mx0 ? null
+      : x < cx0 ? startY + (top - startY) * smooth((x - mx0) / 60) + jag(x) * smooth((x - mx0) / 60)
+        : x <= cx1 ? baseY : top + jag(x));
+    piece(cx0 - step, a0, () => baseY + clear, (x) => top + jag(x));
+    piece(a0, b0, () => baseY + clear, () => y1);
+    piece(a1, b1, () => y1 + g, (x) => top + jag(x));
+    piece(b1, cx1 + step, () => baseY + clear, (x) => top + jag(x));
+    const sc = (b0 + b1) / 2;
+    keys.push({ x: bx, y: top + 20 }, { x: bx, y: y1 + room(g), direct: true }, { x: sc, y: y1 + room(g), direct: true },
+      { x: sc, y: baseY + room(clear), direct: true }, { x: bx, y: baseY + room(clear), direct: true });
     hover = room(clear);
     baseBlend = 0;
   }

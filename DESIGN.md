@@ -110,11 +110,17 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   -- the ground below, or the walls of a shaft, a cave or a tunnel, or rock
   overhead (the nearest surface in any direction) -- so the gap you're
   judging is always big on screen, in landscape too. Down among rock the
-  far hills fade out: seen through a shaft they'd look like ground just
-  below.
+  far hills, the sky and the Earth fade out: seen through a shaft the hills
+  would look like ground just below. The ground and any rock are filled as
+  one shape through the terrain's own points (no seams where they meet, no
+  shimmer as the view moves); craters lie only on gentle slopes, clipped
+  to the ground.
 - Green-phosphor instrument panel: altitude, horizontal/vertical velocity and
   acceleration, attitude and spin rate, fuel, distance to base, an attitude
-  ball and a velocity box, with LOW FUEL / SINK RATE / DRIFT warnings.
+  ball and a velocity box, with LOW FUEL / SINK RATE / DRIFT warnings. Down
+  the right, an altitude-rate tape like the Apollo LM's: a scale sliding
+  past a fixed pointer (up while climbing), red past the 3 m/s safe
+  touchdown -- vertical speed at a glance.
 - Scored on touchdown speed, drift, tilt, centring and fuel left. Too hard,
   too fast sideways, too tilted, or a hull strike: fireball and wreckage.
 - **ASSIST** (on to start) springs the lander back upright when you let go
@@ -127,7 +133,13 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
 - Endless missions: every one is test-flown by an autopilot when generated,
   so it is always possible; fuel is what it needed plus a margin that shrinks
   from 2× to 1.25×, while mountains rise and the base narrows. (That careful
-  pilot flies slowly: its fuel is what a careful player needs.)
+  pilot flies slowly: its fuel is what a careful player needs.) From 11,
+  caves, tunnels and shafts in turn, with an open course between; from 27
+  also the switchback (down a shaft, along a gallery, down a second shaft
+  and back under the gallery to the base) and the zigzag tunnel (climbing
+  and diving), as the caves and tunnels get lower and the shafts narrower.
+- The fly-over before each mission marks the highest peak on the way with
+  its height as ALT will read it (above the base).
 - The route shown before each mission and on the score card, and flown for
   **Show me**, is the autopilot's fastest landing (`pilot.js`): a smooth
   curve from pad to base -- over everything with room to spare, or through

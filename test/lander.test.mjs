@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  makeLevel, makeTerrain, newLander, step, simulate, heightAt, scoreLanding, missionKind, planRoute, inRock,
+  makeLevel, makeTerrain, newLander, step, simulate, heightAt, scoreLanding, missionKind, planRoute, inRock, underRock,
   G, SAFE, ROT_ACCEL, HEIGHT,
 } from '../games/lander/engine.js';
 
@@ -184,6 +184,36 @@ test('from mission 11: a cave, a tunnel and a shaft, flown through by the route,
   const res = fly(cave, L, { thrust: true }, 10);
   assert.equal(res.kind, 'crash');
   assert.match(res.reason, /rock/);
+});
+
+test('from mission 27: switchbacks and zigzags join in, and the caves, tunnels and shafts keep getting tighter', async () => {
+  const { bestFlight } = await import('../games/lander/pilot.js');
+  assert.deepEqual([27, 28, 29, 31, 32].map(missionKind), ['switchback', 'tunnel', 'shaft', 'zigzag', 'cave']);
+  // The switchback: the route goes down, along, down again and back --
+  // turning back on itself under the rock.
+  const sb = makeLevel(27);
+  const xs = sb.keys.map((k) => k.x);
+  const ys = sb.keys.map((k) => k.y);
+  assert.ok(xs[2] > xs[1] && xs[4] < xs[3], 'along the gallery, then back under it');
+  assert.ok(ys[1] < ys[0] && ys[3] < ys[2], 'two drops');
+  for (const k of sb.keys.slice(1)) assert.ok(underRock(sb, k.x, k.y + HEIGHT) > 0 && !inRock(sb, k.x, k.y) && !inRock(sb, k.x, k.y + HEIGHT));
+  // The zigzag: up and down more than the plain tunnel's one gentle hump.
+  const zz = makeLevel(31);
+  const inner = zz.keys.filter((k) => k.direct).map((k) => k.y);
+  let turns = 0;
+  for (let i = 2; i < inner.length; i++) if ((inner[i] - inner[i - 1]) * (inner[i - 1] - inner[i - 2]) < 0) turns++;
+  assert.ok(turns >= 2, `${turns} turns`);
+  // Tighter: a lower tunnel and a narrower shaft than the time before.
+  const gap = (level) => Math.min(...level.rocks[0].lo.map((lo, k) => lo - heightAt(level, level.rocks[0].x0 + k * level.step)).filter((d) => d > 0));
+  assert.ok(gap(makeTerrain(32)) < gap(makeTerrain(23)) && gap(makeTerrain(34)) < gap(makeTerrain(24)), 'lower');
+  const shaftWidth = (level) => level.rocks[1].x0 - level.rocks[0].x1;
+  assert.ok(shaftWidth(makeTerrain(35)) < shaftWidth(makeTerrain(25)), 'narrower');
+  // All flyable, by the careful pilot and the fast one.
+  for (const n of [27, 28, 29, 31, 33]) {
+    const level = makeLevel(n);
+    assert.ok(level.checked, `mission ${n} checked`);
+    assert.equal(bestFlight(level)?.res.kind, 'landed', `mission ${n}: the fastest flight lands`);
+  }
 });
 
 test('stability assist: rotation is a spring -- held, it settles at 20°; let go, it springs back', async () => {

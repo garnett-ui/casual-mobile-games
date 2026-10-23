@@ -6,6 +6,20 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.70.0
+- Lunar Lander: an altitude-rate tape on the instrument panel, like the
+  Apollo lunar module's -- the vertical speed scale slides past a fixed
+  pointer, and turns red past a safe touchdown speed.
+- Lunar Lander: the fly-over before each mission shows the highest peak on
+  the way, as its height on the ALT readout.
+- Lunar Lander: new missions from 27 -- switchbacks (down a shaft, along a
+  gallery, down another and back under it to the base) and zigzag tunnels
+  that climb and dive -- and the later caves and tunnels are lower and the
+  shafts narrower.
+- Lunar Lander: no more crater ovals sticking up over the slopes, or seams
+  and flicker along the ground and rock edges; the sky and the Earth no
+  longer show inside caves and shafts.
+
 ## 1.69.0
 - Lunar Lander: the autopilot's route (shown before each mission and on the
   score card) and **Show me** are now its fastest landing: a smooth curve
