@@ -38,9 +38,10 @@ const HORIZON = photo('horizon');
 const REGOLITH = photo('regolith');
 const ready = (img) => img.complete && img.naturalWidth > 0;
 const TILE_M = 70; // metres of ground per surface tile
-// The instrument panel: PANEL_W units wide (168 high), drawn panelWidth(W) px wide.
-const PANEL_W = 290;
-const panelWidth = (W) => Math.min(W * 0.74, 345);
+// The instrument panel: PANEL_W by PANEL_H units, drawn panelWidth(W) px wide.
+const PANEL_W = 332;
+const PANEL_H = 168;
+const panelWidth = (W) => Math.min(W - 16, 390);
 const DEG = 180 / Math.PI;
 
 export class Play {
@@ -432,11 +433,17 @@ export class Play {
       ctx.fillRect(x, s.y * H, s.s, s.s);
     }
     ctx.globalAlpha = 1;
-    // Earth hangs in the open sky left of the instrument panel.
+    // Earth hangs in the open sky left of the instrument panel -- or below
+    // it, on a narrow screen.
     const free = W - panelWidth(W) - 8;
-    const er = Math.max(4, Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12));
     ctx.globalAlpha = open;
-    this.drawEarth(free * 0.5 - cam.left * 0.01, Math.max(er + 16, H * 0.2), er);
+    if (free > 90) {
+      const er = Math.min(Math.min(W, H) * 0.14, free * 0.5 - 12);
+      this.drawEarth(free * 0.5 - cam.left * 0.01, Math.max(er + 16, H * 0.2), er);
+    } else {
+      const er = Math.min(W, H) * 0.09;
+      this.drawEarth(er + 18 - cam.left * 0.01, (this.panelBottom || 0) + er + 14, er);
+    }
     this.drawHorizon(cam, W, H);
     ctx.globalAlpha = 1;
 
@@ -1172,12 +1179,18 @@ export class Play {
     return false;
   }
 
+  // The instrument panel, laid out like the Apollo lunar module's: the
+  // range to the base, propellant and the mission timer as readouts; the
+  // attitude ball (the "8-ball"); the cross-pointer, its needles showing
+  // the speed sideways and up or down (land with the cross in its box); the
+  // altitude and altitude-rate tapemeters, scales sliding past fixed
+  // pointers; and caution lights.
   drawPanel(W) {
     const { ctx } = this;
     const L = this.L;
     const pw = panelWidth(W);
     const k = pw / PANEL_W;
-    const ph = 168 * k;
+    const ph = PANEL_H * k;
     const px = W - pw - 8;
     const py = 8;
     const RED = '#ff4d3d';
@@ -1187,64 +1200,110 @@ export class Play {
     ctx.fillStyle = 'rgba(0,18,6,0.74)';
     ctx.strokeStyle = 'rgba(61,255,122,0.6)';
     ctx.lineWidth = 1.5;
-    ctx.fillRect(0, 0, PANEL_W, 168);
-    ctx.strokeRect(0.5, 0.5, PANEL_W - 1, 167);
+    ctx.fillRect(0, 0, PANEL_W, PANEL_H);
+    ctx.strokeRect(0.5, 0.5, PANEL_W - 1, PANEL_H - 1);
     ctx.shadowColor = PHOSPHOR;
     ctx.shadowBlur = 5;
     ctx.textBaseline = 'middle';
+    const flying = !L.landed;
+    const flashOff = Math.floor(performance.now() / 180) % 2 === 1;
+    const glow = (colour) => {
+      ctx.fillStyle = colour;
+      ctx.strokeStyle = colour;
+      ctx.shadowColor = colour;
+    };
+    const text = (t, x, y, size, align = 'left', weight = 700) => {
+      ctx.font = `${weight} ${size}px ui-monospace, Menlo, Consolas, monospace`;
+      ctx.textAlign = align;
+      ctx.fillText(t, x, y);
+    };
+
+    // Readouts: range to the base, propellant left, mission time.
     const base = this.level.base;
     const dist = (base.x0 + base.x1) / 2 - L.x;
-    // Height above the base -- negative (with a proper minus) when you're
-    // down in a valley below it.
-    const alt = L.y - base.y;
-    const altText = (h) => {
-      const t = Math.abs(h).toFixed(Math.abs(h) < 20 ? 1 : 0);
-      return h < 0 && Number(t) > 0 ? `−${t}` : t;
-    };
-    const flying = !L.landed;
-    const rows = [
-      ['TARGET', `${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0)} M`, PHOSPHOR],
-      // Green while climbing, red while sinking.
-      ['ALT', `${altText(alt)} M`, flying && L.vy < -0.05 ? RED : PHOSPHOR, flying && this.blocked()],
-      ['V/S', `${L.vy >= 0 ? '▲' : '▼'} ${Math.abs(L.vy).toFixed(1)}`, flying && -L.vy > SAFE.vy ? RED : PHOSPHOR],
-      // Green while drifting toward the base, red while drifting away.
-      ['H/S', `${L.vx >= 0 ? '▶' : '◀'} ${Math.abs(L.vx).toFixed(1)}`, flying && Math.abs(L.vx) > 0.05 && L.vx * dist < 0 ? RED : PHOSPHOR],
-    ];
-    // Flashing: a few times a second, the value dims.
-    const flashOff = Math.floor(performance.now() / 180) % 2 === 1;
-    rows.forEach(([label, value, colour, flash], i) => {
-      const y = 18 + i * 27;
-      ctx.fillStyle = PHOSPHOR;
-      ctx.shadowColor = PHOSPHOR;
-      ctx.textAlign = 'left';
-      ctx.font = '600 13px ui-monospace, Menlo, Consolas, monospace';
-      ctx.fillText(label, 10, y);
-      ctx.fillStyle = colour;
-      ctx.shadowColor = colour;
-      ctx.textAlign = 'right';
-      ctx.font = '700 19px ui-monospace, Menlo, Consolas, monospace';
-      if (flash && flashOff) ctx.globalAlpha = 0.2;
-      ctx.fillText(value, 165, y);
-      ctx.globalAlpha = 1;
-    });
-    // Fuel bar
     const frac = L.fuel / L.fuelMax;
     const low = frac < 0.15;
-    ctx.fillStyle = low ? RED : PHOSPHOR;
-    ctx.strokeStyle = low ? RED : PHOSPHOR;
-    ctx.shadowColor = ctx.fillStyle;
-    ctx.textAlign = 'left';
-    ctx.font = '600 13px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillText('FUEL', 10, 130);
-    ctx.lineWidth = 1.2;
-    ctx.strokeRect(52, 123, 113, 14);
-    if (!low || Math.floor(performance.now() / 300) % 2) ctx.fillRect(54, 125, 109 * frac, 10);
-    // Artificial horizon: red past 10° (too tilted to land).
+    glow(PHOSPHOR);
+    text('RANGE', 8, 12, 9, 'left', 600);
+    text(`${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0)} M`, 100, 30, 18, 'right');
+    text('PRPLNT QTY', 8, 52, 9, 'left', 600);
+    glow(low ? RED : PHOSPHOR);
+    if (!low || !flashOff) text(`${Math.ceil(frac * 100)} %`, 100, 70, 18, 'right');
+    glow(PHOSPHOR);
+    text('TIME', 8, 92, 9, 'left', 600);
+    const secs = Math.floor(L.t);
+    text(`${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`, 100, 110, 18, 'right');
+
+    this.drawBall(L, 140, 46, 31, RED);
+    this.drawCrossPointer(L, flying, 182, 14, 64, RED);
+
+    // Caution lights.
+    const contact = flying && L.y - Math.max(heightAt(this.level, L.x - FEET), heightAt(this.level, L.x + FEET)) < 1.7;
+    const lights = [
+      ['DES QTY', flying && low && !flashOff, '#ffb02e'],
+      ['TERRAIN', flying && this.blocked() && !flashOff, '#ffb02e'],
+      ['CONTACT', contact, '#6cb8ff'],
+      ['ASSIST', this.assist, PHOSPHOR],
+    ];
+    lights.forEach(([name, on, colour], i) => {
+      const x = i % 2 ? 182 : 108;
+      const y = i < 2 ? 124 : 145;
+      const w = i % 2 ? 64 : 66;
+      ctx.shadowBlur = on ? 8 : 0;
+      ctx.shadowColor = colour;
+      ctx.fillStyle = on ? colour : 'rgba(61,255,122,0.06)';
+      ctx.fillRect(x, y, w, 17);
+      ctx.strokeStyle = on ? colour : 'rgba(61,255,122,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 16);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = on ? '#08130b' : 'rgba(61,255,122,0.35)';
+      text(name, x + w / 2, y + 9, 9, 'center', 800);
+    });
+    ctx.shadowBlur = 5;
+
+    // Tapemeters: altitude (above the base; finer close to it) and
+    // altitude rate.
+    const alt = L.y - base.y;
+    const altPos = (h) => (h <= 100 ? 2 * h : 200 + (h - 100) * 0.5);
+    const altOf = (p) => (p <= 200 ? p / 2 : 100 + (p - 200) * 2);
+    this.drawTape({
+      x0: 258, label: 'ALT', at: altPos(alt), flash: flying && this.blocked() && flashOff, RED,
+      marks: (lo, hi) => {
+        const out = [];
+        const [a, b] = [altOf(lo), altOf(hi)];
+        for (let h = Math.ceil(a / 5) * 5; h <= Math.min(b, 100); h += 5) out.push([altPos(h), h % 10 === 0 ? h : null, h === 0]);
+        for (let h = 120; h <= b; h += 20) if (h > a) out.push([altPos(h), h % 100 === 0 ? h : null]);
+        return out;
+      },
+    });
+    const per = 8;
+    this.drawTape({
+      x0: 294, label: 'RATE', at: (flying ? L.vy : 0) * per, red: -SAFE.vy * per, RED,
+      warn: flying && -L.vy > SAFE.vy,
+      marks: (lo, hi) => {
+        const out = [];
+        for (let u = Math.ceil(lo / per); u <= hi / per; u++) out.push([u * per, u % 2 === 0 ? u : null, u === 0]);
+        return out;
+      },
+    });
+
+    // Scanlines
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for (let yy = 0; yy < PANEL_H; yy += 3) ctx.fillRect(0, yy, PANEL_W, 1);
+    ctx.restore();
+    this.panelBottom = py + ph;
+  }
+
+  // The attitude ball: the horizon tilts as the lander leans (red past 10°,
+  // too tilted to land), the lean in degrees below it; round the bottom, an
+  // arrow for the spin (green turning right, red turning left, longer the
+  // faster), and the rate in °/s.
+  drawBall(L, bx, by, R, RED) {
+    const { ctx } = this;
     const tilted = Math.abs(L.angle) > SAFE.angle;
     const col = tilted ? RED : PHOSPHOR;
-    const bx = 208;
-    const by = 58;
-    const R = 34;
     ctx.strokeStyle = col;
     ctx.fillStyle = col;
     ctx.shadowColor = col;
@@ -1264,7 +1323,6 @@ export class Play {
     ctx.beginPath();
     ctx.moveTo(-R, 0);
     ctx.lineTo(R, 0);
-    // ±10° marks
     for (const m of [-1, 1]) {
       const a = m * SAFE.angle;
       ctx.moveTo(Math.sin(a) * (R - 9), -Math.cos(a) * (R - 9));
@@ -1272,93 +1330,132 @@ export class Play {
     }
     ctx.stroke();
     ctx.restore();
-    // The craft: fixed wings in the middle.
     ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(bx - 18, by);
+    ctx.moveTo(bx - 17, by);
     ctx.lineTo(bx - 6, by);
     ctx.lineTo(bx, by + 6);
     ctx.lineTo(bx + 6, by);
-    ctx.lineTo(bx + 18, by);
+    ctx.lineTo(bx + 17, by);
     ctx.stroke();
     ctx.textAlign = 'center';
-    ctx.font = '700 15px ui-monospace, Menlo, Consolas, monospace';
-    // The tilt, signed: + leaning right, − leaning left. (Green while level
-    // enough to land, red past 10°, like the horizon.)
+    ctx.font = '700 13px ui-monospace, Menlo, Consolas, monospace';
     const tilt = Math.round(L.angle * DEG);
-    ctx.fillText(`${tilt > 0 ? '+' : tilt < 0 ? '−' : ''}${Math.abs(tilt)}°`, bx, by + R + 20);
-    // Turn indicator: a curved arrow round the bottom of the horizon, green
-    // up the right side when turning right (clockwise) and red up the left
-    // when turning left, like a ship's starboard and port lights; longer the
-    // faster the turn. Then the rate in °/s, signed.
-    {
-      const rate = L.omega * DEG; // degrees per second, + clockwise
-      const r = R + 7;
-      if (Math.abs(rate) >= 0.05) {
-        const dir = rate > 0 ? -1 : 1; // which way round from the bottom
-        const sweep = Math.max(0.15, Math.min(1, Math.abs(rate) / 30)) * Math.PI * 0.55;
-        const a0 = Math.PI / 2;
-        const a1 = a0 + dir * sweep;
-        const c = rate > 0 ? '#3dff7a' : '#ff4d3d';
-        ctx.strokeStyle = c;
-        ctx.fillStyle = c;
-        ctx.shadowColor = c;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(bx, by, r, Math.min(a0, a1), Math.max(a0, a1));
-        ctx.stroke();
-        // Arrowhead along the direction of travel.
-        const px = bx + r * Math.cos(a1);
-        const py = by + r * Math.sin(a1);
-        const tx = -Math.sin(a1) * dir;
-        const ty = Math.cos(a1) * dir;
-        ctx.beginPath();
-        ctx.moveTo(px + tx * 8, py + ty * 8);
-        ctx.lineTo(px - tx * 2 - ty * 6, py - ty * 2 + tx * 6);
-        ctx.lineTo(px - tx * 2 + ty * 6, py - ty * 2 - tx * 6);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.fillStyle = Math.abs(rate) < 0.05 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.textAlign = 'center';
-      ctx.font = '700 13px ui-monospace, Menlo, Consolas, monospace';
-      // (Tenths when slow: a creep you'd want to null before landing shows.)
-      const shown = Math.abs(rate) < 9.95 ? Math.round(rate * 10) / 10 : Math.round(rate);
-      const digits = Math.abs(rate) < 9.95 ? Math.abs(shown).toFixed(1) : String(Math.abs(shown));
-      ctx.fillText(`${shown > 0 ? '+' : shown < 0 ? '−' : '±'}${digits}°/s`, bx, by + R + 36);
+    ctx.fillText(`${tilt > 0 ? '+' : tilt < 0 ? '−' : ''}${Math.abs(tilt)}°`, bx, by + R + 18);
+    const rate = L.omega * DEG; // degrees per second, + clockwise
+    const r = R + 6;
+    if (Math.abs(rate) >= 0.05) {
+      const dir = rate > 0 ? -1 : 1; // which way round from the bottom
+      const sweep = Math.max(0.15, Math.min(1, Math.abs(rate) / 30)) * Math.PI * 0.55;
+      const a0 = Math.PI / 2;
+      const a1 = a0 + dir * sweep;
+      const c = rate > 0 ? '#3dff7a' : '#ff4d3d';
+      ctx.strokeStyle = c;
+      ctx.fillStyle = c;
+      ctx.shadowColor = c;
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(bx, by, r, Math.min(a0, a1), Math.max(a0, a1));
+      ctx.stroke();
+      const ax = bx + r * Math.cos(a1);
+      const ay = by + r * Math.sin(a1);
+      const tx = -Math.sin(a1) * dir;
+      const ty = Math.cos(a1) * dir;
+      ctx.beginPath();
+      ctx.moveTo(ax + tx * 7, ay + ty * 7);
+      ctx.lineTo(ax - tx * 2 - ty * 5, ay - ty * 2 + tx * 5);
+      ctx.lineTo(ax - tx * 2 + ty * 5, ay - ty * 2 - tx * 5);
+      ctx.closePath();
+      ctx.fill();
     }
-    if (this.assist) {
-      ctx.fillStyle = PHOSPHOR;
-      ctx.shadowColor = PHOSPHOR;
-      ctx.textAlign = 'left';
-      ctx.font = '600 10px ui-monospace, Menlo, Consolas, monospace';
-      ctx.fillText('ASSIST', 10, 156);
-    }
-    this.drawRateTape(L, flying, RED);
-    // Scanlines
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(0,0,0,0.16)';
-    for (let yy = 0; yy < 168; yy += 3) ctx.fillRect(0, yy, PANEL_W, 1);
-    ctx.restore();
-    this.panelBottom = py + ph;
+    ctx.fillStyle = Math.abs(rate) < 0.05 ? PHOSPHOR : rate > 0 ? '#3dff7a' : '#ff4d3d';
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.font = '700 12px ui-monospace, Menlo, Consolas, monospace';
+    // (Tenths when slow: a creep you'd want to null before landing shows.)
+    const shown = Math.abs(rate) < 9.95 ? Math.round(rate * 10) / 10 : Math.round(rate);
+    const digits = Math.abs(rate) < 9.95 ? Math.abs(shown).toFixed(1) : String(Math.abs(shown));
+    ctx.fillText(`${shown > 0 ? '+' : shown < 0 ? '−' : '±'}${digits}°/s`, bx, by + R + 32);
   }
 
-  // The altitude-rate tape, as on the Apollo lunar module's panel: a scale
-  // that slides past a fixed pointer -- up while climbing, down while
-  // sinking -- reading the vertical speed in m/s. Marked red past the
-  // fastest safe touchdown.
-  drawRateTape(L, flying, RED) {
+  // The cross-pointer: a square with two needles crossing -- the upright one
+  // moves right or left with the speed sideways, the level one up or down
+  // with the speed up or down (both on a scale finer near zero). Hovering,
+  // they cross in the middle; land with the cross inside the box (a safe
+  // touchdown). The sideways speed below, in m/s.
+  drawCrossPointer(L, flying, x0, y0, size, RED) {
     const { ctx } = this;
-    const x0 = 254;
+    const half = size / 2;
+    const cx = x0 + half;
+    const cy = y0 + half;
+    const scale = (v) => Math.sign(v) * Math.min(1, Math.sqrt(Math.abs(v) / 12)) * (half - 3);
+    const vx = flying ? L.vx : 0;
+    const vy = flying ? L.vy : 0;
+    ctx.strokeStyle = PHOSPHOR;
+    ctx.fillStyle = PHOSPHOR;
+    ctx.shadowColor = PHOSPHOR;
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(x0 + 0.5, y0 + 0.5, size - 1, size - 1);
+    // Scale marks along the edges, and the safe box.
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const v of [-8, -4, -2, -1, 1, 2, 4, 8]) {
+      const d = scale(v);
+      ctx.moveTo(cx + d, y0 + size);
+      ctx.lineTo(cx + d, y0 + size - (Math.abs(v) === 4 ? 5 : 3));
+      ctx.moveTo(x0, cy - d);
+      ctx.lineTo(x0 + (Math.abs(v) === 4 ? 5 : 3), cy - d);
+    }
+    ctx.stroke();
+    ctx.setLineDash([2, 2]);
+    ctx.strokeRect(cx + scale(-SAFE.vx), cy - scale(SAFE.vy), scale(SAFE.vx) * 2, scale(SAFE.vy) * 2);
+    ctx.setLineDash([]);
+    const sideways = Math.abs(vx) > SAFE.vx;
+    const sinking = -vy > SAFE.vy;
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = sideways ? RED : PHOSPHOR;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.beginPath();
+    ctx.moveTo(cx + scale(vx), y0 + 2);
+    ctx.lineTo(cx + scale(vx), y0 + size - 2);
+    ctx.stroke();
+    ctx.strokeStyle = sinking ? RED : PHOSPHOR;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.beginPath();
+    ctx.moveTo(x0 + 2, cy - scale(vy));
+    ctx.lineTo(x0 + size - 2, cy - scale(vy));
+    ctx.stroke();
+    // Sideways speed, signed by an arrow: red when drifting away from the base.
+    const dist = (this.level.base.x0 + this.level.base.x1) / 2 - L.x;
+    const away = flying && Math.abs(vx) > 0.05 && vx * dist < 0;
+    ctx.fillStyle = away || sideways ? RED : PHOSPHOR;
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.textAlign = 'center';
+    ctx.font = '700 13px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillText(`${vx >= 0 ? '▶' : '◀'} ${Math.abs(vx).toFixed(1)}`, cx, y0 + size + 14);
+    ctx.font = '600 8px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = PHOSPHOR;
+    ctx.shadowColor = PHOSPHOR;
+    ctx.fillText('H VEL M/S', cx, y0 + size + 27);
+  }
+
+  // A tapemeter, as on the lunar module: a scale (marks: [position, label,
+  // bold (zero)] in panel units, from marks(lo, hi) for the part in view) sliding
+  // past a fixed pointer that reads `at`. Optionally red from `red` down;
+  // the pointer red when `warn`; the label dimmed when `flash`.
+  drawTape({ x0, label, at, marks, red, warn, flash, RED }) {
+    const { ctx } = this;
     const w = 30;
-    const y0 = 8;
-    const h = 152;
+    const y0 = 17;
+    const h = PANEL_H - y0 - 6;
     const mid = y0 + h / 2;
-    const per = 8; // tape length (panel units) per m/s
-    const v = flying ? L.vy : 0;
-    const Y = (u) => mid - (u - v) * per;
-    const fast = flying && -L.vy > SAFE.vy;
+    const Y = (p) => mid - (p - at);
+    ctx.fillStyle = PHOSPHOR;
+    ctx.shadowColor = PHOSPHOR;
+    ctx.globalAlpha = flash ? 0.25 : 1;
+    ctx.font = '700 9px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x0 + w / 2, 9);
+    ctx.globalAlpha = 1;
     ctx.save();
     ctx.beginPath();
     ctx.rect(x0, y0, w, h);
@@ -1366,40 +1463,37 @@ export class Play {
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(x0, y0, w, h);
-    // Too fast to land: the red part of the tape.
-    ctx.fillStyle = 'rgba(255,77,61,0.38)';
-    const red = Y(-SAFE.vy);
-    if (red < y0 + h) ctx.fillRect(x0, Math.max(y0, red), w, y0 + h - Math.max(y0, red));
+    if (red != null && Y(red) < y0 + h) {
+      ctx.fillStyle = 'rgba(255,77,61,0.38)';
+      const top = Math.max(y0, Y(red));
+      ctx.fillRect(x0, top, w, y0 + h - top);
+    }
     ctx.shadowBlur = 4;
     ctx.strokeStyle = PHOSPHOR;
     ctx.fillStyle = PHOSPHOR;
     ctx.shadowColor = PHOSPHOR;
-    ctx.lineWidth = 1;
     ctx.font = '700 9px ui-monospace, Menlo, Consolas, monospace';
     ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    const span = h / 2 / per + 1;
-    for (let u = Math.ceil(v - span); u <= Math.floor(v + span); u++) {
-      const y = Math.round(Y(u)) + 0.5;
-      const major = u % 2 === 0;
+    for (const [p, text, bold] of marks(at - h / 2 - 8, at + h / 2 + 8)) {
+      const y = Math.round(Y(p)) + 0.5;
+      ctx.lineWidth = bold ? 2.5 : 1;
       ctx.beginPath();
       ctx.moveTo(x0, y);
-      ctx.lineTo(x0 + (major ? 6 : 3), y);
+      ctx.lineTo(x0 + (bold ? 11 : text != null ? 6 : 3), y);
       ctx.stroke();
-      if (major) ctx.fillText(u < 0 ? `−${-u}` : String(u), x0 + w - 1, y);
+      if (text != null) ctx.fillText(text < 0 ? `−${-text}` : String(text), x0 + w - 1, y);
     }
     ctx.restore();
-    // The fixed pointer, and the tape's frame.
-    const col = fast ? RED : PHOSPHOR;
+    const col = warn ? RED : PHOSPHOR;
     ctx.strokeStyle = col;
     ctx.fillStyle = col;
     ctx.shadowColor = col;
     ctx.lineWidth = 1.2;
     ctx.strokeRect(x0, y0, w, h);
     ctx.beginPath();
-    ctx.moveTo(x0 - 7, mid - 5);
+    ctx.moveTo(x0 - 6, mid - 5);
     ctx.lineTo(x0 + 1, mid);
-    ctx.lineTo(x0 - 7, mid + 5);
+    ctx.lineTo(x0 - 6, mid + 5);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();

@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.71.0
+- Lunar Lander: the instrument panel is laid out like the Apollo lunar
+  module's -- altitude and altitude-rate tapemeters side by side, a
+  cross-pointer for your speed (land with the cross in its box), range,
+  propellant and mission timer readouts, and caution lights: DES QTY,
+  TERRAIN, CONTACT (just before touchdown) and ASSIST.
+
 ## 1.70.0
 - Lunar Lander: an altitude-rate tape on the instrument panel, like the
   Apollo lunar module's -- the vertical speed scale slides past a fixed

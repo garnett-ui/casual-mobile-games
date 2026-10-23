@@ -11,9 +11,9 @@ const ROT_L = '<svg viewBox="0 0 24 24"><path d="M8 5H3v5" fill="none" stroke="c
 const ROT_R = '<svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M8 5H3v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 9.5A8.5 8.5 0 1 1 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const TIPS = {
   1: 'Hold THRUST to lift off, then hold ▶ to lean right and drift over to the BASE. Let go to level out. Land gently!',
-  2: 'Land slowly: under 3 m/s down (V/S, and the tape on the right: keep its pointer out of the red) and 1.2 m/s sideways (H/S). Red numbers mean too fast.',
+  2: 'Land slowly: keep the RATE tape out of the red (under 3 m/s down) and the cross-pointer’s cross inside its dotted box (under 1.2 m/s sideways too). Red means too fast.',
   3: 'A hill! Climb first, then lean toward the base. Tip: turn ASSIST off for faster, trickier flying.',
-  4: 'This time the base is far below you. Come down gently: watch V/S.',
+  4: 'This time the base is far below you. Come down gently: watch the RATE tape.',
   6: 'The base is up on a mesa. Climb well above the cliff before you cross it.',
   10: 'The base is down in a crater. Clear the rim, then sink straight down.',
   11: 'The base is inside a cave! Come down outside the entrance, then fly in level and slowly under the overhang. Mind your head.',

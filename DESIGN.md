@@ -115,12 +115,16 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   one shape through the terrain's own points (no seams where they meet, no
   shimmer as the view moves); craters lie only on gentle slopes, clipped
   to the ground.
-- Green-phosphor instrument panel: altitude, horizontal/vertical velocity and
-  acceleration, attitude and spin rate, fuel, distance to base, an attitude
-  ball and a velocity box, with LOW FUEL / SINK RATE / DRIFT warnings. Down
-  the right, an altitude-rate tape like the Apollo LM's: a scale sliding
-  past a fixed pointer (up while climbing), red past the 3 m/s safe
-  touchdown -- vertical speed at a glance.
+- Green-phosphor instrument panel, laid out like the Apollo lunar module's:
+  RANGE to the base, PRPLNT QTY (propellant, %) and the mission TIME as
+  readouts; the attitude ball (red past 10°) with the lean and spin rate;
+  the cross-pointer, its needles moving with the speed sideways and up or
+  down (on a scale finer near zero), to be landed with the cross inside its
+  dotted box; the ALT and RATE tapemeters, scales sliding past fixed
+  pointers (altitude above the base, finer below 100 m; vertical speed,
+  red past the 3 m/s safe touchdown); and caution lights -- DES QTY (low
+  propellant), TERRAIN (high ground between you and the base), CONTACT
+  (the probes under the feet touching: within 1.7 m) and ASSIST.
 - Scored on touchdown speed, drift, tilt, centring and fuel left. Too hard,
   too fast sideways, too tilted, or a hull strike: fireball and wreckage.
 - **ASSIST** (on to start) springs the lander back upright when you let go
