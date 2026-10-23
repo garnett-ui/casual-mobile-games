@@ -6,12 +6,13 @@
 // ramps, pits and logs, tufts and stones on top and boulders beside the
 // track; birds that take off as the bike comes, a cow on a hill every tenth
 // course, the crowd at the finish (forty strong once a flip is landed) and
-// the flares over it, tyre tracks, flags, a headlight after dark, the bike
-// and its rider, dust, exhaust and the wind of speed); the instrument band
+// the flares over it, tyre tracks, flags, a headlight after dark, the ghost
+// of the computer's par ride if it's on, the bike and its rider, dust,
+// exhaust and the wind of speed); the instrument band
 // along the top; and the ride itself -- stepping the engine, crashes (the
 // wreck tumbling on until it rests, the rider thrown clear to land in a
 // heap), flips, checkpoints and the finish.
-import { step, newBike, rider, heightAt, slopeAt, grounded, G, WHEEL, BASE, COM, VMAX, STEP, FLIP_BONUS } from './engine.js';
+import { step, newBike, rider, heightAt, slopeAt, grounded, G, WHEEL, BASE, COM, VMAX, STEP, FLIP_BONUS, TRACK_DT } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const FRAME = '#e63946';
@@ -30,6 +31,10 @@ const PARALLAX = 50;
 
 // The instrument band: its height, its type and its inks.
 const HUD = { h: 24, font: 'ui-monospace, Menlo, Consolas, monospace', band: 'rgba(5,7,12,.68)', rule: 'rgba(255,255,255,.1)', dim: 'rgba(205,214,222,.55)', ink: '#e4eaee', amber: '#ffb347', green: '#5fd38a', red: '#ff5a4d' };
+
+// The ghost: how far its bike and rider reach from their centre of mass at
+// most (m), the blue they're washed in, and how faintly they show.
+const GHOST = { reach: 1.9, wash: 'rgba(120,170,255,.55)', alpha: 0.42 };
 
 // How far the lowest of a thrown rider's hips, head and feet is into the
 // ground (his hips lie BODY off it).
@@ -175,6 +180,7 @@ export class Play {
     this.paused = false;
     this.timeScale = 1; // the browser tests fast-forward rides
     this.pilot = null; // the computer rider, for the demo and the tests
+    this.ghost = false; // the computer's par ride, racing alongside
     this.makeScenery();
     this.reset();
     this.resize();
@@ -677,6 +683,7 @@ export class Play {
     this.drawWind(W, H, cam);
     this.drawLamp(sx, sy, m, false);
     this.drawDust(sx, sy, m);
+    this.drawGhost(sx, sy, m, W);
     this.drawBike(sx, sy, m);
     this.drawLamp(sx, sy, m, true);
 
@@ -1060,10 +1067,60 @@ export class Play {
     if (T) framed(T, () => paintRider(ctx, T.k, true));
   }
 
+  // Where the ghost is at this time on the clock: on the par ride, between
+  // its two nearest samples (turning the shorter way round). It waits on the
+  // start line until the clock starts and stays over the line once it's
+  // there. Nothing while it's off, while the computer rider is showing you,
+  // or on a course with no par ride.
+  ghostAt() {
+    const path = this.level.ghost;
+    if (!this.ghost || this.demo || !path?.length) return null;
+    const k = this.time / TRACK_DT;
+    const i = Math.min(Math.floor(k), path.length - 1);
+    const [x0, y0, a0] = path[i];
+    const [x1, y1, a1] = path[Math.min(i + 1, path.length - 1)];
+    const f = Math.min(1, k - i);
+    const turn = a1 - a0 - TAU * Math.round((a1 - a0) / TAU);
+    const x = x0 + (x1 - x0) * f;
+    // Its wheels turn with the ground it's covered.
+    return { x, y: y0 + (y1 - y0) * f, angle: a0 + turn * f, spin: (x - path[0][0]) / WHEEL };
+  }
+
+  // The ghost: the bike and rider painted whole on a little canvas of their
+  // own, washed blue, then laid over the scene faintly, behind your bike.
+  drawGhost(sx, sy, m, W) {
+    const pos = this.ghostAt();
+    if (!pos) return;
+    const r = GHOST.reach * m; // css px from the centre of mass to the canvas edge
+    const x = sx(pos.x);
+    if (x + r < 0 || x - r > W) return;
+    const size = Math.ceil(2 * r * this.dpr);
+    const c = (this.ghostCanvas ??= document.createElement('canvas'));
+    if (c.width !== size) c.width = c.height = size;
+    const g = c.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, size, size);
+    g.translate(size / 2, size / 2);
+    g.rotate(-pos.angle);
+    g.scale(m * this.dpr, -m * this.dpr);
+    paintBike(g, pos, 0);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = GHOST.wash;
+    g.fillRect(0, 0, size, size);
+    const { ctx } = this;
+    const y = sy(pos.y);
+    ctx.globalAlpha = GHOST.alpha;
+    ctx.drawImage(c, x - r, y - r, 2 * r, 2 * r);
+    ctx.globalAlpha = 1;
+  }
+
   // The instrument band along the top: the speed (in km/h, to go with the
   // engine's metres), the clock against par, any crashes, and in the rest of
   // the band the course's profile as a thin line, with its flags, the
-  // finish and the bike on it. Values are padded so nothing shuffles about.
+  // finish and the bike on it (and the ghost, a ring, if it's riding).
+  // Values are padded so nothing shuffles about.
   drawHud(W) {
     const { ctx, B, level: L } = this;
     ctx.fillStyle = HUD.band;
@@ -1093,6 +1150,8 @@ export class Play {
     L.flags.forEach((fx, i) => tick(fx, i <= B.flag ? HUD.green : HUD.amber));
     tick(L.finish, HUD.ink);
     fillWith(ctx, FRAME, () => blob(ctx, left + clamp(B.x, 0, L.length) * k, at(heightAt(L, B.x)), 3.5));
+    const ghost = this.ghostAt();
+    if (ghost) strokeWith(ctx, HUD.amber, 1.5, () => blob(ctx, left + clamp(ghost.x, 0, L.length) * k, at(heightAt(L, ghost.x)), 3.5));
   }
 
   // A message -- a checkpoint, a crash, a flip -- in the instruments' style:

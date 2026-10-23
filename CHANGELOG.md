@@ -19,11 +19,14 @@ anything taken away (not internal fixes or renames along the way).
   early -- a jump on the first course, then logs and long climbs, drops,
   ledges and cliffs, and gaps, all by course 5 -- and the courses never
   run out, getting longer and rougher as you go, through meadow, forest,
-  quarry and mountains, from morning to night. Land a drop on the front
+  quarry and mountains, from morning to night, each with a set piece --
+  three kickers in a row, a climb to a cliff, the big gap -- two thirds
+  of the way along. Land a drop on the front
   wheel, nose down, and you're off; land a cliff flat on both. Flip the
   bike right over off a jump and land it, and every full turn takes two
   seconds off your clock -- to a fanfare, a flare over the finish and a
-  crowd of forty.
+  crowd of forty. Turn on **GHOST** to race the computer's par ride,
+  riding faintly alongside you.
 
 ## 1.62.3
 - Morse Rain, sending: fixed letters breaking apart -- a K read as T E T --

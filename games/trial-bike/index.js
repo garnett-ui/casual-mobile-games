@@ -7,9 +7,9 @@ import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/
 import { levelSource } from '../../js/lib/level-source.js';
 
 // Bump when generation changes, so courses cached on devices are rebuilt.
-export const GEN_VERSION = 2;
+export const GEN_VERSION = 3;
 
-// The left half's hint: a ghost of the rider that tilts with the lean.
+// The left half's hint: an outline of the rider that tilts with the lean.
 const RIDER = '<svg class="tb-rider" viewBox="0 0 48 48"><circle cx="12" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="36" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M12 36l10-8h8l6 8M22 28l-2-8h8l4 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="13" r="4" fill="currentColor"/></svg>';
 // The right handlebar's two controls: the brake lever and the twist grip.
 const LEVER = '<svg viewBox="0 0 120 44"><path d="M8 30c20-12 54-18 104-18" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="8" cy="30" r="6" fill="currentColor"/></svg>';
@@ -81,6 +81,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Courses">${ICON.back}</button>
           <h2>Course ${n}</h2>
+          <button class="tb-ghost" data-act="ghost" aria-pressed="false" title="Ghost: the computer rider's par run, riding alongside you">GHOST</button>
           <button class="icon-btn" data-act="flag" aria-label="Back to the last flag" title="Back to the last flag (counts as a crash)">${ICON.undo}</button>
           <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
           <button class="icon-btn" data-act="restart" aria-label="Restart">${ICON.restart}</button>
@@ -128,10 +129,26 @@ export function mount(root, ctx, sub) {
       demoBtn.querySelector('b').textContent = `${play.timeScale}×`;
     });
 
+    // The ghost of the computer's par ride, racing you (off unless you've
+    // turned it on).
+    const ghostBtn = root.querySelector('[data-act=ghost]');
+    const setGhost = (on) => {
+      play.ghost = on;
+      ghostBtn.classList.toggle('on', on);
+      ghostBtn.setAttribute('aria-pressed', String(on));
+      ghostBtn.textContent = on ? 'GHOST ON' : 'GHOST OFF';
+    };
+    setGhost(ctx.load('ghost', false));
+    ghostBtn.onclick = () => {
+      ctx.sfx('tap');
+      setGhost(!play.ghost);
+      ctx.save('ghost', play.ghost);
+    };
+
     // Left thumb: lean, anywhere on the left half. Drag back (left) to lift
     // the front wheel, forward (right) to bring it down, a thumb's easy
     // reach for a full lean; let go and the rider sits back up. Once you've
-    // leant, the ghost rider fades to a faint mark, for good.
+    // leant, the outline of the rider fades to a faint mark, for good.
     const leanEl = root.querySelector('.tb-lean');
     const riderEl = leanEl.querySelector('.tb-rider');
     const REACH = 64; // px
@@ -337,10 +354,11 @@ export function mount(root, ctx, sub) {
     ctx.haptic(40);
     const par = play.level.par;
     const vs = time <= par ? `${(par - time).toFixed(1)} s under par` : `${(time - par).toFixed(1)} s over par`;
+    const raced = play.ghost ? (time <= par ? ` You beat the ghost by ${(par - time).toFixed(1)} s.` : ` The ghost beat you by ${(time - par).toFixed(1)} s.`) : '';
     showDialog(root.querySelector('.dialog'), ctx, {
       title: got === 3 ? 'Clean ride!' : got === 2 ? 'Made it!' : 'Over the line',
       stars: got,
-      text: `<b>${time.toFixed(1)} s</b>, ${vs} (the computer rider’s ${par} s), ${crashes ? `${crashes} crash${crashes === 1 ? '' : 'es'}` : 'no crashes'}${play.flips ? `, ${play.flips} flip${play.flips === 1 ? '' : 's'} (−${play.bonus.toFixed(0)} s)` : ''}.
+      text: `<b>${time.toFixed(1)} s</b>, ${vs} (the computer rider’s ${par} s), ${crashes ? `${crashes} crash${crashes === 1 ? '' : 'es'}` : 'no crashes'}${play.flips ? `, ${play.flips} flip${play.flips === 1 ? '' : 's'} (−${play.bonus.toFixed(0)} s)` : ''}.${raced}
         ${got < 3 ? '<br><small>Three stars: beat par with no crashes. A flip landed takes seconds off the clock.</small>' : ''}`,
       buttons: [
         { label: 'Ride again', act: 'replay', run: () => {

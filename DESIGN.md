@@ -361,7 +361,12 @@ keyboard.
   another (a drop at the top of a climb, a cliff off the end of a jump).
   Hills and climbs are never steeper than about 35°, there's a run-up
   before every gap, and nothing but open ground stands where a jump, a
-  drop or a cliff comes down. The computer rider rides each
+  drop or a cliff comes down. From course 3, each course has a **set
+  piece** about two thirds of the way along, with a flag just before it:
+  three kickers in a row, one long wall of a climb, a climb to a crest and
+  a cliff straight off it, three ledges up and a cliff down the lot, or
+  the big gap -- whichever the course's obstacles allow, picked by the
+  seed, so the course has a moment the rest builds to. The computer rider rides each
   course at three paces as it is generated; one it can't finish is
   re-rolled, and its best time is **par**.
 - **Stars** against par and your crashes: three for beating par clean, two
@@ -384,6 +389,12 @@ keyboard.
   nose-up off an edge, and in the air the slope where it will come down. It
   carries the speed a gap needs and eases off everywhere else. **Show me**
   on the crash card runs it on the course, at 1×, 2× or 4×.
+- **GHOST** (off to start) rides the computer's par run beside you: a
+  faint blue bike and rider, behind yours, at the point the par ride had
+  reached at your time on the clock (so it waits on the start line until
+  you touch the gas, and a flip doesn't move it -- the bonus shows at the
+  finish), with a hollow amber ring for it on the course line in the
+  instruments. With it on, the finish card says who won and by how much.
 - **Landscape plays best** (the course is wide) but it works upright too,
   with the ground lower to leave room for the jumps. Not locked: the camera
   keeps the bike a third of the way across so you see what's coming.
