@@ -40,10 +40,24 @@ README says what the games are; this says how they're meant to play.
 For a three-year-old (Benji, who loves cars): no reading, no losing, big
 pictures and a sound for every touch.
 
-- A little town seen from above, on a 9 x 9 grid: three streets each way,
-  and between them houses, the post office, the dump, the builders' yard,
-  the park, a shop, a café and empty lots. Cars and people potter about;
-  tap one and it honks or hops.
+- A little town on a 9 x 9 grid: three streets each way, and between them
+  houses, the post office, the dump, the builders' yard, the park, a shop,
+  a café and empty lots. Cars and people potter about; tap one and it
+  honks or hops.
+- In 3D, seen from above at an angle (isometric), like a toy town on a
+  block of earth: houses with walls, doors, windows and pitched roofs,
+  trucks with cabs and wheels (the mixer's drum turning), people with legs
+  that walk. Two big round-arrow buttons at the bottom turn the town a
+  quarter turn either way (a smooth half-second spin), to see behind
+  things; anything standing between you and a helper turns see-through.
+- The camera follows the action: tap a helper and it glides in close and
+  follows it on its job (the postal worker at the door, the dog in the
+  park); a moment after it's done, it eases back out to show all the
+  helpers and where they're going next. It starts on the whole town, and
+  ends there with the confetti. While a finger is leading a helper the
+  camera holds still (so the spot under the finger stays put), scrolling
+  along only when the finger nears the edge; dragging the ground looks
+  round the town for a few seconds.
 - Road safety, shown not told. Every street has a sidewalk down each side,
   and people (the dog walker too) keep to them, crossing only at the zebra
   crossings by the intersections. Three intersections, corner to corner
@@ -80,8 +94,11 @@ pictures and a sound for every touch.
   `traffic.js` (lanes, stopping, queueing, waiting to cross) are all tested
   in Node -- a few minutes of busy traffic, checking every step that cars
   go on green, people start across on the walk signal, and nobody is ever
-  on a crosswalk with a car; `draw.js` (the pictures), `play.js` (the
-  screen).
+  on a crosswalk with a car; `iso.js` (the 3D: the camera, simple solids
+  -- boxes, roofs, drums, balls -- flat-shaded and drawn back to front, and
+  the town's things made of them), `draw.js` (the flat pictures that face
+  you: lights, walk signals, bubbles, arrows), `play.js` (the screen and
+  its camera).
 
 ## Car Jam
 

@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.77.0
+- Benji's Town in 3D: the town is now seen from above at an angle
+  (isometric), with houses, trucks and people you can see the sides of --
+  and everything much bigger. Turn the town a quarter at a time with the
+  arrow buttons at the bottom, to see behind houses; anything in front of
+  a helper turns see-through. The camera follows the action: tap a helper
+  and it zooms in and follows it on its job, then zooms back out. Drag the
+  ground to look round.
+
 ## 1.76.0
 - Elevator Operator: swipe a lift up or down its shaft and it goes to the
   first floor that way where someone is waiting (or a rider wants to get

@@ -549,12 +549,20 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     await page.locator('[data-game=benji]').click();
     await page.locator('.lvl[data-n="1"]').click();
     await page.waitForFunction(() => window.__benji);
-    // Where each helper is on screen.
+    // Where each helper is on screen (the camera glides about, so asked
+    // afresh each time).
     const spots = () => page.evaluate(() => {
       const p = window.__benji;
-      const r = p.canvas.getBoundingClientRect();
-      return p.helpers.map((h) => ({ id: h.id, busy: h.path.length > 0 || h.pause > 0, x: r.left + p.ox + h.x * p.s, y: r.top + p.oy + (h.y - 0.1) * p.s }));
+      return p.helpers.map((h) => ({ id: h.id, busy: h.path.length > 0 || h.pause > 0, ...p.screenOf(h.x, h.y, 0.25) }));
     });
+    // The turn buttons turn the town a quarter at a time.
+    const turn = await page.evaluate(() => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      return { x: r.left + p.buttons[1].x, y: r.top + p.buttons[1].y };
+    });
+    await page.mouse.click(turn.x, turn.y);
+    await page.waitForFunction(() => window.__benji.rot === 1 && !window.__benji.spin);
     // Level 1: tap the garbage truck, again and again, till the jobs are done.
     for (let k = 0; k < 150 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
       for (const h of await spots()) if (!h.busy) await page.mouse.click(h.x, h.y);
@@ -578,11 +586,9 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       const plan = await page.evaluate(async () => {
         const p = window.__benji;
         const { route } = await import('/games/benji/town.js');
-        const r = p.canvas.getBoundingClientRect();
         const h = p.helpers.find((m) => p.target(m));
         if (!h || h.path.length || h.pause > 0) return null;
-        const px = (t) => ({ x: r.left + p.ox + (t.x + 0.5) * p.s, y: r.top + p.oy + (t.y + 0.5) * p.s });
-        return { from: { x: r.left + p.ox + h.x * p.s, y: r.top + p.oy + (h.y - 0.1) * p.s }, way: route(h.tile, p.target(h)).map(px) };
+        return { from: p.screenOf(h.x, h.y, 0.25), way: route(h.tile, p.target(h)) };
       });
       if (!plan) {
         await page.waitForTimeout(500);
@@ -590,7 +596,10 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       }
       await page.mouse.move(plan.from.x, plan.from.y);
       await page.mouse.down();
-      for (const w of plan.way) {
+      // (The camera holds still while a finger leads, so the way can be
+      // followed on screen.)
+      for (const t of plan.way) {
+        const w = await page.evaluate(([x, y]) => window.__benji.screenOf(x + 0.5, y + 0.5), [t.x, t.y]);
         await page.mouse.move(w.x, w.y, { steps: 3 });
         await page.waitForTimeout(120);
       }

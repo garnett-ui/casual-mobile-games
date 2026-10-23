@@ -1,7 +1,7 @@
-// Card illustration for the arcade hub: a corner of Benji's Town -- a
-// street, a crosswalk and a traffic light, a house with its bin out, and the
-// garbage truck on its way.
-import * as D from './draw.js';
+// Card illustration for the arcade hub: a corner of Benji's Town in 3D -- a
+// street with a crosswalk, a house with its bin out, trees, and the garbage
+// truck and the mail van on their way.
+import * as I from './iso.js';
 
 export function paint(canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -13,31 +13,32 @@ export function paint(canvas) {
   const W = rect.width;
   const H = rect.height;
   if (W <= 0 || H <= 0) return rect;
-  const s = Math.min(H / 2.6, W / 4);
-  D.grass(g, W, H);
-  // A street across, and one down.
-  const ry = H * 0.62;
-  g.fillStyle = '#5d6470';
-  g.fillRect(0, ry - s / 2, W, s);
-  g.fillRect(W * 0.72 - s / 2, 0, s, H);
-  g.strokeStyle = 'rgba(255,255,255,0.85)';
-  g.lineWidth = Math.max(1.5, s * 0.05);
-  g.setLineDash([s * 0.22, s * 0.18]);
-  g.beginPath();
-  g.moveTo(0, ry);
-  g.lineTo(W, ry);
-  g.stroke();
-  g.setLineDash([]);
-  // A crosswalk by the corner, and its traffic light.
-  g.fillStyle = '#f8f9fa';
-  const zx = W * 0.72 - s / 2 - s * 0.4;
-  for (let k = 0; k < 5; k++) g.fillRect(zx, ry - s / 2 + s * (0.06 + k * 0.2), s * 0.3, s * 0.1);
-  D.signal(g, W * 0.72 - s * 0.62, ry - s * 0.85, s * 1.3, 'red');
-  D.tree(g, W * 0.12, H * 0.22, s);
-  D.house(g, W * 0.38, ry - s * 0.95, s * 1.1, '#ffd166');
-  D.bin(g, W * 0.5, ry - s * 0.6, s * 1.1);
-  D.tree(g, W * 0.9, H * 0.2, s * 0.8);
-  D.vehicle(g, 'garbage', W * 0.2, ry, s * 1.1, 1, 0);
-  D.vehicle(g, 'mail', W * 0.72, H * 0.24, s * 0.9, -1, 0);
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#a9dcff');
+  sky.addColorStop(1, '#e4f6ff');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, W, H);
+  const view = new I.View();
+  Object.assign(view, { x: 2, y: 2, k: Math.min(W / 5, H / 2.6), ox: W / 2, oy: H * 0.55 });
+  // A block of town: grass, and a street across and one down, with their
+  // sidewalks.
+  I.rect(g, view, -1, -1, 5, 5, '#8fd16a');
+  I.rect(g, view, -1, 1.82, 5, 3.18, '#e1e4e9');
+  I.rect(g, view, 1.82, -1, 3.18, 5, '#e1e4e9');
+  I.rect(g, view, -1, 2, 5, 3, '#5d6470');
+  I.rect(g, view, 2, -1, 3, 5, '#5d6470');
+  for (let q = 0; q < 5; q++) I.rect(g, view, 1.6, 2.06 + q * 0.2, 1.9, 2.16 + q * 0.2, '#f8f9fa');
+  for (let u = -1; u < 2; u += 0.32) I.rect(g, view, u, 2.475, u + 0.18, 2.525, '#f8f9fa');
+  const things = [
+    I.house(1.5, 1.4, Math.PI / 2, '#ffd166'),
+    I.bin(1.5, 1.85),
+    I.tree(0.3, 0.6),
+    I.tree(3.6, 0.7, 0.9),
+    I.tree(3.7, 3.8, 1),
+    I.house(1.4, 3.7, -Math.PI / 2, '#4cc9f0'),
+    I.vehicle('garbage', 0.6, 2.67, 0),
+    I.vehicle('mail', 2.33, 0.9, Math.PI / 2),
+  ];
+  for (const m of things.sort((a, b) => view.depth(a.x, a.y) - view.depth(b.x, b.y))) I.paint(g, view, m.parts);
   return rect;
 }
