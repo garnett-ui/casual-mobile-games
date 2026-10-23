@@ -193,6 +193,20 @@ class Tower {
     return true;
   }
 
+  // A swipe up or down a lift's shaft (at x): off it goes to the first floor
+  // that way where someone wants it. False if not on a shaft.
+  swipe(x, dir) {
+    const i = this.shaftX.findIndex((sx) => x >= sx - this.gap / 2 && x <= sx + this.shaftW + this.gap / 2);
+    if (i < 0) return false;
+    const f = this.sim.swipe(i, dir);
+    if (f === null) this.hooks.sfx?.('buzz');
+    else {
+      this.ripples.push({ i, f, t: 0 });
+      this.hooks.sfx?.('tap');
+    }
+    return true;
+  }
+
   // Nothing moving on screen (bar the cat): nobody walking, no cars on the
   // move, no helicopters, no taps rippling.
   still() {
@@ -937,7 +951,12 @@ export class Play {
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
-    canvas.addEventListener('pointerdown', (e) => this.tap(e));
+    // A tap on a shaft lines up a floor; a swipe up or down it sends the
+    // lift to the next floor that way where someone wants it.
+    canvas.addEventListener('pointerdown', (e) => this.press(e));
+    canvas.addEventListener('pointermove', (e) => this.drag(e));
+    canvas.addEventListener('pointerup', (e) => this.release(e));
+    canvas.addEventListener('pointercancel', () => (this.touch = null));
   }
 
   destroy() {
@@ -1003,13 +1022,34 @@ export class Play {
     this.city = cityscape([[0, this.towers[0].ox], [x, this.W]], street, this.H);
   }
 
-  tap(e) {
+  press(e) {
     if (this.paused || this.day.over || this.autopilot) return;
     const r = this.canvas.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
     const t = this.towers.find((q) => x >= q.ox && x < q.ox + q.W && y >= q.oy && y < q.oy + q.H) || this.towers.at(-1);
-    if (t.tap(x - t.ox, y - t.oy)) e.preventDefault();
+    this.touch = { id: e.pointerId, x, y, t, swiped: false };
+    this.canvas.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  }
+
+  drag(e) {
+    const touch = this.touch;
+    if (!touch || touch.id !== e.pointerId || touch.swiped || this.paused || this.day.over) return;
+    const r = this.canvas.getBoundingClientRect();
+    const dx = e.clientX - r.left - touch.x;
+    const dy = e.clientY - r.top - touch.y;
+    if (Math.abs(dy) < 24 || Math.abs(dy) < 1.5 * Math.abs(dx)) return;
+    touch.swiped = true;
+    touch.t.swipe(touch.x - touch.t.ox, dy < 0 ? 1 : -1);
+  }
+
+  release(e) {
+    const touch = this.touch;
+    if (!touch || touch.id !== e.pointerId) return;
+    this.touch = null;
+    if (touch.swiped || this.paused || this.day.over || this.autopilot) return;
+    touch.t.tap(touch.x - touch.t.ox, touch.y - touch.t.oy);
   }
 
   update(dt) {

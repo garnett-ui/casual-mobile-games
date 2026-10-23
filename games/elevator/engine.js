@@ -442,6 +442,30 @@ export class Sim {
     return true;
   }
 
+  // A swipe up (dir 1) or down (-1) on lift i: off to the first floor that
+  // way where someone's waiting for a lift, or a rider wants to get off --
+  // the first it can still stop at -- instead of any stops lined up. The
+  // floor it's going to, or null if there's nobody that way.
+  swipe(i, dir) {
+    const car = this.cars[i];
+    if (this.over) return null;
+    const here = this.floorOf(car);
+    const moving = car.phase === 'moving' && car.v * dir > 0;
+    const from = moving ? car.pos : here;
+    const reach = moving ? (car.v * car.v) / (2 * ACCEL) + 0.15 : 1;
+    const want = new Set(car.riders.map((p) => p.to));
+    this.waiting.forEach((w, f) => w.length && want.add(f));
+    let best = null;
+    for (const f of want) {
+      const d = (f - from) * dir;
+      if (d >= reach - 1e-9 && (best === null || d < (best - from) * dir)) best = f;
+    }
+    if (best === null) return null;
+    car.queue = [];
+    car.target = best;
+    return best;
+  }
+
   // The next of the stops lined up for car (at floor here), if it's free to go.
   nextStop(car, here) {
     while (car.target === null && car.queue.length) {

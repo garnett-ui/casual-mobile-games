@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.76.0
+- Elevator Operator: swipe a lift up or down its shaft and it goes to the
+  first floor that way where someone is waiting (or a rider wants to get
+  off) -- the first it can still stop at. Tapping a floor works as before.
+
 ## 1.75.0
 - Benji's Town: a postal worker drives the mail van, delivering letters
   and now packages too. At each house they hop out, carry the letter or

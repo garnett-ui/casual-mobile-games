@@ -302,6 +302,10 @@ behind a lit window now and then.
   doors open. At each stop it goes on only once everyone for that floor is
   out and everyone waiting there is in -- nobody is ever carried past their
   floor.
+- Or **swipe a lift up or down** its shaft: it goes straight to the first
+  floor that way where someone is waiting for a lift or a rider wants to
+  get off -- the first it can still stop at, if it's on the move -- instead
+  of any stops lined up. Nobody that way: a buzz. (Little ones love it.)
 - When a lift stops, anyone for that floor walks out (one at a time), then
   everyone waiting who's going its way walks in (nobody gets in with people
   going the other way; an empty lift goes the way the first one in wants),

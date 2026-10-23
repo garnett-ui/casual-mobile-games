@@ -255,7 +255,7 @@ export function mount(root, ctx, sub) {
       title: spec.day === 1 ? spec.place : `${spec.place}, day ${spec.day}`,
       text: `${story}${twist}<br><br>
         A whole day, 7 AM to 7:30 PM, in about ${Math.round(spec.length / 60)} minutes: the morning rush, meetings, lunch (out, the restaurant or the gym), home time. When nothing’s going on, the day plays fast.<br><br>
-        <b>Tap a floor in ${spec.cars === 1 ? 'the' : 'a'} lift’s shaft</b> to send it there; tap more floors to line up to ${QUEUE} stops, and it goes to them in order.
+        <b>Tap a floor in ${spec.cars === 1 ? 'the' : 'a'} lift’s shaft</b> to send it there; tap more floors to line up to ${QUEUE} stops, and it goes to them in order. Or <b>swipe the lift up or down</b>: it goes to the first floor that way where someone wants it.
         When it stops, anyone for that floor gets off and everyone waiting gets on (${CAPACITY} at most) before it moves on. The floor each rider wants is marked with a small arrow in their shirt colour.<br><br>
         The shorter everyone’s trips, the better, and a long wait counts extra.`,
       buttons: [{ label: 'Open the doors', act: 'start', primary: true, run: () => start() }],

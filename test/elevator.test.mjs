@@ -70,6 +70,32 @@ test('tap ahead: up to four stops lined up for a lift, visited in order; a fifth
   assert.ok(sim.request(0, g + 8), 'room again once they\'re done');
 });
 
+test('swipe a lift up or down: off to the first floor that way where someone is waiting (or getting off), that it can still stop at', () => {
+  const g = TALL.building.ground;
+  const sim = only([{ t: 0.1, from: g + 3, to: g }, { t: 0.1, from: g + 7, to: g }, { t: 0.1, from: g + 9, to: g + 12 }, { t: 400, from: 1, to: 2 }]);
+  for (let k = 0; k < 600 && sim.waitingCount() < 3; k++) sim.step(1 / 30);
+  assert.equal(sim.waitingCount(), 3);
+  const car = sim.cars[0];
+  assert.equal(sim.swipe(0, -1), null, 'nobody waiting below the lobby');
+  assert.equal(car.target, null);
+  assert.equal(sim.swipe(0, 1), g + 3, 'up: the first floor with someone waiting');
+  // Sent on up past them, at full speed (with more stops lined up): too
+  // close to stop at g + 7 by now, so a swipe up goes on to g + 9 instead.
+  sim.send(0, g + 12);
+  sim.request(0, g + 14);
+  while (car.pos < g + 6.3) sim.step(1 / 30);
+  assert.ok(car.v > 2, 'going fast');
+  assert.equal(sim.swipe(0, 1), g + 9);
+  assert.deepEqual(car.queue, []);
+  // Swiped down while going up: back down to the first floor below with someone.
+  assert.equal(sim.swipe(0, -1), g + 3);
+  run(sim, 15);
+  assert.equal(sim.waiting[g + 3].length, 0, 'picked them up');
+  assert.equal(sim.floorOf(car), g + 3);
+  // A rider's floor counts too: down to the lobby with them.
+  assert.equal(sim.swipe(0, -1), g);
+});
+
 test('nobody gets in with people going the other way: up and down at the same floor, only the first gets on', () => {
   const g = TALL.building.ground;
   const sim = only([{ t: 0.1, from: g + 5, to: g + 9 }, { t: 0.2, from: g + 5, to: g }, { t: 0.3, from: g + 5, to: g + 12 }, { t: 400, from: 1, to: 2 }]);

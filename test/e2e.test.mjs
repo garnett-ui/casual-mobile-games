@@ -1515,6 +1515,33 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     await page.evaluate(() => (window.__elevator.timeScale = 8));
     await page.waitForFunction(() => [...window.__elevator.towers[0].people.values()].some((v) => v.mode === 'wait'), null, { timeout: 30000 });
 
+    // Swipe the lift toward them (up or down its shaft): it's off to the
+    // first floor that way where someone's waiting.
+    await page.evaluate(() => (window.__elevator.timeScale = 1));
+    await page.waitForFunction(() => {
+      const p = window.__elevator;
+      const car = p.sim.cars[0];
+      return car.phase !== 'moving' && p.sim.waiting.some((w, f) => w.length && f !== p.sim.floorOf(car));
+    }, null, { timeout: 30000 });
+    const sw = await page.evaluate(() => {
+      const p = window.__elevator;
+      const t = p.towers[0];
+      const car = p.sim.cars[0];
+      const here = p.sim.floorOf(car);
+      const f = p.sim.waiting.findIndex((w, g) => w.length && g !== here);
+      return { x: t.ox + t.shaftX[0] + t.shaftW / 2, y: t.rowY(here) + t.rowH / 2, dir: Math.sign(f - here) };
+    });
+    await page.mouse.move(box.x + sw.x, box.y + sw.y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + sw.x, box.y + sw.y - sw.dir * 60, { steps: 6 });
+    await page.mouse.up();
+    const went = await page.evaluate(() => {
+      const p = window.__elevator;
+      const car = p.sim.cars[0];
+      return { target: car.target, here: p.sim.floorOf(car), waiting: car.target !== null && p.sim.waiting[car.target].length > 0 };
+    });
+    assert.ok(went.target !== null && Math.sign(went.target - went.here) === sw.dir && went.waiting, JSON.stringify({ went, sw }));
+
     // Run the rest fast, sending the lifts the way a player would (one stop
     // at a time, by hand rather than on autopilot), until everyone's there.
     await page.evaluate(async () => {
