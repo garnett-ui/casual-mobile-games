@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.72.3
+- Lunar Lander: simply gentler side thrusters, the same for you and the
+  autopilot (no more progressive buttons): a quick tap is a touch of about
+  0.5°/s, and big turns take a little longer. Each mission's fuel is
+  worked out again to match, and the autopilot's routes fly more gently.
+  Zigzag tunnels keep a steady slope, getting longer each time round
+  instead of steeper.
+
 ## 1.72.2
 - Lunar Lander: finer turn buttons. A quick tap now gives just a touch of
   spin (about 0.5°/s), and holding builds to full strength for big turns.

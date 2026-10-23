@@ -274,40 +274,33 @@ test('side thrusters are balanced: equal bursts left and right cancel exactly (a
     for (const secs of [0.2, 0.5, 1.5]) {
       const L = airborne(level);
       fly(level, L, { [first]: true }, secs);
-      assert.ok(Math.abs(L.omega) > 0.05, 'spinning');
+      assert.ok(Math.abs(L.omega) > 0.015, 'spinning');
       fly(level, L, { [second]: true }, secs);
       assert.ok(Math.abs(L.omega) < 1e-9, `${first} then ${second}, ${secs}s each: ${L.omega}`);
     }
   }
 });
 
-test('your turn buttons are progressive: a quick tap is a touch of 0.5°/s, a long press builds to full strength; spins ebb at 0.5°/s² (assist off)', async () => {
-  const { ROT_FINE, SPIN_FADE } = await import('../games/lander/engine.js');
+test('gentle side thrusters (the same for you and the autopilots): a quick tap is a touch of 0.5°/s; spins ebb at 0.5°/s² (assist off)', async () => {
+  const { SPIN_FADE } = await import('../games/lander/engine.js');
   const level = makeLevel(1);
   const deg = Math.PI / 180;
   // A tenth-of-a-second tap: 0.5°/s.
   const L = airborne(level);
-  fly(level, L, { right: true, fine: true }, 0.1);
+  fly(level, L, { right: true }, 0.1);
   assert.ok(Math.abs(L.omega - 0.5 * deg) < 0.05 * deg, `${(L.omega / deg).toFixed(2)}°/s`); // (to a physics step)
   // ...which ebbs away in about a second, a nudge of about a quarter degree.
   const a0 = L.angle;
   const w = L.omega;
-  fly(level, L, { fine: true }, 2);
+  fly(level, L, {}, 2);
   assert.equal(L.omega, 0);
   assert.ok(Math.abs(L.angle - a0 - w ** 2 / (2 * SPIN_FADE)) < 0.01 * deg);
   assert.ok(L.angle - a0 < 0.35 * deg);
-  // Held, it builds to full strength: past half a second, as the autopilot's.
-  const H = airborne(level);
-  fly(level, H, { right: true, fine: true }, 1.5);
-  const full = H.omega;
-  fly(level, H, { right: true, fine: true }, 0.5);
-  assert.ok(Math.abs(H.omega - full - ROT_ACCEL * 0.5) < 0.01);
-  assert.ok(full > ROT_ACCEL * 1.1 && full < ROT_ACCEL * 1.5, 'a long press still turns quickly');
-  // Equal taps left and right still cancel exactly.
+  // Equal taps left and right cancel exactly.
   for (const tap of [0.05, 0.1, 0.3, 0.8]) {
     const T = airborne(level);
-    fly(level, T, { left: true, fine: true }, tap);
-    fly(level, T, { right: true, fine: true }, tap);
+    fly(level, T, { left: true }, tap);
+    fly(level, T, { right: true }, tap);
     assert.ok(Math.abs(T.omega) < 1e-9, `${tap}s each`);
   }
   // A fast spin hardly notices the fade.
@@ -315,7 +308,7 @@ test('your turn buttons are progressive: a quick tap is a touch of 0.5°/s, a lo
   F.omega = 20 * deg;
   fly(level, F, {}, 2);
   assert.ok(Math.abs(F.omega - 19 * deg) < 0.01 * deg);
-  assert.ok(ROT_FINE < ROT_ACCEL / 4);
+  assert.ok(Math.abs(ROT_ACCEL - 5 * deg) < 1e-12);
 });
 
 test('clearance: the nearest surface in any direction -- the walls of a shaft, not just the floor far below', async () => {
@@ -383,7 +376,7 @@ test('Apollo 11: the computer flies down from orbit through High Gate to Low Gat
     const dx = XS - P.x;
     const vxW = Math.max(-15, Math.min(22, dx * 0.06));
     const vyW = Math.abs(dx) > 120 ? Math.max(-4, Math.min(3, (40 - alt) * 0.3)) : -Math.max(0.6, Math.min(4, alt * 0.08));
-    const fx = (vxW - P.vx) * 0.5;
+    const fx = (vxW - P.vx) * 0.25;
     const fy = (vyW - P.vy) * 1.2 + G;
     const d = Math.atan2(fx, fy) - P.angle;
     const om = Math.sign(d) * Math.min(1.4, Math.abs(d) * 4, Math.sqrt(2 * ROT_ACCEL * 0.8 * Math.abs(d)));
@@ -399,12 +392,15 @@ test('Apollo 11: the computer flies down from orbit through High Gate to Low Gat
   assert.ok(left > 10 && left < 90, `${left.toFixed(0)} s of hover left`);
 });
 
-test('attitude hold (Apollo 11’s assist): a turn button turns at a steady rate; let go and the lean holds', async () => {
+test('attitude hold (Apollo 11’s assist): a turn button turns the lander, building up to a steady rate; let go and the lean holds', async () => {
   const { HOLD_RATE } = await import('../games/lander/engine.js');
   const level = makeTerrain(1);
   const L = airborne(level);
-  fly(level, L, { right: true, hold: true }, 1);
-  assert.ok(Math.abs(L.angle - HOLD_RATE) < 0.02 && Math.abs(L.omega - HOLD_RATE) < 1e-9);
+  fly(level, L, { right: true, hold: true }, 0.5);
+  assert.ok(Math.abs(L.omega - ROT_ACCEL * 0.5) < 0.01, 'building at the thrusters’ strength');
+  fly(level, L, { right: true, hold: true }, 6);
+  assert.ok(Math.abs(L.omega - HOLD_RATE) < 1e-9, 'up to the steady rate');
+  const lean = L.angle;
   fly(level, L, { hold: true }, 2);
-  assert.ok(Math.abs(L.angle - HOLD_RATE) < 0.02 && L.omega === 0, 'held');
+  assert.ok(Math.abs(L.angle - lean) < 0.005 && L.omega === 0, 'held');
 });

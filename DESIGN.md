@@ -97,17 +97,17 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
 
 - Realistic momentum and rotational inertia under lunar gravity (1.62 m/s²):
   the side thrusters change the spin rate, so you counter-fire to stop.
-  Equal bursts left and right cancel exactly. Your turn buttons are
-  progressive: for the first 0.2 s of a press the side thrusters push
-  gently (5°/s², so a tenth-of-a-second tap is a touch of 0.5°/s),
-  building to full strength (26°/s²) by half a second -- fine trims and
-  quick big turns both. With assist off, a spin left alone ebbs away at
-  0.5°/s²: a tap's nudge coasts to a stop in about a second, a fast spin
-  hardly notices. (Earlier: an attitude hold that swallowed small taps,
-  then a fade that halved spins under 1.5°/s every second -- with
-  full-strength taps of nearly 2°/s, that left you forever chasing drift.)
-  The spin rate shows in tenths when it's slow. The main engine gets
-  punchier as fuel burns off.
+  Equal bursts left and right cancel exactly. The side thrusters are
+  gentle -- 5°/s², the same for you and every autopilot -- so a quick
+  tenth-of-a-second tap is a touch of 0.5°/s; big turns take a while. With
+  assist off, a spin left alone ebbs away at 0.5°/s²: a tap's nudge coasts
+  to a stop in about a second, a fast spin hardly notices. (Earlier the
+  thrusters were five times stronger, with a fade that halved slow spins;
+  even the quickest tap gave nearly 2°/s, and you were forever chasing
+  drift. A progressive button for you alone was tried, and dropped: same
+  controls for everyone.) The autopilots steer gently to match (they lean
+  less and turn ahead of time). The spin rate shows in tenths when it's
+  slow. The main engine gets punchier as fuel burns off.
 - The camera follows the lander and zooms in as it gets close to anything
   -- the ground below, or the walls of a shaft, a cave or a tunnel, or rock
   overhead (the nearest surface in any direction) -- so the gap you're

@@ -26,8 +26,8 @@ const SPACING = 24; // between the curve's adjustable points
 const TOUCH = 0.8; // m/s, coming down onto the base
 const CORNER = 1.2; // m/s, round a sharp corner
 const SPARE = 0.8; // of the push planned for, coming down onto the base
-const TILT = (40 * Math.PI) / 180; // the furthest it leans in open air
-const TIGHT_TILT = (25 * Math.PI) / 180; // ...and in a cave, tunnel or shaft
+const TILT = (25 * Math.PI) / 180; // the furthest it leans in open air
+const TIGHT_TILT = (14 * Math.PI) / 180; // ...and in a cave, tunnel or shaft
 const FULL = MAIN_THRUST / 1.5; // the engine's push on a full tank, the weakest
 
 // ------------------------------------------------------------------ route
@@ -392,8 +392,11 @@ export function planFlight(level, { push = 1, tightV = 5, pts } = {}) {
 
 // ------------------------------------------------------------------ pilot
 
-const AHEAD = 1.2; // s: it turns for the thrust wanted this far ahead
-const GAIN = 0.6; // 1/s: how hard it corrects its speed
+const AHEAD = 2.5; // s: it turns for the thrust wanted this far ahead
+const GAIN = 0.25; // 1/s: how hard it corrects its speed...
+const BACK = 0.25; // ...and its place, off the curve
+// (Gentle: the side thrusters turn it slowly, so steering harder would only
+// make it swing past and back.)
 
 // Flies a plan: finds its place on the curve, wants the planned speed along
 // it (and to be back on it), turns to point the engine the way that needs
@@ -413,7 +416,7 @@ export function follow(plan, L) {
   const ty = plan.ty[i];
   // Off the curve by e (to its left); steer back.
   const e = -(L.x - plan.x[i]) * ty + (L.y - plan.y[i]) * tx;
-  const back = Math.max(-4, Math.min(4, -e * 0.8));
+  const back = Math.max(-4, Math.min(4, -e * BACK));
   const end = i >= N - 1;
   const v = end ? TOUCH : Math.max(0.5, plan.v[i]);
   let vxWant = tx * v - ty * back;
@@ -426,7 +429,7 @@ export function follow(plan, L) {
   const dx = plan.x[N - 1] - L.x;
   const off = Math.abs(dx) > 1.2 && h < 6;
   if (landing) {
-    vxWant = Math.sign(dx) * Math.min(1.5, Math.sqrt(0.4 * Math.abs(dx)));
+    vxWant = Math.sign(dx) * Math.min(1, Math.sqrt(0.15 * Math.abs(dx)));
     if (off) vyWant = Math.max(vyWant, (1.5 - h) * 0.5);
   }
   let j = i;
@@ -456,7 +459,7 @@ export function follow(plan, L) {
 
 // Fly a plan, start to finish, as the game would (physics every 1/120 s):
 // the outcome and the path flown, [x, y, speed] every `every` seconds.
-export function flyPlan(level, plan, fuel = level.fuel ?? 2000, every = 0.25, maxTime = 600) {
+export function flyPlan(level, plan, fuel = level.fuel ?? 2000, every = 0.25, maxTime = 900) {
   const L = newLander(level, fuel);
   const dt = 1 / 120;
   const path = [[L.x, L.y, 0]];

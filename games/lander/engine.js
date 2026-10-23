@@ -9,16 +9,10 @@ export const G = 1.62; // lunar gravity, m/s^2
 export const FEET = 2.4; // half-span of the footpads, m
 export const HEIGHT = 5.2; // lander height, m
 export const MAIN_THRUST = 3.5; // m/s^2 when nearly empty (heavier when full)
-export const ROT_ACCEL = (26 * Math.PI) / 180; // rad/s^2 from the side thrusters
+// rad/s^2 from the side thrusters: gentle, so a quick tap (a tenth of a
+// second) is a touch of 0.5°/s.
+export const ROT_ACCEL = (5 * Math.PI) / 180;
 export const ROT_MAX = (90 * Math.PI) / 180;
-// Your turn buttons are progressive (input.fine): for the first FINE_FOR
-// seconds of a press the side thrusters push gently, at ROT_FINE -- so a
-// quick tap (a tenth of a second) is a touch of 0.5°/s -- then build to
-// full strength by FULL_BY, for big turns. (The autopilots get full
-// strength at once.)
-export const ROT_FINE = (5 * Math.PI) / 180;
-export const FINE_FOR = 0.2;
-export const FULL_BY = 0.5;
 // Assist off: a spin, with no turn button held, ebbs away at SPIN_FADE
 // (rad/s^2) -- a small one soon, a fast one hardly at all.
 export const SPIN_FADE = (0.5 * Math.PI) / 180;
@@ -33,9 +27,8 @@ const SPRING = 9; // stiffness (1/s^2): natural frequency 3 rad/s
 const SPRING_DAMP = 2 * 0.85 * 3; // damping ratio 0.85: no wobble
 export const ASSIST_DAMP = 0.6; // per second: how fast sideways drift dies away when level
 // Attitude hold (the Apollo 11 flight's assist, as on the real LM): a turn
-// button turns the lander at a steady rate; let go and it holds that lean.
+// button turns the lander, up to a steady rate; let go and it holds that lean.
 export const HOLD_RATE = (20 * Math.PI) / 180;
-export const HOLD_FINE = (3 * Math.PI) / 180;
 // The Moon's radius: flying fast enough round it, the ground curves away
 // beneath you (felt here, over flat ground, as a lift of vx^2/R).
 export const MOON_R = 1737400;
@@ -280,10 +273,12 @@ export function makeTerrain(n, attempt = 0) {
     // dives in turn, more turns each time round.
     const zig = kind === 'zigzag';
     const clear = zig ? Math.max(13, 18 - 1.5 * c) : Math.max(10.5, 22 - 2.5 * c);
-    const len = snap(zig ? Math.min(420, 300 + 40 * c) : Math.min(300, 170 + 30 * c));
+    // (A zigzag's slopes stay the same, about 1 in 2; each time round it has
+    // another climb or dive, and is that much longer.)
+    const turns = Math.min(7, 3 + c);
+    const len = snap(zig ? 100 * turns : Math.min(300, 170 + 30 * c));
     const high = Math.min(560, 360 + 40 * c);
-    const amp = zig ? Math.min(34, 22 + 3 * c) : c ? Math.min(24, 8 * c) : 0;
-    const turns = 3 + c; // (zigzag) climbs and dives
+    const amp = zig ? 22 : c ? Math.min(24, 8 * c) : 0;
     const ta = snap(sx + Math.max(120, hop * 0.35));
     const tb = ta + len;
     bx = Math.max(sx + hop, tb + 130);
@@ -302,7 +297,7 @@ export function makeTerrain(n, attempt = 0) {
     piece(ta, tb, (x) => ty + off(x) + clear, mountain);
     keys.push({ x: ta - 35, y: ty + room(clear) });
     for (let x = ta + 8; x < tb; x += 16) keys.push({ x, y: ty + off(x) + room(clear), direct: true });
-    keys.push({ x: tb + 35, y: ty + room(clear), direct: true });
+    keys.push({ x: tb, y: ty + room(clear), direct: true }, { x: tb + 35, y: ty + room(clear), direct: true });
   } else if (kind === 'shaft') {
     // The base is in a cavern deep under a mesa, reached down a narrow shaft
     // drilled from the top; after the first, the base is off to one side.
@@ -497,13 +492,9 @@ export function step(level, L, input, dt) {
   // coasting to a stop. With assist on,
   // rotation is a spring: a held turn button pushes against it (settling at
   // 20°), and on release it springs back to level.
-  // How long this turn button has been held (for the progressive push).
-  L.held = rotating && L.rcs === L.heldWay ? (L.held || 0) + dt : rotating ? dt : 0;
-  L.heldWay = L.rcs;
-  const ramp = Math.max(0, Math.min(1, (L.held - dt / 2 - FINE_FOR) / (FULL_BY - FINE_FOR)));
   if (input.hold && L.fuel > 0) {
-    // (Attitude hold: a quick tap turns slowly too, 3°/s, building to the full rate.)
-    L.omega = rotating ? L.rcs * (input.fine ? HOLD_FINE + (HOLD_RATE - HOLD_FINE) * ramp : HOLD_RATE) : 0;
+    // (Attitude hold: held, the turn builds up to HOLD_RATE; let go, it stops.)
+    L.omega = rotating ? Math.max(-HOLD_RATE, Math.min(HOLD_RATE, L.omega + L.rcs * ROT_ACCEL * dt)) : 0;
     if (rotating) L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
   } else if (input.assist && L.fuel > 0) {
     const push = rotating ? L.rcs * SPRING * ASSIST_TILT : 0;
@@ -512,7 +503,7 @@ export function step(level, L, input, dt) {
     L.rcs = Math.abs(torque) > 0.05 ? Math.sign(torque) : 0;
     if (L.rcs) L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
   } else if (rotating) {
-    L.omega += L.rcs * (input.fine ? ROT_FINE + (ROT_ACCEL - ROT_FINE) * ramp : ROT_ACCEL) * dt;
+    L.omega += L.rcs * ROT_ACCEL * dt;
     L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
   } else {
     L.omega = Math.sign(L.omega) * Math.max(0, Math.abs(L.omega) - SPIN_FADE * dt);
@@ -650,7 +641,7 @@ export function planRoute(level) {
 // gently on the base. Used to check every level can be done (and to size its
 // fuel) and by the tests. Returns the input for this moment; keeps its place
 // on the route in L.wp.
-export function autopilot(level, L, maxTiltDeg = 35) {
+export function autopilot(level, L, maxTiltDeg = 12) {
   const plan = (level.plan ??= planRoute(level));
   const tilt = (maxTiltDeg * Math.PI) / 180;
   let vxWant;
@@ -677,7 +668,7 @@ export function autopilot(level, L, maxTiltDeg = 35) {
     const e = -(L.x - A.x) * uy + (L.y - A.y) * ux; // to the left of the path
     const tight = B.direct || C?.direct;
     // Top speed along this leg, and how hard it can brake along it.
-    let vmax = tight ? 3 : 22;
+    let vmax = tight ? 2 : 22;
     if (uy > 0.2) vmax = Math.min(vmax, (tight ? 2.5 : 9) / uy);
     if (uy < -0.2) vmax = Math.min(vmax, (tight ? 2.5 : 6) / -uy);
     const brake = Math.abs(ux) * 1.0 * Math.sin(tilt) + Math.abs(uy) * (uy < 0 ? 0.45 : 1.2);
@@ -686,7 +677,7 @@ export function autopilot(level, L, maxTiltDeg = 35) {
     if (C) {
       const lc = Math.hypot(C.x - B.x, C.y - B.y) || 1;
       const cos = ux * ((C.x - B.x) / lc) + uy * ((C.y - B.y) / lc);
-      vEnd = cos > 0.95 ? vmax : cos > 0.7 ? 1.5 : 0.6;
+      vEnd = cos > 0.95 ? vmax : cos > 0.7 ? 1.2 : 0.3;
     }
     const v = Math.min(vmax, Math.sqrt(vEnd * vEnd + 2 * brake * Math.max(0, len - s)));
     const lim = tight ? 1.5 : 4;
@@ -715,8 +706,12 @@ export function autopilot(level, L, maxTiltDeg = 35) {
   const d = want - L.angle;
   const omegaWant = Math.sign(d) * Math.min(0.8, Math.abs(d) * 2.5, Math.sqrt(2 * ROT_ACCEL * 0.85 * Math.abs(d)));
   const de = omegaWant - L.omega;
-  const thrust = ayWant > G * 0.55 && Math.abs(want - L.angle) < 0.6;
-  return { thrust, left: de < -0.04, right: de > 0.04 };
+  // The push it needs, along the way it's pointing, pulsed.
+  const need = Math.abs(want - L.angle) < 0.6 ? Math.max(0, axWant * Math.sin(L.angle) + ayWant * Math.cos(L.angle)) / push : 0;
+  L.duty = (L.duty ?? 0) + Math.min(1, need);
+  const thrust = L.duty >= 1;
+  if (thrust) L.duty -= 1;
+  return { thrust, left: de < -0.01, right: de > 0.01 };
 }
 
 // The autopilot's best: it flies the level (on its fuel) leaning up to each
@@ -724,7 +719,7 @@ export function autopilot(level, L, maxTiltDeg = 35) {
 // that lean (degrees).
 export function bestTilt(level) {
   let best = { tilt: 9, score: -1 };
-  for (const tilt of [15, 20, 25, 30, 35]) {
+  for (const tilt of [9, 12, 15]) {
     const L = newLander(level, level.fuel ?? 2000);
     for (let t = 0; t < 900; t += 1 / 60) {
       const res = step(level, L, autopilot(level, L, tilt), 1 / 60);
