@@ -4,7 +4,7 @@
 //
 // The bike is one rigid body (frame plus rider) with two wheels fixed to it,
 // seen from the side. Each wheel is a circle; where it sinks into the ground
-// the tire pushes back (a stiff spring with damping, which is also the
+// the tyre pushes back (a stiff spring with damping, which is also the
 // suspension), and grips along the ground up to a friction limit. The rear
 // wheel drives, both wheels brake, and the rider leans by applying a torque
 // to the whole body: in the air that rotates the bike, on the ground it
@@ -27,9 +27,9 @@ export const COM = 0.55; // centre of mass this far above the axles (m)
 export const HEAD = [0.05, 1.22]; // the rider's helmet, from the centre of mass
 export const MASS = 1;
 export const INERTIA = MASS * 1.0; // kg m^2: the bike is long and the rider high
-export const TIRE_K = 420; // tire/suspension stiffness (N/m per unit mass)
-export const TIRE_C = 22; // and damping
-export const GRIP = 1.1; // friction coefficient: dirt tires on dirt
+export const TYRE_K = 420; // tyre/suspension stiffness (N/m per unit mass)
+export const TYRE_C = 22; // and damping
+export const GRIP = 1.1; // friction coefficient: dirt tyres on dirt
 export const DRIVE = 9; // rear-wheel push at full throttle (m/s^2)
 export const BRAKE = 3.5; // each wheel's brake at full squeeze (m/s^2): about 0.7 g together, short of an endo
 export const VMAX = 14; // the engine runs out of puff here (m/s, ~31 mph)
@@ -49,9 +49,10 @@ export const LEVEL = { spring: 4, damp: 4 };
 export const HARD = { nose: 7, flat: 11 };
 export const NOSE_DOWN = (20 * Math.PI) / 180; // pitched this far below the ground's slope counts as nose first
 export const FLIP = 0.85 * 2 * Math.PI; // turned this far in the air and landed: a flip
+export const LANDED = (50 * Math.PI) / 180; // within this of the ground's slope at touchdown counts as on the wheels
 export const FLIP_BONUS = 2; // seconds off the clock per flip landed
 export const BASE_SEED = 20261021;
-export const DT = 1 / 240; // physics substep: stiff tires need small steps
+export const DT = 1 / 240; // physics substep: stiff tyres need small steps
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
@@ -172,14 +173,17 @@ function kindsFor(n, spec, r) {
   const fresh = { 2: ['log', 'climb'], 3: ['drop'], 4: ['step', 'cliff'], 5: ['gap'] }[n] ?? [];
   const kinds = [];
   for (let i = 0; i < spec.features; i++) kinds.push(allowed[Math.floor(r() * allowed.length)]);
-  for (const kind of fresh) {
-    if (!kinds.includes(kind)) kinds[1 + Math.floor(r() * (kinds.length - 2))] = kind;
-  }
   const sets = n >= 3 ? setPiecesFor(spec) : [];
   if (sets.length) {
     const { parts, between } = SET_PIECES[sets[Math.floor(r() * sets.length)]];
     // (The set piece takes the place of a couple of ordinary obstacles.)
     kinds.splice(Math.round(kinds.length * 0.65), Math.min(2, kinds.length - 3), ...parts.map(([kind, size], k) => ({ kind, size, between: k < parts.length - 1 ? between : null })));
+  }
+  // What's new this course goes in an ordinary slot (never the first, never
+  // the set piece), if the draw left it out.
+  const plain = kinds.map((k, i) => (i > 0 && typeof k === 'string' ? i : -1)).filter((i) => i >= 0);
+  for (const kind of fresh) {
+    if (!kinds.includes(kind)) kinds[plain[Math.floor(r() * plain.length)]] = kind;
   }
   return kinds;
 }
@@ -230,10 +234,11 @@ export function makeCourse(n, attempt = 0) {
     switch (kind) {
       case 'hill': {
         // A rolling rise and fall, or a few of them.
-        // (No steeper than about 35 degrees: a hill is for climbing.)
+        // (No steeper than about 35 degrees, with the lie of the land under
+        // it: a hill is for climbing.)
         const waves = 1 + Math.floor(r() * 2);
         const amp = spec.hill * s;
-        const len = Math.max(6 + 4 * r(), 4.6 * amp) * waves;
+        const len = Math.max(6 + 4 * r(), 5.6 * amp) * waves;
         piece('hill', len, (d) => amp * (1 - Math.cos((2 * Math.PI * waves * d) / len)) / 2);
         break;
       }
@@ -272,7 +277,7 @@ export function makeCourse(n, attempt = 0) {
         // A long steep climb to a crest, then a gentler run back down: on
         // the gas all the way up, or it stalls.
         const h = spec.climb * s;
-        const up = h * 2.5; // the smooth rise is steepest in the middle: 1.5 h / up, about 31 degrees
+        const up = h * 2.9; // the smooth rise is steepest in the middle: 1.5 h / up, about 27 degrees, before the lie of the land
         const crest = 3 + 3 * r();
         const down = h * 3;
         piece('climb', up + crest + down, (d) => (d < up ? h * smooth(d / up) : d < up + crest ? h : h * (1 - smooth((d - up - crest) / down))));
@@ -287,7 +292,7 @@ export function makeCourse(n, attempt = 0) {
       case 'ascent': {
         // The climb up to a crest, and no way down but what follows.
         const h = spec.climb * s;
-        const up = h * 2.5;
+        const up = h * 2.9;
         piece('climb', up + 3, (d) => (d < up ? h * smooth(d / up) : h), h);
         break;
       }
@@ -349,7 +354,9 @@ export function makeCourse(n, attempt = 0) {
     const gx = i * STEP;
     while (p < pieces.length - 1 && gx >= pieces[p].x1) p++;
     const pc = pieces[p];
-    heights.push(roll(gx) + pc.y0 + pc.f(clamp(gx - pc.x0, 0, pc.x1 - pc.x0)));
+    // (To the centimetre: courses are kept on the device, and the sixth
+    // decimal of a hill is neither ridden nor seen.)
+    heights.push(Math.round((roll(gx) + pc.y0 + pc.f(clamp(gx - pc.x0, 0, pc.x1 - pc.x0))) * 100) / 100);
   }
   const minY = Math.min(...heights);
   const maxY = Math.max(...heights);
@@ -371,6 +378,7 @@ export function newBike(course, x = course.start) {
     hitRear: 0, hitFront: 0, noseFirst: false, impact: 0, // this step's landings
     air: 0, // how far the bike has turned since its wheels left the ground
     trick: null, // a flip landed and not yet celebrated: { flips, back }
+    pending: null, // a flip whose landing this step is still judging
   };
   const [rx] = wheelAt(B, -BASE / 2);
   const [fx] = wheelAt(B, BASE / 2);
@@ -417,7 +425,7 @@ function wheelForces(course, B, along, input, drives, at = null) {
   const tx = c.ny;
   const ty = -c.nx;
   const vt = vx * tx + vy * ty;
-  const normal = Math.max(0, TIRE_K * c.depth - TIRE_C * vn);
+  const normal = Math.max(0, TYRE_K * c.depth - TYRE_C * vn);
   const limit = GRIP * normal;
   let push = 0;
   if (drives && input.gas) push += DRIVE * Math.max(0, 1 - Math.max(0, vt) / VMAX);
@@ -489,9 +497,14 @@ export function step(course, B, input, dt) {
     B.rear = rear?.contact ?? null;
     B.front = front?.contact ?? null;
     B.spin += ((rear ? rear.contact.vt : B.vx) / WHEEL) * h;
-    // Turning in the air; a full turn by the time a wheel touches is a flip.
+    // Turning in the air: a full turn by the time a wheel touches is a flip
+    // -- credited below, once the landing has been judged -- but only if
+    // the bike comes down somewhere near its wheels; a turn that ends on
+    // the rear wheel pointing at the sky is a loop still in progress.
     const down = !!(rear || front);
-    if (down && Math.abs(B.air) >= FLIP && !B.crashed) B.trick = { flips: Math.round(Math.abs(B.air) / (2 * Math.PI)), back: B.air > 0 };
+    if (down && Math.abs(B.air) >= FLIP && Math.abs(Math.atan2(Math.sin(B.angle), Math.cos(B.angle)) - Math.atan(slopeAt(course, B.x))) < LANDED) {
+      B.pending = { flips: Math.round(Math.abs(B.air) / (2 * Math.PI)), back: B.air > 0 };
+    }
     B.air = down ? 0 : B.air + B.omega * h;
   }
   B.gas = !!input.gas;
@@ -510,6 +523,10 @@ export function step(course, B, input, dt) {
   B.noseFirst = false;
   if (B.impact > HARD.flat) return crash(B, 'Hard landing');
   if (noseFirst && hitFront > HARD.nose) return crash(B, 'Nose first');
+  if (B.pending) {
+    B.trick = B.pending;
+    B.pending = null;
+  }
   // Standing still (against a wall, or balanced on the back wheel).
   B.stall = grounded(B) && Math.abs(B.vx) < 0.25 ? (B.stall ?? 0) + dt : 0;
   while (B.flag + 1 < course.flags.length && B.x > course.flags[B.flag + 1]) B.flag++;
@@ -526,6 +543,7 @@ export function step(course, B, input, dt) {
 
 function crash(B, reason) {
   B.crashed = true;
+  B.pending = null; // (a flip that ends in a crash isn't landed)
   return { kind: 'crash', reason };
 }
 
@@ -682,8 +700,9 @@ export function bestRide(course) {
 }
 
 // Course n as played: one the rider has actually finished (re-rolled until
-// it does), with par set by its time, `pace` the pace that set it (for the
-// demo) and `ghost` that ride's path. `checked` says the rider managed it.
+// it does), with par set by its time (`ride`, to the tenth), `pace` the
+// pace that set it (for the demo) and `ghost` that ride's path. `checked`
+// says the rider managed it.
 export function makeLevel(n) {
   let course;
   let run = null;
@@ -691,10 +710,15 @@ export function makeLevel(n) {
     course = makeCourse(n, attempt);
     run = bestRide(course);
   }
+  // Par is the rider's time rounded up to the second. If no attempt could
+  // be finished (there's room for 16 in the seed; 12 are tried), the course
+  // ships anyway with a guessed par, no ghost, and `checked` false for the
+  // screen to say so.
   const par = run ? Math.ceil(run.time) : Math.ceil(course.length / 4);
-  // The par ride itself, every TRACK_DT, for the ghost that can race you.
+  // The par ride itself, every TRACK_DT, for the ghost that can race you,
+  // and its exact time.
   const ghost = run ? run.path.map((p) => p.map((v) => Math.round(v * 100) / 100)) : [];
-  return { ...course, par, pace: run?.pace ?? 0.5, checked: !!run, ghost };
+  return { ...course, par, ride: run ? Math.round(run.time * 10) / 10 : par, pace: run?.pace ?? 0.5, checked: !!run, ghost };
 }
 
 // Stars for a finish: against par, and the number of crashes along the way.

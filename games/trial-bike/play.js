@@ -205,6 +205,7 @@ export class Play {
       this.hooks.onDemo?.(false);
     }
     this.B = newBike(this.level);
+    this.settle(); // (no word from the last ride reaches this one)
     this.time = 0;
     this.started = false; // the clock waits for the first touch of the gas
     this.bonus = 0; // seconds off the clock for flips landed
@@ -230,6 +231,7 @@ export class Play {
   retry() {
     const flag = this.B.flag;
     this.B = newBike(this.level, flag >= 0 ? this.level.flags[flag] : this.level.start);
+    this.settle();
     this.outcome = null;
     this.waiting = false;
     this.wreck = null;
@@ -251,7 +253,24 @@ export class Play {
 
   destroy() {
     cancelAnimationFrame(this.raf);
+    this.settle();
     this.hooks.onMotor?.(false, 0);
+  }
+
+  // A ride's end is reported a moment after it happens, so the crash or the
+  // finish can be seen first; a ride that's over before then (restarted,
+  // or left) never reports.
+  settle() {
+    clearTimeout(this.ending);
+    this.ending = null;
+  }
+
+  report(hook, res, after) {
+    this.settle();
+    this.ending = setTimeout(() => {
+      this.ending = null;
+      hook?.(res);
+    }, after);
   }
 
   // ------------------------------------------------------------- scenery
@@ -424,11 +443,11 @@ export class Play {
           this.hooks.sfx?.('crash');
           this.hooks.haptic?.([30, 40, 60]);
           for (let i = 0; i < 24; i++) this.puff(B.x, B.y, 3, 'dust');
-          setTimeout(() => this.hooks.onCrash?.(res), 700);
+          this.report(this.hooks.onCrash, res, 700);
         } else {
           this.hooks.sfx?.('win');
           this.hooks.haptic?.(40);
-          setTimeout(() => this.hooks.onFinished?.(res), 900);
+          this.report(this.hooks.onFinished, res, 900);
         }
       }
     }

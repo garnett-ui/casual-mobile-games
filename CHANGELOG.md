@@ -20,8 +20,8 @@ anything taken away (not internal fixes or renames along the way).
   ledges and cliffs, and gaps, all by course 5 -- and the courses never
   run out, getting longer and rougher as you go, through meadow, forest,
   quarry and mountains, from morning to night, each with a set piece --
-  three kickers in a row, a climb to a cliff, the big gap -- two thirds
-  of the way along. Land a drop on the front
+  three kickers in a row, a climb to a cliff, the big gap -- in its
+  second half. Land a drop on the front
   wheel, nose down, and you're off; land a cliff flat on both. Flip the
   bike right over off a jump and land it, and every full turn takes two
   seconds off your clock -- to a fanfare, a flare over the finish and a

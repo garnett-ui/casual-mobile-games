@@ -345,30 +345,35 @@ keyboard.
 - **Crashes.** The rider's helmet touching the ground is a crash, as is
   falling out of the world, and so is a bad landing: coming down on the
   front wheel pitched more than 20° nose-down into the ground at over 7 m/s
-  (about a 2.5 m fall), or on either wheel at over 11 m/s (about 6 m). So a
-  drop has to be landed on the back wheel or flat, and a cliff on both.
+  (about a 2.5 m fall), or on either wheel at over 11 m/s (about 6 m) --
+  and a little less nose-down than that, the helmet reaches the ground
+  first anyway. So a drop has to be landed on the back wheel or flat, and a
+  cliff on both.
   Anything else -- a stall against a ledge, a nose-wheelie -- is yours to
   recover from. The bike tumbles for a moment, then the first touch puts
   you back on the last flag with the clock still running. Stuck with
   nowhere to go, the ↶ button does the same at the price of a crash.
 - **Endless courses from a seed**, and every one test-ridden. Course *n* is
-  built from `seedFor(n)`: a slow rise and fall of the land, with obstacles
-  along it in a random order drawn from the kinds that course allows.
+  built from its seed (and re-rolled from the same seed, up to a dozen
+  times, until the computer rider can finish it): a slow rise and fall of
+  the land, with obstacles along it in a random order drawn from the kinds
+  that course allows.
   Everything the bike can do is met early -- course 1 is hills and one
   small jump, then a log and a long climb on course 2, a drop-off on 3, a
   ledge up and down and a cliff on 4 and a gap on 5 -- and from there they
   grow in size and number and, more and more often, come one straight after
   another (a drop at the top of a climb, a cliff off the end of a jump).
   Hills and climbs are never steeper than about 35°, there's a run-up
-  before every gap, and nothing but open ground stands where a jump, a
-  drop or a cliff comes down. From course 3, each course has a **set
-  piece** about two thirds of the way along, with a flag just before it:
+  before every gap, and where a jump, a drop or a cliff comes down there's
+  open ground -- or the next part of a combination, a further fall or the
+  next kicker, never a log or a ledge. From course 3, each course has a
+  **set piece** in its second half, with a flag just before it:
   three kickers in a row, one long wall of a climb, a climb to a crest and
   a cliff straight off it, three ledges up and a cliff down the lot, or
   the big gap -- whichever the course's obstacles allow, picked by the
   seed, so the course has a moment the rest builds to. The computer rider rides each
   course at three paces as it is generated; one it can't finish is
-  re-rolled, and its best time is **par**.
+  re-rolled, and its best time, rounded up to the second, is **par**.
 - **Stars** against par and your crashes: three for beating par clean, two
   for within 1.5× par with at most one crash, one for getting there. The
   course tile shows your best time.
@@ -387,8 +392,8 @@ keyboard.
   away) and, if that edge is a pit, how wide -- and holds the bike's pitch to
   a target: the slope under it, nose-up for a wheelie sized to the wall,
   nose-up off an edge, and in the air the slope where it will come down. It
-  carries the speed a gap needs and eases off everywhere else. **Show me**
-  on the crash card runs it on the course, at 1×, 2× or 4×.
+  carries the speed a gap needs and eases off everywhere else. **SHOW ME**,
+  offered after a crash, runs it on the course, at 1×, 2× or 4×.
 - **GHOST** (off to start) rides the computer's par run beside you: a
   faint blue bike and rider, behind yours, at the point the par ride had
   reached at your time on the clock (so it waits on the start line until
@@ -399,8 +404,8 @@ keyboard.
   with the ground lower to leave room for the jumps. Not locked: the camera
   keeps the bike a third of the way across so you see what's coming.
 - Sound is the shared motor loop, pitched to the speed, with a bump on a
-  hard landing, the checkpoint chime at each flag, and a fanfare and the
-  flares' whoosh and crackle for a flip.
+  hard landing, the checkpoint chime at each flag, a fanfare and the
+  flares' whoosh and crackle for a flip, and one other, from the hilltop.
 
 ## Jigsaw
 

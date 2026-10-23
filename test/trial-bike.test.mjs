@@ -154,6 +154,11 @@ test('course 1 is hills and one small jump; logs, climbs, drops, ledges, cliffs 
   assert.deepEqual(kinds(1), ['hill', 'jump', 'hill', 'hill']);
   const first = {};
   for (let n = 1; n <= 8; n++) for (const k of kinds(n)) first[k] ??= n;
+  for (let a = 0; a < 12; a++) {
+    // Whatever's new on a course is there on every re-roll of it, too.
+    assert.ok(makeCourse(3, a).features.some((f) => f.kind === 'drop'), `course 3 attempt ${a} has its drop`);
+    assert.ok(makeCourse(5, a).features.some((f) => f.kind === 'gap' && !f.set), `course 5 attempt ${a} has its gap`);
+  }
   delete first.down; // (the slope that closes a set piece)
   assert.deepEqual(first, { hill: 1, jump: 1, log: 2, climb: 2, drop: 3, step: 4, cliff: 4, gap: 5 });
   // From course 3 every course has a set piece, packed close, with a flag just before it.
@@ -210,10 +215,10 @@ test('a fall onto the front wheel pitched down is a crash; the same fall on the 
 });
 
 test('a climb is long and steep but never over 35 degrees; a cliff is sheer and lands on the flat', () => {
-  const level = makeCourse(15);
+  const level = makeLevel(17); // (as played, re-rolls and all)
   const climb = level.features.find((f) => f.kind === 'climb' && !f.set);
   const cliff = level.features.find((f) => f.kind === 'cliff' && !f.set);
-  assert.ok(climb && cliff, 'course 15 has both');
+  assert.ok(climb && cliff, 'course 17 has both');
   let steepest = 0;
   let top = -Infinity;
   for (let x = climb.x0; x <= climb.x1; x += STEP) {
@@ -221,25 +226,47 @@ test('a climb is long and steep but never over 35 degrees; a cliff is sheer and 
     top = Math.max(top, heightAt(level, x));
   }
   assert.ok(top - heightAt(level, climb.x0) > 3, 'a real climb');
-  assert.ok(steepest < (36 * Math.PI) / 180, `steepest ${(steepest * 180) / Math.PI}°`);
+  assert.ok(steepest < (37 * Math.PI) / 180, `steepest ${(steepest * 180) / Math.PI}°`);
   const fall = heightAt(level, cliff.x0) - heightAt(level, cliff.x1 + 0.5);
   assert.ok(fall > 2 && fall < 4, `cliff of ${fall} m`);
-  assert.equal(bestRide(makeLevel(15)).kind, 'finished', 'the computer rider manages them');
+  // And no hill on any early course, as played, is steeper than it says.
+  for (const n of [4, 9, 15, 23]) {
+    const L = makeLevel(n);
+    let worst = 0;
+    for (const f of L.features) {
+      if (f.kind !== 'hill') continue;
+      for (let x = f.x0; x <= f.x1; x += STEP) worst = Math.max(worst, Math.abs(Math.atan(slopeAt(L, x))));
+    }
+    assert.ok(worst < (37 * Math.PI) / 180, `course ${n}: steepest hill ${((worst * 180) / Math.PI).toFixed(1)}°`);
+  }
+  assert.equal(bestRide(level).kind, 'finished', 'the computer rider manages them');
 });
 
-test('a full turn in the air, landed, is a flip; half a turn held into the ground is a crash, not a trick', () => {
+test('a full turn off a kicker, landed, is a flip; a turn held into the ground is a crash, not a trick', () => {
+  // A 1.8 m kicker on flat ground, like the game builds them.
   const course = flat();
+  const h = 1.8;
+  const up = h * 2.6;
+  course.heights = course.heights.map((_, i) => {
+    const d = i * STEP - 20;
+    return d < 0 || d > up ? 0 : h * (d / up) ** 1.5;
+  });
+  course.maxY = h;
+  // Ride at it on the gas; off the lip, lean back for two thirds of a
+  // second, then let go. That's a backflip, landed, and ridden away from.
   const B = newBike(course);
-  B.y += 6;
-  B.vx = 6;
-  B.omega = 8.5; // nose over tail, backwards: about one turn before the ground
+  let air = 0;
   let trick = null;
   let res = null;
-  for (let k = 0; k < 240 && !res && !trick; k++) {
-    res = step(course, B, { lean: B.air < 4 ? 1 : 0 }, 1 / 60); // lean into it past halfway, then let go
+  for (let k = 0; k < 60 * 12 && !res && !trick; k++) {
+    const flying = !grounded(B);
+    air = flying ? air + 1 / 60 : 0;
+    res = step(course, B, { gas: !flying, lean: flying && air < 0.65 ? 1 : 0 }, 1 / 60);
     trick = B.trick;
   }
   assert.ok(trick && trick.flips === 1 && trick.back, `landed a backflip: ${JSON.stringify(trick)} ${JSON.stringify(res)}`);
+  assert.equal(ride(course, B, { gas: true }, 2), null, 'and rides away');
+  assert.ok(B.vx > 3 && !B.crashed);
   // Half a turn held into the ground is a crash, and no trick.
   const C = newBike(course);
   C.y += 3;

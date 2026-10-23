@@ -1184,7 +1184,7 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
   }
 });
 
-test('trial bike: gas and lean with two thumbs, a crash goes back to the flag, the finish is scored against par', { skip: !chromium, timeout: 120000 }, async () => {
+test('trial bike: gas and lean with two thumbs, a crash and the tap that goes again, the finish scored against par', { skip: !chromium, timeout: 120000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {

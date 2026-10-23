@@ -7,7 +7,7 @@ import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/
 import { levelSource } from '../../js/lib/level-source.js';
 
 // Bump when generation changes, so courses cached on devices are rebuilt.
-export const GEN_VERSION = 3;
+export const GEN_VERSION = 1;
 
 // The left half's hint: an outline of the rider that tilts with the lean.
 const RIDER = '<svg class="tb-rider" viewBox="0 0 48 48"><circle cx="12" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="36" cy="36" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M12 36l10-8h8l6 8M22 28l-2-8h8l4 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="13" r="4" fill="currentColor"/></svg>';
@@ -74,6 +74,9 @@ export function mount(root, ctx, sub) {
 
   function startPlay(n, level) {
     ctx.track('level_start', { level: n });
+    // (The generator gave up on this one: it's never happened in testing,
+    // but if it does, the player should know par is a guess.)
+    if (!level.checked) ctx.toast?.('The computer rider couldn’t finish this course, so par is a guess.');
     // Build the next course in the background while this one is ridden.
     levels.get(n + 1);
     root.innerHTML = `
@@ -354,7 +357,9 @@ export function mount(root, ctx, sub) {
     ctx.haptic(40);
     const par = play.level.par;
     const vs = time <= par ? `${(par - time).toFixed(1)} s under par` : `${(time - par).toFixed(1)} s over par`;
-    const raced = play.ghost ? (time <= par ? ` You beat the ghost by ${(par - time).toFixed(1)} s.` : ` The ghost beat you by ${(time - par).toFixed(1)} s.`) : '';
+    // (The ghost's own time, to the tenth -- par is that rounded up.)
+    const ride = play.level.ride ?? par;
+    const raced = play.ghost ? (time <= ride ? ` You beat the ghost by ${(ride - time).toFixed(1)} s.` : ` The ghost beat you by ${(time - ride).toFixed(1)} s.`) : '';
     showDialog(root.querySelector('.dialog'), ctx, {
       title: got === 3 ? 'Clean ride!' : got === 2 ? 'Made it!' : 'Over the line',
       stars: got,
