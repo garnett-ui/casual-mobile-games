@@ -26,6 +26,12 @@ export const ASSIST_TILT = (20 * Math.PI) / 180;
 const SPRING = 9; // stiffness (1/s^2): natural frequency 3 rad/s
 const SPRING_DAMP = 2 * 0.85 * 3; // damping ratio 0.85: no wobble
 export const ASSIST_DAMP = 0.6; // per second: how fast sideways drift dies away when level
+// Attitude hold (the Apollo 11 flight's assist, as on the real LM): a turn
+// button turns the lander at a steady rate; let go and it holds that lean.
+export const HOLD_RATE = (20 * Math.PI) / 180;
+// The Moon's radius: flying fast enough round it, the ground curves away
+// beneath you (felt here, over flat ground, as a lift of vx^2/R).
+export const MOON_R = 1737400;
 export const BASE_SEED = 20261018;
 
 // ------------------------------------------------------------------ terrain
@@ -484,7 +490,10 @@ export function step(level, L, input, dt) {
   // way it points, coasting to a stop. With assist on,
   // rotation is a spring: a held turn button pushes against it (settling at
   // 20°), and on release it springs back to level.
-  if (input.assist && L.fuel > 0) {
+  if (input.hold && L.fuel > 0) {
+    L.omega = rotating ? L.rcs * HOLD_RATE : 0;
+    if (rotating) L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
+  } else if (input.assist && L.fuel > 0) {
     const push = rotating ? L.rcs * SPRING * ASSIST_TILT : 0;
     const torque = push - SPRING * L.angle - SPRING_DAMP * L.omega;
     L.omega += torque * dt;
@@ -503,10 +512,10 @@ export function step(level, L, input, dt) {
 
   // Translation: lighter (so punchier) as fuel burns off.
   const mass = 1 + 0.5 * (L.fuel / L.fuelMax);
-  const a = thrusting ? MAIN_THRUST / mass : 0;
+  const a = thrusting ? (level.thrust ?? MAIN_THRUST) / mass : 0;
   if (thrusting) L.fuel = Math.max(0, L.fuel - dt);
   L.ax = a * Math.sin(L.angle);
-  L.ay = a * Math.cos(L.angle) - G;
+  L.ay = a * Math.cos(L.angle) - G + (level.orbit ? (L.vx * L.vx) / MOON_R : 0);
   L.vx += L.ax * dt;
   L.vy += L.ay * dt;
   // Assist also kills sideways drift: once you let go and the lander levels
@@ -561,7 +570,7 @@ function contact(level, L) {
   L.omega = L.vx = L.vy = 0;
   L.thrusting = false;
   L.rcs = 0;
-  if (onPad(level.base, L)) {
+  if (level.anywhere || onPad(level.base, L)) {
     L.landed = 'base';
     return { kind: 'landed', ...details, score: scoreLanding(level, L, details) };
   }
@@ -574,17 +583,25 @@ function crash(L, reason, details = {}) {
   return { kind: 'crash', reason, ...details };
 }
 
+// How long the fuel would last hovering (s): the "60 seconds" of the
+// Apollo landings.
+export function hoverSeconds(level, L) {
+  const push = (level.thrust ?? MAIN_THRUST) / (1 + 0.5 * (L.fuel / L.fuelMax));
+  return (L.fuel * push) / G;
+}
+
 // Gentle, level, centred and frugal landings score best (max ~1000).
 export function scoreLanding(level, L, { vy, vx, tilt }) {
   const pad = level.base;
   const centre = (pad.x0 + pad.x1) / 2;
-  const off = Math.abs(L.x - centre) / ((pad.x1 - pad.x0) / 2);
+  const off = level.anywhere ? 0 : Math.abs(L.x - centre) / ((pad.x1 - pad.x0) / 2);
   const parts = {
     soft: Math.round(350 * Math.max(0, 1 - vy / SAFE.vy)),
     drift: Math.round(150 * Math.max(0, 1 - vx / SAFE.vx)),
     level: Math.round(150 * Math.max(0, 1 - tilt / SAFE.angle)),
     centre: Math.round(100 * Math.max(0, 1 - off)),
-    fuel: Math.round(250 * (L.fuel / L.fuelMax)),
+    // (Landing from orbit, a minute's hover to spare is plenty.)
+    fuel: Math.round(250 * (level.orbit ? Math.min(1, hoverSeconds(level, L) / 60) : L.fuel / L.fuelMax)),
   };
   const total = Object.values(parts).reduce((a, b) => a + b, 0);
   return { total, parts, stars: total >= 700 ? 3 : total >= 480 ? 2 : 1 };

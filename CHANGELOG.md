@@ -6,6 +6,16 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.72.0
+- Lunar Lander: **Apollo 11** -- fly the first landing, down from orbit.
+  Eagle's computer flies the 12-minute powered descent (sped up), through
+  the 1202 alarm, High Gate and Low Gate, heading for a crater full of
+  boulders; take over where you choose -- at 150 m like Armstrong, at 2 km,
+  or from orbit -- or any time by touching a control, and land anywhere
+  clear, to the real callouts ("60 seconds", "Contact light"). Here ASSIST
+  holds your lean, like the real lander. How does your fuel compare with
+  Eagle's?
+
 ## 1.71.1
 - Lunar Lander: propellant (PRPLNT QTY) shows as a bar again, marked in
   quarters.

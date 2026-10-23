@@ -142,6 +142,23 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   also the switchback (down a shaft, along a gallery, down a second shaft
   and back under the gallery to the base) and the zigzag tunnel (climbing
   and diving), as the caves and tunnels get lower and the shafts narrower.
+- **Apollo 11** (a card above the missions, open to everyone): the first
+  landing, down from orbit (`apollo.js`). Powered descent starts 15 km up at
+  1,690 m/s; the guidance computer flies it, time sped up (16×, the TIME
+  button), through P63 to High Gate (2 km, 140 m/s) and P64 to Low Gate
+  (150 m) -- aiming, as Eagle's did, into West crater and its boulders. You
+  choose where to take over (Low Gate like Armstrong, High Gate, or the
+  whole descent), and can take over any time by touching a control; then
+  it's P66, and you land anywhere flat and clear. Over flat ground the
+  Moon's curve is a lift of vx²/R, which balances gravity at orbital speed;
+  the engine is punchier than the missions' (as Eagle's was). The program
+  alarms (1202, 1201), the gates, "60 seconds" / "30 seconds" (of fuel,
+  hovering), "Contact light" and Aldrin-style altitude calls come up as
+  messages; ALT reads the radar altitude, RANGE the distance to where Eagle
+  landed. Here ASSIST is the LM's attitude hold: a turn button turns at a
+  steady 20°/s and the lean holds when you let go. Scored like a mission,
+  fuel counting full at a minute's hover; the card compares your fuel with
+  Eagle's (about 25 s). Best stars per start are kept.
 - The fly-over before each mission marks the highest peak on the way with
   its height as ALT will read it (above the base).
 - The route shown before each mission and on the score card, and flown for

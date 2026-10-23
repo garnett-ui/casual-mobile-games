@@ -538,6 +538,49 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
   }
 });
 
+test('lunar lander, Apollo 11: the computer flies down from orbit, hands over, and a landing on clear ground counts', { skip: !chromium, timeout: 120000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/#/lander`);
+    // Open to everyone, from the mission list.
+    await page.locator('.ll-apollo').click();
+    await page.locator('.ll-start[data-start=low]').click();
+    await page.waitForFunction(() => window.__lander?.level.apollo);
+    const start = await page.evaluate(() => ({ computer: window.__lander.computer, warp: window.__lander.timeScale, alt: window.__lander.L.y }));
+    assert.ok(start.computer && start.warp === 16 && start.alt > 15000, JSON.stringify(start));
+    assert.match(await page.locator('.ll-warp').textContent(), /16×/);
+    // Fast-forward: the computer flies it to Low Gate, then it's yours.
+    await page.evaluate(() => window.__lander.setWarp(64));
+    await page.waitForFunction(() => !window.__lander.computer, null, { timeout: 90000 });
+    const handed = await page.evaluate(() => ({ prog: window.__lander.L.prog, warp: window.__lander.timeScale, msg: window.__lander.message?.text }));
+    assert.equal(handed.prog, 66);
+    assert.equal(handed.warp, 1);
+    assert.match(handed.msg, /boulders/);
+    // Set it down gently on clear ground, where Eagle landed.
+    await page.evaluate(() => {
+      const p = window.__lander;
+      const b = p.level.base;
+      Object.assign(p.L, { x: (b.x0 + b.x1) / 2, y: b.y + 1.5, vx: 0, vy: -0.6, angle: 0, omega: 0 });
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 15000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /Eagle has landed/);
+    assert.match(await page.locator('.dialog').textContent(), /Fuel left: \d+ s/);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:lander:progress')));
+    assert.ok(saved.apollo.low >= 1);
+    // Back on the chooser, the stars show.
+    await page.locator('.dialog [data-act=levels]').click();
+    await page.locator('.ll-start[data-start=low] i').filter({ hasText: '★' }).waitFor();
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('lunar lander: thrust button lifts off, a landing scores, a crash explodes', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

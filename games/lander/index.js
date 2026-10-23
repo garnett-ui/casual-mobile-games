@@ -1,6 +1,7 @@
 // Lunar Lander: level select, flight screen with thruster buttons, results.
-import { makeLevel } from './engine.js';
+import { makeLevel, hoverSeconds } from './engine.js';
 import { Play } from './play.js';
+import { makeApollo, STARTS, EAGLE_FUEL } from './apollo.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 
 // Apollo 11's touchdown, from NASA: "Houston, Tranquility Base here. The
@@ -35,9 +36,11 @@ export function mount(root, ctx, sub) {
   };
 
   const levelFor = (n) => {
-    if (!cache.has(n)) cache.set(n, makeLevel(n));
+    if (!cache.has(n)) cache.set(n, n === 'apollo' ? makeApollo() : makeLevel(n));
     return cache.get(n);
   };
+  const apolloStars = () => (progress.data.apollo ??= {});
+  const starText = (n) => (n ? '★'.repeat(n) + '☆'.repeat(3 - n) : '');
 
   function teardown() {
     quiet();
@@ -58,16 +61,53 @@ export function mount(root, ctx, sub) {
       progress,
       badge: (n) => (progress.data.assisted?.[n] ? 'A' : ''),
     });
+    // Apollo 11: the first landing, from orbit -- open to everyone.
+    const best = Math.max(0, ...Object.values(apolloStars()));
+    const card = document.createElement('button');
+    card.className = 'll-apollo';
+    card.dataset.act = 'apollo';
+    card.innerHTML = `<b>APOLLO 11</b><span>Fly the first landing, down from orbit</span>${best ? `<i>${starText(best)}</i>` : ''}`;
+    card.onclick = () => {
+      ctx.sfx('tap');
+      ctx.navigate('#/lander/apollo');
+    };
+    root.querySelector('.lvl-grid').before(card);
   }
 
-  function showPlay(n) {
+  // Apollo 11: where to take over from the computer.
+  function showApollo() {
+    teardown();
+    const stars = apolloStars();
+    root.innerHTML = `
+      <div class="screen levels-screen">
+        <header class="bar">
+          <button class="icon-btn" data-act="back" aria-label="Missions">${ICON.back}</button>
+          <h2>Apollo 11</h2>
+        </header>
+        <div class="levels-scroll">
+          <p class="levels-intro">20 July 1969. Eagle starts down from orbit, 15 km above the Moon at 1,690 m/s. Its computer can fly it -- but it’s heading for a crater full of boulders. Where will you take over?</p>
+          <div class="ll-starts">${STARTS.map((s) => `<button class="ll-start" data-start="${s.key}"><i>${starText(stars[s.key])}</i><b>${s.name}</b><span>${s.about}</span></button>`).join('')}</div>
+          <p class="levels-intro">Land anywhere flat and clear. Here ASSIST holds the lean you leave it at, like the real lander. Time runs fast while the computer flies: tap the TIME button to change it, or touch any control to take over.</p>
+        </div>
+      </div>`;
+    root.querySelector('[data-act=back]').onclick = () => ctx.back('#/lander');
+    root.querySelectorAll('.ll-start').forEach((b) => {
+      b.onclick = () => {
+        ctx.sfx('tap');
+        ctx.navigate(`#/lander/apollo-${b.dataset.start}`);
+      };
+    });
+  }
+
+  function showPlay(n, start) {
     teardown();
     const level = levelFor(n);
+    const apollo = n === 'apollo';
     root.innerHTML = `
       <div class="screen play-screen ll-screen">
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Missions">${ICON.back}</button>
-          <h2>Mission ${n}</h2>
+          <h2>${apollo ? 'Apollo 11' : `Mission ${n}`}</h2>
           <button class="ll-assist" data-act="assist" aria-pressed="true" title="Stability assist: rotation springs back to level when you let go (leans about 20° while held), and sideways drift dies away">ASSIST</button>
           <button class="icon-btn" data-act="pause" aria-label="Pause">${ICON.pause}</button>
           <button class="icon-btn" data-act="restart" aria-label="Restart">${ICON.restart}</button>
@@ -82,12 +122,14 @@ export function mount(root, ctx, sub) {
           </div>
         </div>
         <button class="ll-demo" hidden aria-label="Autopilot demo speed">AUTOPILOT · <b>2×</b></button>
+        <button class="ll-demo ll-warp" ${apollo ? '' : 'hidden'} aria-label="Time speed">TIME · <b>1×</b></button>
         <div class="ll-paused" hidden><div><b>Paused</b><span>Tap to carry on flying.</span></div></div>
         <div class="tip" hidden></div>
         <div class="dialog" hidden></div>
       </div>`;
     const demoBtn = root.querySelector('.ll-demo');
-    ctx.track('level_start', { level: n });
+    const warpBtn = root.querySelector('.ll-warp');
+    ctx.track('level_start', { level: n, start });
     ctx.loadClip?.(EAGLE); // ready for the landing
     const tip = root.querySelector('.tip');
     play = new Play(root.querySelector('canvas'), level, {
@@ -97,7 +139,8 @@ export function mount(root, ctx, sub) {
         if (name === 'stop') ctx.stopLoops?.();
         else ctx.setLoop?.(name, on);
       },
-      onLanded: (res) => (play.demo ? demoLanded(n, res) : landed(n, res)),
+      onLanded: (res) => (play.demo ? demoLanded(n, res) : apollo ? apolloLanded(start, res) : landed(n, res)),
+      onWarp: (scale) => (warpBtn.querySelector('b').textContent = `${scale}×`),
       onDemo: (on) => {
         demoBtn.hidden = !on;
         demoBtn.querySelector('b').textContent = `${play?.timeScale ?? 2}×`;
@@ -107,7 +150,7 @@ export function mount(root, ctx, sub) {
         stopClip = ctx.playClip?.(EAGLE);
       },
       onCrash: (res) => crashed(n, res),
-    }, { intro: true });
+    }, { intro: !apollo, start });
     // Any touch ends the fly-over early.
     root.querySelector('.stage').addEventListener('pointerdown', () => play?.skipIntro(), { capture: true });
     // Handle for the end-to-end tests (test/e2e.test.mjs).
@@ -120,6 +163,13 @@ export function mount(root, ctx, sub) {
       play.timeScale = { 1: 2, 2: 4, 4: 1 }[play.timeScale] || 2;
       demoBtn.querySelector('b').textContent = `${play.timeScale}×`;
     });
+    // Apollo 11: time speeded up 1×, 4×, 16× or 64×.
+    warpBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      ctx.sfx('tap');
+      play.setWarp({ 1: 4, 4: 16, 16: 64, 64: 1 }[play.timeScale] || 1);
+    });
+    warpBtn.querySelector('b').textContent = `${play.timeScale}×`;
     // Stability assist (on unless you've turned it off).
     const assistBtn = root.querySelector('[data-act=assist]');
     const setAssist = (on) => {
@@ -217,7 +267,7 @@ export function mount(root, ctx, sub) {
       document.removeEventListener('visibilitychange', hide);
     });
 
-    root.querySelector('[data-act=levels]').onclick = () => ctx.back('#/lander');
+    root.querySelector('[data-act=levels]').onclick = () => ctx.back(apollo ? '#/lander/apollo' : '#/lander');
     root.querySelector('[data-act=restart]').onclick = () => {
       quiet();
       resume();
@@ -275,6 +325,20 @@ export function mount(root, ctx, sub) {
   function crashed(n, res) {
     if (!play) return;
     ctx.track('level_fail', { level: n, reason: res.reason });
+    if (n === 'apollo') {
+      showDialog(root.querySelector('.dialog'), ctx, {
+        title: 'Crashed!',
+        text: `${res.reason}. Safe landings are under 3 m/s down, 1.2 m/s sideways and 10° of tilt, on ground that’s nearly level -- clear of craters and boulders.`,
+        buttons: [
+          { label: 'Take over elsewhere', act: 'levels', run: () => ctx.back('#/lander/apollo') },
+          { label: 'Try again', act: 'retry', primary: true, run: () => {
+            root.querySelector('.dialog').hidden = true;
+            play.reset();
+          } },
+        ],
+      });
+      return;
+    }
     showDialog(root.querySelector('.dialog'), ctx, {
       title: 'Crashed!',
       text: `${res.reason}. Safe landings are under 3 m/s down, 1.2 m/s sideways and 10° of tilt.`,
@@ -287,6 +351,42 @@ export function mount(root, ctx, sub) {
         { label: 'Try again', act: 'retry', primary: true, run: () => {
           root.querySelector('.dialog').hidden = true;
           play.retry();
+        } },
+      ],
+    });
+  }
+
+  // Apollo 11 down: the score, and how your fuel compares with Eagle's.
+  function apolloLanded(start, res) {
+    if (!play) return;
+    const { total, parts, stars } = res.score;
+    const best = apolloStars();
+    best[start] = Math.max(best[start] || 0, stars);
+    ctx.save('progress', progress.data);
+    ctx.track('lander_apollo', { start, stars, score: total });
+    ctx.haptic(40);
+    const left = Math.round(hoverSeconds(play.level, play.L));
+    const fromEagle = Math.round(Math.abs(play.L.x - (play.level.base.x0 + play.level.base.x1) / 2));
+    const row = (label, v) => `<tr><td>${label}</td><td>${v}</td></tr>`;
+    showDialog(root.querySelector('.dialog'), ctx, {
+      title: 'The Eagle has landed!',
+      stars,
+      text: `<div class="ll-result">${play.routeSvg()}<table class="ll-score">
+        ${row(`Touchdown ${res.vy.toFixed(2)} m/s`, parts.soft)}
+        ${row(`Drift ${res.vx.toFixed(2)} m/s`, parts.drift)}
+        ${row(`Tilt ${((res.tilt * 180) / Math.PI).toFixed(1)}°`, parts.level)}
+        ${row(`Fuel left: ${left} s`, parts.fuel)}
+        <tr class="total"><td>Score</td><td>${total}</td></tr></table></div>
+        <span class="ll-assisted">${left > EAGLE_FUEL ? 'More fuel to spare than' : 'Even closer than'} Eagle, which landed with about ${EAGLE_FUEL} seconds left -- ${fromEagle} m from where it came down.</span>`,
+      buttons: [
+        { label: 'Take over elsewhere', act: 'levels', run: () => {
+          quiet();
+          ctx.back('#/lander/apollo');
+        } },
+        { label: 'Fly again', act: 'replay', primary: true, run: () => {
+          quiet();
+          root.querySelector('.dialog').hidden = true;
+          play.reset();
         } },
       ],
     });
@@ -318,6 +418,9 @@ export function mount(root, ctx, sub) {
   }
 
   function route(s) {
+    if (s === 'apollo') return showApollo();
+    const start = /^apollo-(\w+)$/.exec(s || '')?.[1];
+    if (STARTS.some((x) => x.key === start)) return showPlay('apollo', start);
     const n = parseInt(s, 10);
     if (n >= 1 && n <= progress.data.unlocked) showPlay(n);
     else showLevels();

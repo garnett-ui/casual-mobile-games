@@ -1,7 +1,8 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
-import { step, newLander, heightAt, clearance, underRock, highestPeak, flightPath, autopilot, bestTilt, G, SAFE, FEET, HEIGHT, TRACK_DT } from './engine.js';
+import { step, newLander, heightAt, clearance, underRock, highestPeak, hoverSeconds, flightPath, autopilot, bestTilt, G, SAFE, FEET, HEIGHT, TRACK_DT } from './engine.js';
 import { bestFlight, follow } from './pilot.js';
+import { startApollo, computer as apolloComputer, handedOver } from './apollo.js';
 
 // The autopilot's best flight for a level (worked out once), and the route
 // it takes -- or, should it find none, the careful pilot's.
@@ -45,8 +46,10 @@ const panelWidth = (W) => Math.min(W - 16, 390);
 const DEG = 180 / Math.PI;
 
 export class Play {
-  constructor(canvas, level, hooks, { intro = false } = {}) {
+  // (start: for the Apollo 11 flight, where you take over -- see apollo.js.)
+  constructor(canvas, level, hooks, { intro = false, start = 'low' } = {}) {
     this.canvas = canvas;
+    this.start = start;
     this.ctx = canvas.getContext('2d');
     this.level = level;
     this.hooks = hooks;
@@ -84,6 +87,7 @@ export class Play {
     }
     this.L = newLander(this.level, this.level.fuel);
     this.outcome = null;
+    if (this.level.apollo) this.startApollo();
     this.assisted = false; // flown with assist on at any point
     this.particles = [];
     this.debris = [];
@@ -107,7 +111,83 @@ export class Play {
   }
 
   setInput(key, on) {
+    if (on && this.computer) this.takeOver('you');
     this.input[key] = on;
+  }
+
+  // ------------------------------------------------------------- Apollo 11
+
+  // From the start of powered descent: the computer flying (sped up) until
+  // you take over, or you from the start.
+  startApollo() {
+    const L = (this.L = startApollo(this.level));
+    this.computer = !handedOver(this.start, L);
+    this.pilot = this.computer ? apolloComputer : null;
+    if (!this.computer) L.prog = 66;
+    this.said = new Set();
+    this.calloutAt = 0;
+    this.alarm = 0;
+    this.setWarp(this.computer ? 16 : 1);
+    this.say(this.computer
+      ? 'Powered descent: 15 km up at 1,690 m/s. The computer is flying it -- touch a control to take over.'
+      : 'Powered descent: 15 km up at 1,690 m/s. You have control: lean right back and brake!', 6);
+  }
+
+  setWarp(scale) {
+    this.timeScale = scale;
+    this.hooks.onWarp?.(scale);
+  }
+
+  say(text, secs = 4, callout = false) {
+    this.message = { text, t: secs, callout };
+  }
+
+  // Over to you: when you touch a control, or where you chose to take over.
+  takeOver(why) {
+    this.computer = false;
+    this.pilot = null;
+    this.input = { thrust: false, left: false, right: false }; // (let go of the computer's)
+    this.L.prog = 66;
+    this.setWarp(1);
+    this.say({
+      you: 'You have control. Fly it down -- and keep clear of the boulders round West crater.',
+      high: 'High Gate, 2 km up: you have control. Slow down, come upright and find somewhere clear to land.',
+      low: 'Low Gate, 150 m: the computer is taking you into a crater full of boulders! You have control: fly on past it.',
+    }[why], 7);
+  }
+
+  // What happens on the way down: the program alarms, the gates, the fuel
+  // calls and, low down and flying by hand, Aldrin's altitude calls.
+  apolloEvents() {
+    const { L, level } = this;
+    if (this.outcome && this.outcome.kind !== 'touchdown') return;
+    const alt = L.y - heightAt(level, L.x);
+    const once = (key, text, secs) => {
+      if (this.said.has(key)) return false;
+      this.said.add(key);
+      this.say(text, secs);
+      return true;
+    };
+    if (this.computer && handedOver(this.start, L)) this.takeOver(L.prog >= 66 ? 'low' : 'high');
+    if (alt < 11000 && once('1202', 'PROGRAM ALARM 1202 -- the computer overloaded. Houston: "We’re GO on that alarm."', 6)) {
+      this.alarm = L.t + 10;
+      this.hooks.sfx?.('alarm');
+    }
+    if (alt < 900 && once('1201', 'PROGRAM ALARM 1201. Houston: "Same type -- we’re GO."', 4)) {
+      this.alarm = L.t + 6;
+      this.hooks.sfx?.('alarm');
+    }
+    if (this.computer && L.prog >= 64) once('p64', 'High Gate, 2 km up: pitch-over -- the landing site comes into view (P64).', 5);
+    const hover = hoverSeconds(level, L);
+    if (hover < 60) once('60', '“60 seconds.” (Of fuel, hovering.)', 3);
+    if (hover < 30) once('30', '“30 seconds.”', 3);
+    const near = Math.max(heightAt(level, L.x - FEET), heightAt(level, L.x + FEET));
+    if (!L.landed && L.y - near < 1.7) once('contact', '“Contact light.”', 3);
+    if (!this.computer && alt < 160 && alt > 3 && L.t >= this.calloutAt && (!this.message || this.message.callout)) {
+      this.calloutAt = L.t + 5;
+      const v = (u) => Math.abs(u).toFixed(1);
+      this.say(`${Math.round(alt)} m, ${L.vy < 0 ? 'down' : 'up'} ${v(L.vy)}, ${v(L.vx)} ${L.vx >= 0 ? 'forward' : 'back'}`, 2.5, true);
+    }
   }
 
   // ------------------------------------------------------------- scenery
@@ -198,12 +278,20 @@ export class Play {
         this.ahead -= n * h;
       }
       // (Assist on at any time in the flight, it counts as an assisted landing.)
-      if (this.assist && !this.pilot && !L.landed) this.assisted = true;
+      const apollo = !!this.level.apollo;
+      if (this.assist && !this.pilot && !L.landed && !apollo) this.assisted = true;
+      // (Apollo 11's assist is the LM's own: attitude hold.)
+      const help = this.assist && !this.pilot;
+      let fired = false;
+      let turned = 0;
       for (let k = 0; k < n && !res; k++) {
         // Tests can fly with an autopilot that steers every physics step.
         if (this.pilot) Object.assign(this.input, this.pilot(this.level, L));
-        res = step(this.level, L, { ...this.input, assist: this.assist && !this.pilot }, h);
+        res = step(this.level, L, { ...this.input, assist: help && !apollo, hold: help && apollo }, h);
+        fired ||= L.thrusting;
+        turned ||= L.rcs;
       }
+      if (apollo) this.apolloEvents();
       if (!L.landed) {
         this.trackT += dt;
         if (this.trackT >= TRACK_DT || !this.track.length) {
@@ -237,11 +325,13 @@ export class Play {
       }
       // (Silent once down on the base: nothing runs after that.)
       const down = L.crashed || this.outcome?.kind === 'landed';
-      this.hooks.onSound?.('engine', L.thrusting && !down);
-      this.rumble(L.thrusting && !down && !this.demo);
-      this.hooks.onSound?.('rcs', !!L.rcs && !down);
+      // (Firing at any moment of this frame: the engine pulses fast.)
+      this.hooks.onSound?.('engine', fired && !down);
+      this.rumble(fired && !down && !this.demo && !this.computer);
+      this.hooks.onSound?.('rcs', !!turned && !down);
       // Low fuel alarm.
-      if (!L.landed && L.fuel > 0 && L.fuel / L.fuelMax < 0.15 && L.t > this.alarmAt) {
+      const low = apollo ? hoverSeconds(this.level, L) < 30 : L.fuel / L.fuelMax < 0.15;
+      if (!L.landed && L.fuel > 0 && low && L.t > this.alarmAt) {
         this.alarmAt = L.t + 2;
         this.hooks.sfx?.('alarm');
       }
@@ -249,7 +339,7 @@ export class Play {
       if (L.rcs) this.rcsPuff();
     }
     if (this.message) {
-      this.message.t -= dt;
+      this.message.t -= dt / this.timeScale; // (real seconds, sped up or not)
       if (this.message.t <= 0) this.message = null;
     }
     this.updateEffects(dt);
@@ -388,7 +478,8 @@ export class Play {
     const ground = heightAt(this.level, L.x);
     const alt = Math.max(0, L.y - ground);
     const near = Math.max(0, clearance(this.level, L.x, L.y + HEIGHT / 2) - HEIGHT / 2);
-    const wantH = Math.max(55, Math.min(420, Math.min(alt, near) * 1.7 + 48));
+    // (Coming down from orbit, it pulls right back to keep the ground in view.)
+    const wantH = Math.max(55, Math.min(this.level.apollo ? 30000 : 420, Math.min(alt, near) * 1.7 + 48));
     // Keep the surface above the thruster buttons at the bottom.
     let bottom = Math.min(ground, L.y) - wantH * 0.27;
     if (L.y + 12 > bottom + wantH * 0.8) bottom = L.y + 12 - wantH * 0.8;
@@ -455,8 +546,11 @@ export class Play {
     const x1 = Math.min(level.width, cam.left + W / cam.scale + 10);
     const i0 = Math.max(0, Math.floor(x0 / level.step));
     const i1 = Math.min(level.terrain.length - 1, Math.ceil(x1 / level.step));
+    // (Zoomed far out, every so many points: about one a pixel.)
+    const every = Math.max(1, Math.floor(0.7 / (cam.scale * level.step)));
     const surface = () => {
-      for (let i = i0; i <= i1; i++) ctx.lineTo(sx(i * level.step), sy(level.terrain[i]));
+      for (let i = Math.ceil(i0 / every) * every; i <= i1; i += every) ctx.lineTo(sx(i * level.step), sy(level.terrain[i]));
+      ctx.lineTo(sx(i1 * level.step), sy(level.terrain[i1]));
     };
     const groundPath = () => {
       ctx.moveTo(sx(i0 * level.step), H + 20);
@@ -487,7 +581,7 @@ export class Play {
     groundPath();
     for (const p of rocks) rockPath(p);
     const ground = ctx.createLinearGradient(0, sy(level.maxH), 0, H);
-    if (ready(REGOLITH)) {
+    if (ready(REGOLITH) && cam.scale > 0.2) {
       // The photo's surface, pinned to the world so it scrolls with the camera,
       // shaded darker with depth.
       this.regolith ??= ctx.createPattern(REGOLITH, 'repeat');
@@ -524,7 +618,7 @@ export class Play {
     groundPath();
     ctx.clip();
     for (const c of this.craters) {
-      if (c.x < x0 - 10 || c.x > x1 + 10) continue;
+      if (c.x < x0 - 10 || c.x > x1 + 10 || c.r * cam.scale < 0.8) continue;
       if (level.rocks?.some((p) => c.x > p.x0 - c.r - 8 && c.x < p.x1 + c.r + 8)) continue;
       const slope = (heightAt(level, c.x + c.r) - heightAt(level, c.x - c.r)) / (2 * c.r);
       if (Math.abs(slope) > 0.35) continue;
@@ -543,8 +637,24 @@ export class Play {
       ctx.stroke();
     }
     ctx.restore();
-    this.drawPad(this.level.startPad, sx, sy, cam.scale, false);
-    this.drawPad(this.level.base, sx, sy, cam.scale, true);
+    // Apollo 11: West crater's boulders, so you can see them coming.
+    for (const b of level.boulders || []) {
+      if (b.x < x0 - 10 || b.x > x1 + 10 || b.w * cam.scale < 1) continue;
+      const bx = sx(b.x);
+      const by = sy(heightAt(level, b.x) - b.h * 0.35);
+      ctx.fillStyle = '#4a4a50';
+      ctx.beginPath();
+      ctx.ellipse(bx, by, b.w * 1.1 * cam.scale, b.h * 0.75 * cam.scale, 0, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(240,238,230,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(bx - b.w * 0.3 * cam.scale, by - b.h * 0.4 * cam.scale, b.w * 0.45 * cam.scale, b.h * 0.2 * cam.scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (!level.apollo) {
+      this.drawPad(level.startPad, sx, sy, cam.scale, false);
+      this.drawPad(level.base, sx, sy, cam.scale, true);
+    }
 
     // Lander, exhaust and wreckage
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
@@ -555,7 +665,8 @@ export class Play {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-    if (!this.L.crashed) this.drawLander(sx(this.L.x), sy(this.L.y), cam.scale);
+    // (Seen from far off, coming down from orbit, still big enough to see.)
+    if (!this.L.crashed) this.drawLander(sx(this.L.x), sy(this.L.y), level.apollo ? Math.max(cam.scale, 2.2) : cam.scale);
     for (const d of this.debris) {
       ctx.save();
       ctx.translate(sx(d.x), sy(d.y));
@@ -587,7 +698,7 @@ export class Play {
     }
 
     if (this.intro) this.drawIntro(sx, sy, W, H, cam);
-    else this.drawBaseMarker(sx, sy, W, H);
+    else if (!level.apollo) this.drawBaseMarker(sx, sy, W, H);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawPanel(W);
     if (this.message) this.drawMessage(this.message.text, W, H);
@@ -920,11 +1031,14 @@ export class Play {
   // and the route flown -- for the score card.
   routeSvg() {
     const { level } = this;
-    const path = this.track;
-    const auto = (level.route ??= routeOf(level));
-    const xs = [level.startPad.x0, level.startPad.x1, level.base.x0, level.base.x1, ...path.map(([x]) => x), ...auto.map(([x]) => x)];
+    // (From orbit: just the last couple of km, and no autopilot route.)
+    const end = this.track[this.track.length - 1]?.[0] ?? 0;
+    const path = level.apollo ? this.track.filter(([x]) => x > end - 2500) : this.track;
+    const auto = level.apollo ? [] : (level.route ??= routeOf(level));
+    const pads = level.apollo ? [level.base.x0, level.base.x1] : [level.startPad.x0, level.startPad.x1, level.base.x0, level.base.x1];
+    const xs = [...pads, ...path.map(([x]) => x), ...auto.map(([x]) => x)];
     const x0 = Math.min(...xs) - 12;
-    const x1 = Math.max(...xs) + 12;
+    const x1 = Math.max(...xs) + (level.apollo ? 40 : 12);
     const ground = [];
     for (let x = x0; x < x1 + level.step; x += level.step) ground.push([Math.min(x, x1), heightAt(level, Math.min(x, x1))]);
     const rocks = (level.rocks || []).filter((p) => p.x1 > x0 && p.x0 < x1);
@@ -956,7 +1070,9 @@ export class Play {
         const under = p.lo.map((y, k) => [p.x0 + k * level.step, y]).reverse();
         return `<polygon points="${pts([...top, ...under])}" fill="#5b5f6e" stroke="#9aa0b4" stroke-width="1"/>`;
       }).join('')}
-      ${pad(level.startPad, '#cfd3dc')}${pad(level.base, '#3dff7a')}
+      ${level.apollo
+        ? `${pad(level.base, '#cfd3dc')}<text x="${X((level.base.x0 + level.base.x1) / 2)}" y="${+Y(level.base.y) - 5}" fill="#cfd3dc" font-size="9" font-weight="700" font-family="system-ui, sans-serif" text-anchor="middle">EAGLE</text>`
+        : pad(level.startPad, '#cfd3dc') + pad(level.base, '#3dff7a')}
       ${dotted(auto, 1.3, 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0.12)')}
       ${dotted(path, 2.1, '#ffd23f', 'rgba(255,210,63,0.35)')}
       <line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy - 16}" stroke="#fff" stroke-width="1.2"/>
@@ -965,7 +1081,7 @@ export class Play {
       <rect x="${fx}" y="${fy - 16}" width="4.5" height="3.8" fill="#0a3161"/>
       <g font-size="10" font-weight="700" font-family="system-ui, sans-serif">
         <circle cx="12" cy="12" r="3" fill="#ffd23f"/><text x="19" y="15.5" fill="#ffd23f">YOU</text>
-        <circle cx="50" cy="12" r="2.2" fill="rgba(255,255,255,0.6)"/><text x="57" y="15.5" fill="#cfd3dc">AUTOPILOT</text>
+        ${auto.length ? '<circle cx="50" cy="12" r="2.2" fill="rgba(255,255,255,0.6)"/><text x="57" y="15.5" fill="#cfd3dc">AUTOPILOT</text>' : ''}
         <text x="${W - 8}" y="15.5" fill="#cfd3dc" text-anchor="end">a dot every ${every} s</text>
       </g>
     </svg>`;
@@ -1169,6 +1285,7 @@ export class Play {
   // now? (The ALT readout flashes: you'll have to climb to get there.)
   blocked() {
     const { level, L } = this;
+    if (level.apollo) return false;
     const b = level.base;
     if (L.x >= b.x0 && L.x <= b.x1) return false;
     const to = L.x < b.x0 ? b.x0 : b.x1;
@@ -1219,13 +1336,17 @@ export class Play {
     };
 
     // Readouts: range to the base, propellant left, mission time.
-    const base = this.level.base;
+    const { level } = this;
+    const apollo = !!level.apollo;
+    const base = level.base;
     const dist = (base.x0 + base.x1) / 2 - L.x;
     const frac = L.fuel / L.fuelMax;
-    const low = frac < 0.15;
+    // (Coming down from orbit: under a minute's hover left.)
+    const low = apollo ? hoverSeconds(level, L) < 60 : frac < 0.15;
     glow(PHOSPHOR);
     text('RANGE', 8, 12, 9, 'left', 600);
-    text(`${dist >= 0 ? '▶' : '◀'} ${Math.abs(dist).toFixed(0)} M`, 100, 30, 18, 'right');
+    const far = Math.abs(dist) >= 10000;
+    text(`${dist >= 0 ? '▶' : '◀'} ${far ? `${Math.round(Math.abs(dist) / 1000)} KM` : `${Math.abs(dist).toFixed(0)} M`}`, 100, 30, 18, 'right');
     text('PRPLNT QTY', 8, 52, 9, 'left', 600);
     // A bar, marked in quarters, flashing red when low.
     glow(low ? RED : PHOSPHOR);
@@ -1241,6 +1362,8 @@ export class Play {
     ctx.stroke();
     glow(PHOSPHOR);
     text('TIME', 8, 92, 9, 'left', 600);
+    // (Apollo 11: the guidance computer's program -- 63, 64, then 66 by hand.)
+    if (apollo) text(`P${L.prog ?? 66}`, 100, 92, 9, 'right', 700);
     const secs = Math.floor(L.t);
     text(`${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`, 100, 110, 18, 'right');
 
@@ -1251,7 +1374,7 @@ export class Play {
     const contact = flying && L.y - Math.max(heightAt(this.level, L.x - FEET), heightAt(this.level, L.x + FEET)) < 1.7;
     const lights = [
       ['DES QTY', flying && low && !flashOff, '#ffb02e'],
-      ['TERRAIN', flying && this.blocked() && !flashOff, '#ffb02e'],
+      apollo ? ['PROG', L.t < this.alarm && !flashOff, '#ffb02e'] : ['TERRAIN', flying && this.blocked() && !flashOff, '#ffb02e'],
       ['CONTACT', contact, '#6cb8ff'],
       ['ASSIST', this.assist, PHOSPHOR],
     ];
@@ -1272,18 +1395,19 @@ export class Play {
     });
     ctx.shadowBlur = 5;
 
-    // Tapemeters: altitude (above the base; finer close to it) and
-    // altitude rate.
-    const alt = L.y - base.y;
-    const altPos = (h) => (h <= 100 ? 2 * h : 200 + (h - 100) * 0.5);
-    const altOf = (p) => (p <= 200 ? p / 2 : 100 + (p - 200) * 2);
+    // Tapemeters: altitude (above the base -- or coming down from orbit, by
+    // radar, above the ground below; finer close to it) and altitude rate.
+    const alt = L.y - (apollo ? heightAt(level, L.x) : base.y);
+    const altPos = (h) => (h <= 100 ? 2 * h : h <= 1000 ? 200 + (h - 100) * 0.5 : 650 + (h - 1000) * 0.05);
+    const altOf = (p) => (p <= 200 ? p / 2 : p <= 650 ? 100 + (p - 200) * 2 : 1000 + (p - 650) * 20);
     this.drawTape({
       x0: 258, label: 'ALT', at: altPos(alt), flash: flying && this.blocked() && flashOff, RED,
       marks: (lo, hi) => {
         const out = [];
         const [a, b] = [altOf(lo), altOf(hi)];
         for (let h = Math.ceil(a / 5) * 5; h <= Math.min(b, 100); h += 5) out.push([altPos(h), h % 10 === 0 ? h : null, h === 0]);
-        for (let h = 120; h <= b; h += 20) if (h > a) out.push([altPos(h), h % 100 === 0 ? h : null]);
+        for (let h = 120; h <= Math.min(b, 1000); h += 20) if (h > a) out.push([altPos(h), h % 100 === 0 ? h : null]);
+        for (let h = 1200; h <= b; h += 200) if (h > a) out.push([altPos(h), h % 1000 === 0 ? `${h / 1000}K` : null]);
         return out;
       },
     });
@@ -1441,7 +1565,7 @@ export class Play {
     ctx.shadowColor = ctx.fillStyle;
     ctx.textAlign = 'center';
     ctx.font = '700 13px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillText(`${vx >= 0 ? '▶' : '◀'} ${Math.abs(vx).toFixed(1)}`, cx, y0 + size + 14);
+    ctx.fillText(`${vx >= 0 ? '▶' : '◀'} ${Math.abs(vx).toFixed(Math.abs(vx) < 99.95 ? 1 : 0)}`, cx, y0 + size + 14);
     ctx.font = '600 8px ui-monospace, Menlo, Consolas, monospace';
     ctx.fillStyle = PHOSPHOR;
     ctx.shadowColor = PHOSPHOR;
@@ -1512,18 +1636,28 @@ export class Play {
     ctx.stroke();
   }
 
+  // A message across the screen, in lines that fit.
   drawMessage(text, W, H) {
     const { ctx } = this;
     ctx.save();
     ctx.font = 'bold 14px ui-monospace, monospace';
     ctx.textAlign = 'center';
-    const w = ctx.measureText(text).width + 24;
+    ctx.textBaseline = 'middle';
+    const lines = [];
+    for (const word of text.split(' ')) {
+      const last = lines[lines.length - 1];
+      if (last && ctx.measureText(`${last} ${word}`).width < W - 56) lines[lines.length - 1] = `${last} ${word}`;
+      else lines.push(word);
+    }
+    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 24;
+    const h = lines.length * 19 + 12;
+    const top = H * 0.62 - h / 2;
     ctx.fillStyle = 'rgba(0,18,6,0.8)';
-    ctx.fillRect(W / 2 - w / 2, H * 0.62 - 18, w, 30);
+    ctx.fillRect(W / 2 - w / 2, top, w, h);
     ctx.shadowColor = PHOSPHOR;
     ctx.shadowBlur = 6;
     ctx.fillStyle = PHOSPHOR;
-    ctx.fillText(text, W / 2, H * 0.62 + 2);
+    lines.forEach((l, i) => ctx.fillText(l, W / 2, top + 16 + i * 19));
     ctx.restore();
   }
 }

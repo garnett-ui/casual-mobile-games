@@ -354,3 +354,63 @@ test('down a shaft the far hills are hidden (they would look like ground just be
   const open = makeLevel(1);
   assert.equal(underRock(open, 100, heightAt(open, 100) + 5), 0);
 });
+
+test('Apollo 11: the computer flies down from orbit through High Gate to Low Gate -- and on into West crater', async () => {
+  const { makeApollo, startApollo, computer, handedOver, GATES, FUEL_SPARE, PDI } = await import('../games/lander/apollo.js');
+  const { hoverSeconds, MOON_R } = await import('../games/lander/engine.js');
+  const level = makeApollo();
+  const { XC, XS } = level.apollo;
+  // In orbit, the Moon's curve all but cancels its gravity.
+  assert.ok(Math.abs(PDI.vx ** 2 / MOON_R - G) < 0.05);
+  const L = startApollo(level);
+  assert.ok(!handedOver('low', L) && !handedOver('high', L) && handedOver('pdi', L));
+  const at = {};
+  let res = null;
+  for (let t = 0; t < 1500 && !res; t += 1 / 60) {
+    res = step(level, L, computer(level, L), 1 / 60);
+    if (!at[L.prog]) at[L.prog] = { alt: L.y - heightAt(level, L.x), x: L.x, vx: L.vx, t: L.t, fuel: L.fuel };
+  }
+  // Each gate reached about as aimed, on time (Eagle's took 12 1/2 minutes).
+  assert.ok(Math.abs(at[64].alt - GATES.high.alt) < 300 && Math.abs(at[64].vx - GATES.high.vx) < 20, JSON.stringify(at[64]));
+  assert.ok(Math.abs(at[66].alt - GATES.low.alt) < 40 && Math.abs(at[66].x - (XC + GATES.low.dx)) < 150, JSON.stringify(at[66]));
+  assert.ok(at[66].t > 600 && at[66].t < 900, `${at[66].t} s`);
+  assert.ok(Math.abs(at[66].fuel - FUEL_SPARE) < 10, `${at[66].fuel} left at Low Gate`);
+  // Left alone, it sets down among the boulders: a crash.
+  assert.equal(res.kind, 'crash');
+  assert.ok(Math.abs(L.x - XC) < 160);
+  // A pilot who takes over at Low Gate and flies on to the clear ground
+  // beyond lands -- with fuel to spare, though not much.
+  const P = startApollo(level);
+  while (P.prog < 66) step(level, P, computer(level, P), 1 / 120);
+  assert.ok(hoverSeconds(level, P) > 90 && hoverSeconds(level, P) < 160);
+  let out = null;
+  for (let t = 0; t < 400 && (!out || out.kind === 'touchdown'); t += 1 / 120) {
+    const alt = P.y - heightAt(level, P.x);
+    const dx = XS - P.x;
+    const vxW = Math.max(-15, Math.min(22, dx * 0.06));
+    const vyW = Math.abs(dx) > 120 ? Math.max(-4, Math.min(3, (40 - alt) * 0.3)) : -Math.max(0.6, Math.min(4, alt * 0.08));
+    const fx = (vxW - P.vx) * 0.5;
+    const fy = (vyW - P.vy) * 1.2 + G;
+    const d = Math.atan2(fx, fy) - P.angle;
+    const om = Math.sign(d) * Math.min(1.4, Math.abs(d) * 4, Math.sqrt(2 * ROT_ACCEL * 0.8 * Math.abs(d)));
+    const push = level.thrust / (1 + 0.5 * (P.fuel / P.fuelMax));
+    P.duty = (P.duty || 0) + Math.min(1, Math.max(0, fx * Math.sin(P.angle) + fy * Math.cos(P.angle)) / push);
+    const thrust = P.duty >= 1;
+    if (thrust) P.duty -= 1;
+    out = step(level, P, { thrust, left: om - P.omega < -0.01, right: om - P.omega > 0.01, hold: false }, 1 / 120);
+  }
+  assert.equal(out.kind, 'landed', JSON.stringify(out));
+  assert.ok(Math.abs(P.x - XS) < 60);
+  const left = hoverSeconds(level, P);
+  assert.ok(left > 10 && left < 90, `${left.toFixed(0)} s of hover left`);
+});
+
+test('attitude hold (Apollo 11’s assist): a turn button turns at a steady rate; let go and the lean holds', async () => {
+  const { HOLD_RATE } = await import('../games/lander/engine.js');
+  const level = makeTerrain(1);
+  const L = airborne(level);
+  fly(level, L, { right: true, hold: true }, 1);
+  assert.ok(Math.abs(L.angle - HOLD_RATE) < 0.02 && Math.abs(L.omega - HOLD_RATE) < 1e-9);
+  fly(level, L, { hold: true }, 2);
+  assert.ok(Math.abs(L.angle - HOLD_RATE) < 0.02 && L.omega === 0, 'held');
+});
