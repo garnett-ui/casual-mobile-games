@@ -412,7 +412,8 @@ export class Play {
         this.hooks.sfx?.('checkpoint');
         this.say('CHECKPOINT', 1.2);
       }
-      if (B.stall > 1.5 && !this.message) this.say('STUCK? ↶ GOES BACK TO THE FLAG', 2.5);
+      // Standing still on the gas is stuck; standing still off it is looking.
+      if (B.stall > 1.5 && this.input.gas && !this.message) this.say('STUCK? ↶ GOES BACK TO THE FLAG', 2.5);
       if (res) {
         this.outcome = res;
         if (res.kind === 'crash') {
@@ -572,8 +573,11 @@ export class Play {
     const f = FRAMING[W > H ? 'wide' : 'tall'];
     const pace = clamp(B.vx / VMAX, -1, 1);
     const c = (this.cam ??= { span: f.near, look: 0.4, bottom: null });
-    c.span += (f.near + (f.far - f.near) * Math.abs(pace) - c.span) * 0.03;
-    c.look += (0.4 - 0.14 * pace - c.look) * 0.04;
+    // Slowing right down, or stopped, with the ground in front of you (not
+    // after a crash): the camera eases ahead to show what's coming.
+    const peering = !this.outcome && grounded(B) && B.vx < 2.5 && (this.input.brake || B.vx < 0.5) && this.started;
+    c.span += ((peering ? f.far : f.near + (f.far - f.near) * Math.abs(pace)) - c.span) * 0.03;
+    c.look += ((peering ? 0.18 : 0.4 - 0.14 * pace) - c.look) * (peering ? 0.02 : 0.04);
     const scale = W / c.span;
     const tall = H / scale;
     const ahead = Math.max(...[0, 2, 4].map((dx) => heightAt(this.level, B.x + dx)));

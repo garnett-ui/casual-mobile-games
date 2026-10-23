@@ -770,9 +770,11 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   white-space: nowrap;
   flex-shrink: 0;
 }
+.tb-ghost::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: rgba(255, 179, 71, .3); vertical-align: 1px; }
 .tb-ghost.on { color: #ffb347; border-color: #ffb347; box-shadow: 0 0 12px rgba(255, 179, 71, .45); }
-/* The left half of the stage is the lean: no box, just a ghost of the rider
-   low in the corner, faint once you've used it. */
+.tb-ghost.on::before { background: #ffb347; box-shadow: 0 0 6px #ffb347; }
+/* The left half of the stage is the lean: no box, just an outline of the
+   rider low in the corner, faint once you've used it. */
 .tb-lean {
   position: absolute;
   left: 0;

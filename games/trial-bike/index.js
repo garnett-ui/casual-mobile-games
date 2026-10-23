@@ -136,7 +136,7 @@ export function mount(root, ctx, sub) {
       play.ghost = on;
       ghostBtn.classList.toggle('on', on);
       ghostBtn.setAttribute('aria-pressed', String(on));
-      ghostBtn.textContent = on ? 'GHOST ON' : 'GHOST OFF';
+      ghostBtn.textContent = 'GHOST'; // (lit when on)
     };
     setGhost(ctx.load('ghost', false));
     ghostBtn.onclick = () => {
