@@ -35,6 +35,32 @@ README says what the games are; this says how they're meant to play.
   can see -- new games and features, changes to how things play, anything
   taken away -- not internal fixes or renames.
 
+## Benji's Town
+
+For a three-year-old (Benji, who loves cars): no reading, no losing, big
+pictures and a sound for every touch.
+
+- A little town seen from above, on a 9 x 9 grid: three streets each way,
+  and between them houses, the post office, the dump, the builders' yard,
+  the park, a shop, a café and empty lots. Cars and people potter about;
+  tap one and it honks or hops.
+- Helpers with jobs, shown in a tray of pictures that tick off: the
+  **garbage truck** empties the bins put out by houses, then takes the load
+  to the dump; the **mail van** delivers letters to the houses with a
+  letter bubble; the **dog walker** takes the dog to the park to play, and
+  home again; the **cement mixer** builds a house on an empty lot in three
+  trips (slab, walls, roof), going back to the yard to load up in between.
+  Houses built stay built: the town grows from level to level.
+- Levels 1-5: tap a helper and it goes to its next job by itself (a
+  bouncing arrow in its colour shows where). From level 6 you drive: put a
+  finger on a helper and it follows along the streets toward your finger,
+  doing its job when it gets there; a dotted trail and, until you've done
+  it once, an animated finger show the way.
+- Every finished level is three stars, a shower of confetti and "Yay!
+  Great job!" said out loud (with the sound on).
+- `town.js` (the town, routes along the streets, levels and jobs; tested
+  in Node), `draw.js` (the pictures), `play.js` (the screen).
+
 ## Car Jam
 
 A top-down parking-lot puzzle. The lot is jammed full of cars and hedged in,

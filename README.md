@@ -12,6 +12,9 @@ the whole arcade.
 
 ## Games
 
+- **Benji's Town** -- for little ones: tap the garbage truck, the mail van,
+  the dog walker and the cement mixer to send them off to work around a
+  little town; later, drive them along the streets with a finger.
 - **Car Jam** -- swipe cars out of a jammed parking lot; mind the grannies.
 - **Tap Maze** -- tap arrows to send them off the board, if their path is clear.
 - **Breakout** -- the arcade classic, in portrait or landscape.
@@ -92,6 +95,7 @@ games/morse/                Morse Rain: code.js (the code, lessons, timing; runs
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
 games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg), city.js (the city round about), pace.js (fast through the lulls)
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
+games/benji/                Benji's Town: town.js (the town, routes, levels, jobs; runs in Node), draw.js, play.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback
 js/lib/campaign.js          shared level select, progress and dialogs

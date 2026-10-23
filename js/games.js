@@ -3,6 +3,14 @@
 // precaches everything under games/ automatically (npm run build).
 export const GAMES = [
   {
+    id: 'benji',
+    title: 'Benji’s Town',
+    blurb: 'For little ones: tap the garbage truck, the mail van, the dog walker and the cement mixer to send them off to work around town -- then drive them with a finger.',
+    color: '#ffb703',
+    load: () => import('../games/benji/index.js'),
+    art: () => import('../games/benji/art.js'),
+  },
+  {
     id: 'car-jam',
     title: 'Car Jam',
     blurb: 'Swipe cars out of a jammed parking lot. Mind the grannies!',

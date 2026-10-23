@@ -538,6 +538,73 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
   }
 });
 
+test('benji’s town: tap the helpers and they do their jobs; later, drive them with a finger; a big yay at the end', { skip: !chromium, timeout: 120000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=benji]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__benji);
+    // Where each helper is on screen.
+    const spots = () => page.evaluate(() => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      return p.helpers.map((h) => ({ id: h.id, busy: h.path.length > 0 || h.pause > 0, x: r.left + p.ox + h.x * p.s, y: r.top + p.oy + (h.y - 0.1) * p.s }));
+    });
+    // Level 1: tap the garbage truck, again and again, till the jobs are done.
+    for (let k = 0; k < 60 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
+      for (const h of await spots()) if (!h.busy) await page.mouse.click(h.x, h.y);
+      await page.waitForTimeout(400);
+    }
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
+    assert.equal(await page.locator('.dialog .stars i.on').count(), 3, 'three stars, always');
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:benji:progress')));
+    assert.equal(saved.unlocked, 2);
+    // A driving level: lead each helper along the streets with a finger.
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:progress', JSON.stringify({ unlocked: 6, stars: {} })));
+    await page.goto(`http://localhost:${server.address().port}/#/benji/6`);
+    await page.reload();
+    await page.waitForFunction(() => window.__benji?.town.drive);
+    // (A tap alone doesn't send it off.)
+    const [truck] = await spots();
+    await page.mouse.click(truck.x, truck.y);
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__benji.helpers[0].path.length), 0);
+    for (let k = 0; k < 12 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
+      const plan = await page.evaluate(async () => {
+        const p = window.__benji;
+        const { route } = await import('/games/benji/town.js');
+        const r = p.canvas.getBoundingClientRect();
+        const h = p.helpers.find((m) => p.target(m));
+        if (!h || h.path.length || h.pause > 0) return null;
+        const px = (t) => ({ x: r.left + p.ox + (t.x + 0.5) * p.s, y: r.top + p.oy + (t.y + 0.5) * p.s });
+        return { from: { x: r.left + p.ox + h.x * p.s, y: r.top + p.oy + (h.y - 0.1) * p.s }, way: route(h.tile, p.target(h)).map(px) };
+      });
+      if (!plan) {
+        await page.waitForTimeout(500);
+        continue;
+      }
+      await page.mouse.move(plan.from.x, plan.from.y);
+      await page.mouse.down();
+      for (const w of plan.way) {
+        await page.mouse.move(w.x, w.y, { steps: 3 });
+        await page.waitForTimeout(120);
+      }
+      await page.waitForTimeout(2500);
+      await page.mouse.up();
+    }
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('lunar lander, Apollo 11: the computer flies down from orbit, hands over, and a landing on clear ground counts', { skip: !chromium, timeout: 120000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

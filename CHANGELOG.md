@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.73.0
+- New game: **Benji's Town**, for little ones. A little town full of cars
+  and people: tap the garbage truck, the mail van, the dog walker and the
+  cement mixer to send them off to collect the bins, deliver letters, walk
+  the dog to the park and build new houses -- and from level 6, drive them
+  along the streets with a finger. No reading, no losing; the town grows as
+  you build.
+
 ## 1.72.3
 - Lunar Lander: simply gentler side thrusters, the same for you and the
   autopilot (no more progressive buttons): a quick tap is a touch of about
