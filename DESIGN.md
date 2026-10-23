@@ -96,14 +96,15 @@ the base before the fuel runs out. Hold **THRUST** for the main engine and the
 two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
 
 - Realistic momentum and rotational inertia under lunar gravity (1.62 m/s²):
-  the side thrusters change the spin rate, so you counter-fire to stop, and
-  with assist off nothing else touches it: no automatic damping, however
-  slow the spin. Equal bursts left and right cancel exactly, so two quick
-  opposite taps always nudge the angle the way of the first -- the move for
-  levelling up just before touchdown -- however long you look between them.
-  (An attitude hold used to stop slow spins on its own; it swallowed the
-  first of such a pair.) The spin rate shows in tenths when it's slow, so a
-  leftover creep can be seen and nulled. The main engine gets
+  the side thrusters change the spin rate, so you counter-fire to stop.
+  Equal bursts left and right cancel exactly. With assist off, the only
+  help is a gentle fade of slow spins: under 1.5°/s, with no turn button
+  held, the spin halves every second -- since nulling one that small by
+  hand is next to impossible. So a small tap is a nudge the way it points,
+  coasting to a stop, and a quick opposite pair still nudges the way of
+  the first: the moves for levelling up just before touchdown. (An earlier
+  attitude hold stopped spins under 4°/s at once, and swallowed the first
+  tap of such a pair.) The spin rate shows in tenths when it's slow. The main engine gets
   punchier as fuel burns off.
 - The camera follows the lander and zooms in as it gets close to anything
   -- the ground below, or the walls of a shaft, a cave or a tunnel, or rock

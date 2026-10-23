@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.68.1
+- Lunar Lander, assist off: small spins (under 1.5°/s) now fade gently,
+  halving every second once you let go of the turn buttons -- so a small
+  tap nudges the lander and coasts to a stop. Faster spins are all yours.
+
 ## 1.68.0
 - Jigsaw: **Patterns** -- nine designs to make a puzzle from (gradients, a
   colour wheel, a spiral, stained glass, a topographic map, marble, a

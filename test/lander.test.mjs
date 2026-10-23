@@ -39,13 +39,15 @@ test('side thrusters change the spin rate, not the angle directly (rotational in
   // Let go: a fast spin keeps going...
   fly(level, L, idle, 0.5);
   assert.ok(Math.abs(L.omega - w) < 1e-9, 'keeps spinning');
-  // ...until countered; whatever's left keeps going too -- nothing damps
-  // it but the thrusters (assist off).
+  // ...until countered; whatever's left (under 1.5°/s) fades, halving
+  // every second (assist off).
   fly(level, L, { left: true }, 0.49);
   const rest = L.omega;
   assert.ok(rest > 0 && rest < ROT_ACCEL * 0.03, `a little left over (${rest})`);
-  fly(level, L, idle, 3);
-  assert.ok(Math.abs(L.omega - rest) < 1e-12, 'a small spin is not damped away');
+  fly(level, L, idle, 1);
+  assert.ok(Math.abs(L.omega / rest - 0.5) < 0.02, `halved in a second (${L.omega / rest})`);
+  fly(level, L, idle, 1);
+  assert.ok(Math.abs(L.omega / rest - 0.25) < 0.02, 'and again');
 });
 
 test('running out of fuel cuts the engines', () => {
@@ -241,25 +243,38 @@ test('side thrusters are balanced: equal bursts left and right cancel exactly (a
   }
 });
 
-test('two quick opposite taps cancel -- the auto-settle never eats the first (assist off)', () => {
-  // Leaning a little right, not turning: a quick tap left, a moment, a
-  // quick tap right. The lean should come down a little, and the turning
-  // stop -- not end up turning right as if the left tap never happened.
+test('small spins fade (under 1.5°/s, halving every second); faster ones keep going; taps nudge the way they point (assist off)', () => {
   const level = makeLevel(1);
-  // (Down to a single 60 Hz frame of thrust, and a long look between.)
-  for (const [tap, gap] of [[0.08, 0.15], [0.12, 0.25], [0.2, 0.3], [1 / 60, 1.5], [0.05, 3]]) {
+  const deg = Math.PI / 180;
+  // Faster than 1.5°/s: no fade.
+  const fast = airborne(level);
+  fast.omega = 2 * deg;
+  fly(level, fast, {}, 3);
+  assert.ok(Math.abs(fast.omega - 2 * deg) < 1e-12);
+  // One small tap: a nudge the way it points, then it coasts to a stop.
+  for (const tap of [1 / 60, 0.04]) {
     const L = airborne(level);
-    L.angle = (3 * Math.PI) / 180;
+    L.angle = 3 * deg;
+    L.omega = 0;
+    fly(level, L, { left: true }, tap);
+    const w = -L.omega;
+    fly(level, L, {}, 12);
+    assert.ok(Math.abs(L.omega) < 0.01 * deg, `stopped (${L.omega / deg}°/s)`);
+    // (The coast: w / ln 2 degrees, all told.)
+    assert.ok(Math.abs(3 * deg - L.angle - w / Math.LN2) < 0.05 * deg, `a nudge left of ${((3 * deg - L.angle) / deg).toFixed(2)}°`);
+  }
+  // A quick tap left then right: still a nudge left, and nearly still.
+  for (const [tap, gap] of [[0.03, 0.1], [0.05, 0.2]]) {
+    const L = airborne(level);
+    L.angle = 3 * deg;
     L.omega = 0;
     fly(level, L, { left: true }, tap);
     fly(level, L, {}, gap);
     fly(level, L, { right: true }, tap);
-    assert.ok(Math.abs(L.omega) < 1e-9, `tap ${tap}s, gap ${gap}s: still turning at ${(L.omega * 180 / Math.PI).toFixed(2)}°/s`);
-    assert.ok(L.angle < (3 * Math.PI) / 180, 'the lean came down');
-    // ...and it stays put.
-    const angle = L.angle;
-    fly(level, L, {}, 2);
-    assert.ok(Math.abs(L.angle - angle) < 1e-9);
+    assert.ok(Math.abs(L.omega) < 0.2 * deg, `nearly still (${(L.omega / deg).toFixed(2)}°/s)`);
+    fly(level, L, {}, 12);
+    assert.ok(L.angle < 3 * deg, 'the lean came down');
+    assert.ok(Math.abs(L.omega) < 0.01 * deg);
   }
 });
 

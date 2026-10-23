@@ -11,6 +11,11 @@ export const HEIGHT = 5.2; // lander height, m
 export const MAIN_THRUST = 3.5; // m/s^2 when nearly empty (heavier when full)
 export const ROT_ACCEL = (26 * Math.PI) / 180; // rad/s^2 from the side thrusters
 export const ROT_MAX = (90 * Math.PI) / 180;
+// Assist off: a spin slower than this, with no turn button held, fades --
+// halving every FADE_HALF seconds -- since nulling one that small by hand
+// is next to impossible. Faster spins are all yours.
+export const FADE_BELOW = (1.5 * Math.PI) / 180;
+export const FADE_HALF = 1;
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
 // Touchdown limits, as for the Apollo LM: 3 m/s down, 1.2 m/s sideways.
 export const SAFE = { vy: 3, vx: 1.2, angle: (10 * Math.PI) / 180 };
@@ -410,10 +415,9 @@ export function step(level, L, input, dt) {
     L.landed = null;
   }
 
-  // Rotation: side thrusters change the spin rate, and nothing else does
-  // (assist off) -- no automatic damping, however slow the spin, so two
-  // quick opposite taps always nudge the angle the way of the first, and
-  // cancel. With assist on,
+  // Rotation: side thrusters change the spin rate (assist off); only a
+  // slow spin, left alone, fades -- gently, so a small tap is a nudge the
+  // way it points, coasting to a stop. With assist on,
   // rotation is a spring: a held turn button pushes against it (settling at
   // 20°), and on release it springs back to level.
   if (input.assist && L.fuel > 0) {
@@ -425,6 +429,9 @@ export function step(level, L, input, dt) {
   } else if (rotating) {
     L.omega += L.rcs * ROT_ACCEL * dt;
     L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
+  } else if (Math.abs(L.omega) < FADE_BELOW) {
+    L.omega *= 0.5 ** (dt / FADE_HALF);
+    if (Math.abs(L.omega) < 1e-5) L.omega = 0;
   }
   L.omega = Math.max(-ROT_MAX, Math.min(ROT_MAX, L.omega));
   L.angle += L.omega * dt;
