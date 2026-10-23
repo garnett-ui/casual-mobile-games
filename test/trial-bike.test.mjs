@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   makeCourse, makeLevel, specFor, newBike, step, rider, readAhead, simulate, bestRide, stars,
-  heightAt, slopeAt, contactAt, grounded, G, WHEEL, BASE, VMAX, DRIVE, GRIP, HARD, STEP,
+  heightAt, slopeAt, contactAt, grounded, G, WHEEL, BASE, VMAX, DRIVE, GRIP, HARD, STEP, FLIP_BONUS,
 } from '../games/trial-bike/engine.js';
 
 const idle = { gas: false, brake: false, lean: 0 };
@@ -83,7 +83,10 @@ test('coming down on the helmet is a crash; so is falling out of the world', () 
   assert.equal(res.kind, 'crash');
   assert.equal(B.crashed, true);
   assert.equal(step(course, B, { gas: true }, 1 / 60), null, 'a crashed bike takes no input');
-  assert.equal(B.gas, false);
+  assert.equal(B.gas, false, 'the throttle is ignored');
+  const y = B.y;
+  ride(course, B, { gas: true }, 0.5);
+  assert.notEqual(B.y, y, 'but it keeps tumbling');
   const B2 = newBike(course);
   B2.y = course.minY - 10;
   assert.equal(ride(course, B2, idle, 1).reason, 'Fell');
@@ -210,6 +213,28 @@ test('a climb is long and steep but never over 35 degrees; a cliff is sheer and 
   const fall = heightAt(level, cliff.x0) - heightAt(level, cliff.x1 + 0.5);
   assert.ok(fall > 2 && fall < 4, `cliff of ${fall} m`);
   assert.equal(bestRide(makeLevel(9)).kind, 'finished', 'the computer rider manages them');
+});
+
+test('a full turn in the air, landed, is a flip; a half turn is a crash, not a trick', () => {
+  const course = flat();
+  const B = newBike(course);
+  B.y += 6;
+  B.vx = 6;
+  B.omega = 12; // nose over tail, backwards, fast enough for a full turn before the ground
+  let trick = null;
+  let res = null;
+  for (let k = 0; k < 240 && !res && !trick; k++) {
+    res = step(course, B, { lean: 0 }, 1 / 60);
+    trick = B.trick;
+  }
+  assert.ok(trick && trick.flips === 1 && trick.back, `landed a backflip: ${JSON.stringify(trick)} ${JSON.stringify(res)}`);
+  const C = newBike(course);
+  C.y += 3;
+  C.omega = 3;
+  const out = ride(course, C, idle, 3);
+  assert.equal(out.kind, 'crash');
+  assert.equal(C.trick, null);
+  assert.ok(FLIP_BONUS > 0);
 });
 
 test('riding flat out into a ledge without lifting the front is a crash or a stall', () => {

@@ -40,6 +40,8 @@ export const SPIN_DAMP = 1.2; // the air slows a tumbling bike (per second)
 // first), or either wheel at all. About a 2.5 m and a 6 m fall.
 export const HARD = { nose: 7, flat: 11 };
 export const NOSE_DOWN = (20 * Math.PI) / 180; // pitched this far below the ground's slope counts as nose first
+export const FLIP = 0.85 * 2 * Math.PI; // turned this far in the air and landed: a flip
+export const FLIP_BONUS = 2; // seconds off the clock per flip landed
 export const BASE_SEED = 20261021;
 export const DT = 1 / 240; // physics substep: stiff tires need small steps
 
@@ -300,6 +302,8 @@ export function newBike(course, x = course.start) {
     crashed: false, finished: false,
     stall: 0, // seconds standing still
     hitRear: 0, hitFront: 0, noseFirst: false, impact: 0, // this step's landings
+    air: 0, // how far the bike has turned since its wheels left the ground
+    trick: null, // a flip just landed: { flips, back } (for one step)
   };
   const [rx] = wheelAt(B, -BASE / 2);
   const [fx] = wheelAt(B, BASE / 2);
@@ -355,9 +359,14 @@ function wheelForces(course, B, along, input, drives) {
 // Advance the bike by dt. input: { gas, brake, lean } -- gas and brake
 // booleans, lean from -1 (forward, nose down) to 1 (back, nose up).
 // Returns null while riding, or an outcome when the ride ends:
-// { kind: 'finished', time } or { kind: 'crash', reason }.
+// { kind: 'finished', time } or { kind: 'crash', reason }. A crashed bike
+// takes no input but keeps tumbling, so the fall can be watched. A flip
+// landed this step (a full turn in the air, nose over tail either way) is
+// left in B.trick for the view to celebrate; it's worth FLIP_BONUS seconds.
 export function step(course, B, input, dt) {
-  if (B.crashed || B.finished) return null;
+  if (B.finished) return null;
+  if (B.crashed) input = {};
+  B.trick = null;
   const lean = clamp(input.lean ?? 0, -1, 1);
   const steps = Math.max(1, Math.round(dt / DT));
   const h = dt / steps;
@@ -390,6 +399,10 @@ export function step(course, B, input, dt) {
     B.rear = rear?.contact ?? null;
     B.front = front?.contact ?? null;
     B.spin += ((rear ? rear.contact.vt : B.vx) / WHEEL) * h;
+    // Turning in the air; a full turn by the time a wheel touches is a flip.
+    const down = !!(rear || front);
+    if (down && Math.abs(B.air) >= FLIP && !B.crashed) B.trick = { flips: Math.round(Math.abs(B.air) / (2 * Math.PI)), back: B.air > 0 };
+    B.air = down ? 0 : B.air + B.omega * h;
   }
   B.gas = !!input.gas;
   B.brake = !!input.brake;

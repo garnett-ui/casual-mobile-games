@@ -9,7 +9,7 @@
 // exhaust and the wind of speed); the instrument band along the top; and
 // the ride itself -- stepping the engine, crashes, checkpoints and the
 // finish.
-import { step, newBike, rider, heightAt, grounded, WHEEL, BASE, COM, VMAX, STEP } from './engine.js';
+import { step, newBike, rider, heightAt, grounded, WHEEL, BASE, COM, VMAX, STEP, FLIP_BONUS } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
 const FRAME = '#e63946';
@@ -174,6 +174,8 @@ export class Play {
     }
     this.B = newBike(this.level);
     this.time = 0;
+    this.bonus = 0; // seconds off the clock for flips landed
+    this.flips = 0;
     this.crashes = 0;
     this.outcome = null;
     this.waiting = false; // crashed, waiting for the tap that goes again
@@ -344,6 +346,15 @@ export class Play {
         this.hooks.haptic?.(20);
         for (let i = 0; i < 6 + 20 * hard; i++) this.puff(B.x, B.y - COM - WHEEL, 1.2 + 2 * hard, 'dust');
         this.shake = Math.max(this.shake, 0.7 * hard);
+      }
+      // A flip landed: seconds off the clock, and a word about it.
+      if (B.trick && !res) {
+        const { flips, back } = B.trick;
+        this.flips += flips;
+        this.bonus += FLIP_BONUS * flips;
+        this.hooks.sfx?.('star');
+        this.hooks.haptic?.([20, 30, 20]);
+        this.say(`${flips > 1 ? `${flips}× ` : ''}${back ? 'BACKFLIP' : 'FRONTFLIP'} · −${(FLIP_BONUS * flips).toFixed(0)} s`, 1.6);
       }
       if (B.flag > wasFlag && B.flag > this.flagShown) {
         this.flagShown = B.flag;
@@ -1454,8 +1465,10 @@ export function paintBike(ctx, B, pose = B.lean ?? 0) {
   const peg = [-0.06, -0.36];
   const ankle = [peg[0] - 0.03, peg[1] + 0.07];
   const grip = [0.3, 0.47];
-  const hip = [byPose(p, -0.18, -0.22, -0.4), byPose(p, 0.45, 0.52, 0.3)];
-  const tilt = byPose(p, 0.7, 0.45, 0.2); // torso from upright, radians
+  // (Hips a little behind the pegs and the torso not too far over, so the
+  // arms reach forward and down to the bars rather than straight down.)
+  const hip = [byPose(p, -0.26, -0.3, -0.44), byPose(p, 0.45, 0.52, 0.3)];
+  const tilt = byPose(p, 0.62, 0.42, 0.2); // torso from upright, radians
   const shoulder = [hip[0] + 0.5 * Math.sin(tilt), hip[1] + 0.5 * Math.cos(tilt)];
   const nod = tilt * 0.4;
   const head = [shoulder[0] + 0.25 * Math.sin(nod), shoulder[1] + 0.25 * Math.cos(nod)];
@@ -1469,7 +1482,7 @@ export function paintBike(ctx, B, pose = B.lean ?? 0) {
     line([[foot[0] - 0.09, foot[1] - 0.09], [foot[0] + 0.15, foot[1] - 0.08]], 0.028, INK); // sole
   };
   const arm = (s, g, colour) => {
-    const [elbow, hand] = reach(s, g, 0.36, 0.34, 0.55);
+    const [elbow, hand] = reach(s, g, 0.36, 0.34, 0.4);
     line([s, elbow], 0.105, colour);
     line([elbow, hand], 0.088, colour);
     disc(hand[0], hand[1], 0.047, INK); // glove

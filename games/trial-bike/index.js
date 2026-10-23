@@ -325,22 +325,22 @@ export function mount(root, ctx, sub) {
 
   function finished(n, res) {
     if (!play) return;
-    const time = play.time;
+    const time = play.time - play.bonus; // flips landed buy seconds back
     const crashes = play.crashes;
     const got = stars(play.level, time, crashes);
     const data = progress.data;
     data.times ??= {};
     data.times[n] = Math.min(data.times[n] ?? Infinity, time);
     progress.complete(n, got);
-    ctx.track('level_complete', { level: n, stars: got, time: Math.round(time * 10) / 10, crashes });
+    ctx.track('level_complete', { level: n, stars: got, time: Math.round(time * 10) / 10, crashes, flips: play.flips });
     ctx.haptic(40);
     const par = play.level.par;
     const vs = time <= par ? `${(par - time).toFixed(1)} s under par` : `${(time - par).toFixed(1)} s over par`;
     showDialog(root.querySelector('.dialog'), ctx, {
       title: got === 3 ? 'Clean ride!' : got === 2 ? 'Made it!' : 'Over the line',
       stars: got,
-      text: `<b>${time.toFixed(1)} s</b>, ${vs} (the computer rider’s ${par} s), ${crashes ? `${crashes} crash${crashes === 1 ? '' : 'es'}` : 'no crashes'}.
-        ${got < 3 ? '<br><small>Three stars: beat par with no crashes.</small>' : ''}`,
+      text: `<b>${time.toFixed(1)} s</b>, ${vs} (the computer rider’s ${par} s), ${crashes ? `${crashes} crash${crashes === 1 ? '' : 'es'}` : 'no crashes'}${play.flips ? `, ${play.flips} flip${play.flips === 1 ? '' : 's'} (−${play.bonus.toFixed(0)} s)` : ''}.
+        ${got < 3 ? '<br><small>Three stars: beat par with no crashes. A flip landed takes seconds off the clock.</small>' : ''}`,
       buttons: [
         { label: 'Ride again', act: 'replay', run: () => {
           root.querySelector('.dialog').hidden = true;

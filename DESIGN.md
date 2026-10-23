@@ -367,6 +367,10 @@ keyboard.
 - **Stars** against par and your crashes: three for beating par clean, two
   for within 1.5× par with at most one crash, one for getting there. The
   course tile shows your best time.
+- **Flips.** Turn the bike right over in the air (lean hard off a jump) and
+  land it, and each full turn takes two seconds off your clock -- the only
+  way to beat the computer rider's time by much, since it never flips. A
+  turn that isn't finished by the ground is just a crash.
 - **The computer rider** reads the ground ahead of the rear wheel -- the
   first wall (a rise too sheer to roll over), the first edge (ground falling
   away) and, if that edge is a pit, how wide -- and holds the bike's pitch to
