@@ -370,7 +370,13 @@ keyboard.
 - **Flips.** Turn the bike right over in the air (lean hard off a jump) and
   land it, and each full turn takes two seconds off your clock -- the only
   way to beat the computer rider's time by much, since it never flips. A
-  turn that isn't finished by the ground is just a crash.
+  turn that isn't finished by the ground is just a crash. One landed gets
+  the big celebration: a fanfare, the banner swelling (with DOUBLE! or
+  TRIPLE! under it for more), a flare going up from behind the finish for
+  every turn, and the crowd there forty strong, arms up and jumping, for
+  the rest of the ride.
+- Every tenth course, someone grazes on a hilltop who doesn't mind the
+  bikes, so long as they go over.
 - **The computer rider** reads the ground ahead of the rear wheel -- the
   first wall (a rise too sheer to roll over), the first edge (ground falling
   away) and, if that edge is a pit, how wide -- and holds the bike's pitch to
@@ -382,7 +388,8 @@ keyboard.
   with the ground lower to leave room for the jumps. Not locked: the camera
   keeps the bike a third of the way across so you see what's coming.
 - Sound is the shared motor loop, pitched to the speed, with a bump on a
-  hard landing and the checkpoint chime at each flag.
+  hard landing, the checkpoint chime at each flag, and a fanfare and the
+  flares' whoosh and crackle for a flip.
 
 ## Jigsaw
 

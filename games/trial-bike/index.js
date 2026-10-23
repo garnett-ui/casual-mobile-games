@@ -17,7 +17,7 @@ const GRIP = '<svg viewBox="0 0 120 60"><rect x="4" y="14" width="112" height="3
 const TIPS = {
   1: 'Right thumb: hold the GAS grip. Left thumb: drag anywhere on the left -- back to lift the front wheel, forward to bring it down. In the air, lean to land on both wheels. Sideways is easier to see ahead!',
   2: 'A log: slow down, then drag back and give it gas just before, so the front wheel rides up and over.',
-  3: 'A drop-off: a touch of lean back as you go over, so the back wheel lands first.',
+  3: 'A drop-off: a touch of lean back as you go over, so the back wheel lands first. Lean hard back off a kicker to flip, and land it: every full turn takes two seconds off your clock.',
   4: 'Ledges: lift the front wheel onto the top, keep the gas on, and the back wheel climbs up after it.',
   5: 'A gap! Full gas from well back, and lean back as you leave the lip. Crash and you restart at the last flag.',
 };
@@ -113,6 +113,7 @@ export function mount(root, ctx, sub) {
         demoBtn.hidden = !on;
         demoBtn.querySelector('b').textContent = `${play?.timeScale ?? 1}×`;
       },
+      onCow: () => ctx.save('cow', Date.now()),
       onCrash: (res) => crashed(n, res),
       onFinished: (res) => (play.demo ? demoFinished(n, res) : finished(n, res)),
     });

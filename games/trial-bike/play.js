@@ -4,12 +4,13 @@
 // rides through -- meadow, forest, quarry, alpine -- as backdrop layers that
 // slide at their own pace into a haze; the dirt with rock faces, plank
 // ramps, pits and logs, tufts and stones on top and boulders beside the
-// track; birds that take off as the bike comes, the crowd at the finish,
-// tyre tracks, flags, a headlight after dark, the bike and its rider, dust,
-// exhaust and the wind of speed); the instrument band along the top; and
-// the ride itself -- stepping the engine, crashes (the wreck tumbling on
-// until it rests, the rider thrown clear to land in a heap), checkpoints
-// and the finish.
+// track; birds that take off as the bike comes, a cow on a hill every tenth
+// course, the crowd at the finish (forty strong once a flip is landed) and
+// the flares over it, tyre tracks, flags, a headlight after dark, the bike
+// and its rider, dust, exhaust and the wind of speed); the instrument band
+// along the top; and the ride itself -- stepping the engine, crashes (the
+// wreck tumbling on until it rests, the rider thrown clear to land in a
+// heap), flips, checkpoints and the finish.
 import { step, newBike, rider, heightAt, slopeAt, grounded, G, WHEEL, BASE, COM, VMAX, STEP, FLIP_BONUS } from './engine.js';
 import { rng } from '../../js/lib/random.js';
 
@@ -38,6 +39,16 @@ const sunk = (L, T) => {
   const s = Math.sin(T.angle);
   return Math.max(...[-0.8, 0, 0.8].map((d) => heightAt(L, T.x + d * c) + BODY - (T.y + d * s)));
 };
+
+// A flip landed is celebrated: the banner's second line for more than one
+// turn, and a flare over the finish for each turn -- rising for `rise`
+// seconds, then `sparks` of them falling and fading for `fall`.
+const MULTIPLE = [null, null, 'DOUBLE!', 'TRIPLE!', 'QUADRUPLE!'];
+const FLARE = { rise: 0.6, fall: 1.5, sparks: 18 };
+
+// The cow: how high her back is (the bike must clear it), and how long she
+// looks up for (s).
+const COW = { back: 1.1, look: 2 };
 
 // ------------------------------------------------------------------ scenes
 
@@ -150,6 +161,10 @@ const blend = (a, b, k) => {
 };
 const fade = (c, a) => `rgba(${channels(c).join(',')},${a})`;
 
+// What the crowd at the finish wears, and their skins.
+const SHIRTS = ['#2a6fdb', '#ffb703', '#7b5cd6', '#2a9d8f', '#f4f1e8'];
+const SKINS = ['#f1c27d', '#c68642', '#8d5524', '#e0ac69'];
+
 export class Play {
   constructor(canvas, level, hooks) {
     this.canvas = canvas;
@@ -165,7 +180,8 @@ export class Play {
     this.resize();
     this.last = performance.now();
     const loop = (now) => {
-      const dt = Math.min(0.05, (now - this.last) / 1000) * this.timeScale;
+      // (A first frame's time can be from just before the constructor ran.)
+      const dt = clamp((now - this.last) / 1000, 0, 0.05) * this.timeScale;
       this.last = now;
       if (!this.paused) this.update(dt);
       this.draw();
@@ -186,6 +202,8 @@ export class Play {
     this.time = 0;
     this.bonus = 0; // seconds off the clock for flips landed
     this.flips = 0;
+    this.roaring = false; // a flip's been landed: the whole crowd's out
+    this.flares = [];
     this.crashes = 0;
     this.outcome = null;
     this.waiting = false; // crashed, waiting for the tap that goes again
@@ -212,6 +230,7 @@ export class Play {
     this.message = null;
     this.dust = [];
     this.cam = null;
+    this.roaring = false;
   }
 
   // Watch the computer rider do it, from the start.
@@ -303,11 +322,22 @@ export class Play {
     for (const f of L.features) {
       if (f.kind === 'hill' && this.birds.length < 4 && r() < 0.6) this.birds.push({ x: f.x0 + (f.x1 - f.x0) * (0.3 + 0.4 * r()), t0: 0, ph: r() * TAU, v: 0.8 + 0.4 * r() });
     }
-    const shirts = ['#2a6fdb', '#ffb703', '#7b5cd6', '#2a9d8f', '#f4f1e8'];
-    const skins = ['#f1c27d', '#c68642', '#8d5524', '#e0ac69'];
-    const first = Math.floor(r() * 5);
     const lit = (c) => blend(c, sky.tint, sky.k);
-    this.crowd = [-1.7, 3.1, 3.8, 4.7].map((dx, i) => ({ x: L.finish + dx, h: 1.5 + r() * 0.3, ph: r() * TAU, shirt: lit(shirts[(first + i) % 5]), skin: lit(skins[Math.floor(r() * 4)]) }));
+    const person = (x, h, shirt) => ({ x, h, ph: r() * TAU, shirt: lit(shirt), skin: lit(SKINS[Math.floor(r() * SKINS.length)]) });
+    const first = Math.floor(r() * SHIRTS.length);
+    this.crowd = [-1.7, 3.1, 3.8, 4.7].map((dx, i) => person(L.finish + dx, 1.5 + r() * 0.3, SHIRTS[(first + i) % SHIRTS.length]));
+    // The rest of them, out once a flip is landed: up to 36 more on open
+    // ground either side of the finish, the tallest drawn first so no one's
+    // hidden.
+    const throng = [];
+    for (let i = 0; i < 60 && throng.length < 36; i++) {
+      const x = i % 3 ? L.finish - 0.8 - r() * 11 : L.finish + 2.6 + r() * 5.4;
+      const p = person(x, 1.15 + r() * 0.7, SHIRTS[Math.floor(r() * SHIRTS.length)]);
+      if (!L.features.some((f) => x > f.x0 - 1 && x < f.x1 + 1)) throng.push(p);
+    }
+    this.everyone = [...this.crowd, ...throng].sort((a, b) => b.h - a.h);
+    // On every tenth course, a cow on a hill.
+    this.cow = L.n % 10 ? null : cowOn(L);
     // Tyre tracks: the rear wheel's last 200 contact points, [x, y], with a
     // null where the line breaks.
     this.tracks = [];
@@ -336,6 +366,7 @@ export class Play {
     if (this.thrown) this.fly(this.thrown, dt);
     if (!this.outcome && !this.waiting) {
       let res = null;
+      const wasX = B.x;
       const wasFlag = B.flag;
       const wasAir = !grounded(B);
       const vyBefore = B.vy;
@@ -366,16 +397,8 @@ export class Play {
         for (let i = 0; i < 6 + 20 * hard; i++) this.puff(B.x, B.y - COM - WHEEL, 1.2 + 2 * hard, 'dust');
         this.shake = Math.max(this.shake, 0.7 * hard);
       }
-      // A flip landed: seconds off the clock, and a word about it.
-      if (B.trick && !res) {
-        const { flips, back } = B.trick;
-        B.trick = null;
-        this.flips += flips;
-        this.bonus += FLIP_BONUS * flips;
-        this.hooks.sfx?.('star');
-        this.hooks.haptic?.([20, 30, 20]);
-        this.say(`${flips > 1 ? `${flips}× ` : ''}${back ? 'BACKFLIP' : 'FRONTFLIP'} · −${(FLIP_BONUS * flips).toFixed(0)} s`, 1.6);
-      }
+      if (B.trick && !res) this.celebrate(B.trick);
+      if (this.cow) this.passCow(wasX);
       if (B.flag > wasFlag && B.flag > this.flagShown) {
         this.flagShown = B.flag;
         this.hooks.sfx?.('checkpoint');
@@ -410,6 +433,12 @@ export class Play {
       p.vy -= 3 * dt;
     }
     this.dust = this.dust.filter((p) => p.t < p.life);
+    for (const f of this.flares) {
+      if (f.t < FLARE.rise && f.t + dt >= FLARE.rise) this.hooks.sfx?.('flare');
+      f.t += dt;
+    }
+    this.flares = this.flares.filter((f) => f.t < FLARE.rise + FLARE.fall);
+    if (this.cow) this.cow.look = Math.max(0, this.cow.look - dt);
     if (this.message && (this.message.t -= dt) <= 0) this.message = null;
     this.shake = Math.max(0, this.shake - dt * 2);
     // The rider's body follows the lean a beat behind, so a twitch of the
@@ -472,8 +501,37 @@ export class Play {
     this.dust.push({ x, y, vx: Math.cos(a) * v * (kind === 'smoke' ? -0.6 : 1), vy: Math.abs(Math.sin(a)) * v, t: 0, life: 0.5 + Math.random() * 0.5, r: 0.08 + Math.random() * 0.12 * size, kind });
   }
 
-  say(text, secs) {
-    this.message = { text, t: secs };
+  // A message for secs seconds; `big` swells it for a beat, `sub` is a
+  // second line under it.
+  say(text, secs, { big = false, sub = null } = {}) {
+    this.message = { text, t: secs, secs, big, sub };
+  }
+
+  // A flip landed: seconds off the clock, a fanfare, the banner big for a
+  // beat, a flare over the finish for every turn, and the whole crowd out
+  // there for the rest of the ride.
+  celebrate({ flips, back }) {
+    this.B.trick = null;
+    this.flips += flips;
+    this.bonus += FLIP_BONUS * flips;
+    this.roaring = true;
+    this.hooks.sfx?.('flip');
+    this.hooks.haptic?.([20, 30, 20]);
+    const sub = MULTIPLE[Math.min(flips, MULTIPLE.length - 1)];
+    this.say(`${flips > 1 ? `${flips}× ` : ''}${back ? 'BACKFLIP' : 'FRONTFLIP'} · −${(FLIP_BONUS * flips).toFixed(0)} s`, 2, { big: true, sub });
+    for (let i = 0; i < Math.min(flips, MULTIPLE.length - 1); i++) this.flares.push(flare(i));
+  }
+
+  // Flying over the cow, clear of her back (not riding past her, nor
+  // scraping over): she looks up and moos, and the game hears of it.
+  passCow(wasX) {
+    const { B, cow } = this;
+    if (grounded(B) || (wasX < cow.x) === (B.x < cow.x)) return;
+    const low = Math.min(this.onBike(-BASE / 2, -COM)[1], this.onBike(BASE / 2, -COM)[1]) - WHEEL;
+    if (low < heightAt(this.level, cow.x) + COW.back) return;
+    cow.look = COW.look;
+    this.hooks.sfx?.('moo');
+    this.hooks.onCow?.();
   }
 
   // A point fixed to the bike's frame, from its centre of mass, in the world.
@@ -549,6 +607,9 @@ export class Play {
     const i1 = Math.min(hs.length - 1, Math.ceil((cam.left + W / m + 2) / STEP));
     const x0 = i0 * STEP;
     const x1 = i1 * STEP;
+
+    // Any flares, behind the land they rise from.
+    this.drawFlares(W, H, sx, sy);
     const v = Object.assign(this.view, { sx, sy, m, H, surface: Math.max(3, this.scene.surface * m) });
     v.pit = this.cached('pit', m, () => {
       const g = ctx.createLinearGradient(0, 0, 0, 2.2 * m);
@@ -601,12 +662,14 @@ export class Play {
     ctx.stroke();
 
     // On top: tufts and stones, the ramps' decks and the logs, the tracks,
-    // the birds, the crowd, the flags, then the bike in its dust and wind.
+    // the birds, any cow, the crowd, the flags, then the bike in its dust
+    // and wind.
     for (const t of this.tufts) if (t.x >= x0 && t.x <= x1) t.paint(ctx, t, sx(t.x), sy(heightAt(L, t.x)), m, P);
     for (const d of this.art) if (d.over && d.b > x0 - 1 && d.a < x1 + 1) d.over(ctx, d, v, P);
     ctx.lineCap = 'butt';
     this.drawTracks(sx, sy, m, x0, x1);
     this.drawBirds(sx, sy, m, W, now);
+    this.drawCow(sx, sy, m, x0, x1, now);
     this.drawCrowd(sx, sy, m, x0, x1, now);
     this.drawFlags(cam, sx, sy, x0, x1);
     this.drawWind(W, H, cam);
@@ -822,16 +885,18 @@ export class Play {
   }
 
   // The crowd at the finish: arms down, until the bike is within 6 m of
-  // them (or home), then up and waving.
+  // them (or home), then up and waving -- or, once a flip's been landed,
+  // all forty of them out, arms up and jumping, each to their own beat.
   drawCrowd(sx, sy, m, x0, x1, now) {
     const { ctx, B, P } = this;
     ctx.lineCap = 'round';
-    for (const p of this.crowd) {
+    for (const p of this.roaring ? this.everyone : this.crowd) {
       if (p.x < x0 - 1 || p.x > x1 + 1) continue;
       const X = sx(p.x);
-      const Y = sy(heightAt(this.level, p.x));
+      const hop = this.roaring ? Math.max(0, Math.sin(now * 0.011 + p.ph)) * 0.25 * m : 0;
+      const Y = sy(heightAt(this.level, p.x)) - hop;
       const h = p.h * m;
-      const cheer = B.finished || Math.abs(B.x - p.x) < 6;
+      const cheer = this.roaring || B.finished || Math.abs(B.x - p.x) < 6;
       const wave = cheer ? Math.sin(now * 0.012 + p.ph) * 0.06 * h : 0;
       const sh = Y - 0.78 * h; // the shoulders
       const hand = sh + (cheer ? -0.3 : 0.3) * h;
@@ -850,6 +915,60 @@ export class Play {
         ctx.lineTo(X, Y - 0.5 * h);
       });
       fillWith(ctx, p.skin, () => blob(ctx, X, Y - 0.9 * h, 0.1 * h));
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  // The cow on her hill, grazing and flicking her tail, and for a moment
+  // after the bike has flown over her, looking up.
+  drawCow(sx, sy, m, x0, x1, now) {
+    const { ctx, cow } = this;
+    if (!cow || cow.x < x0 - 2 || cow.x > x1 + 2) return;
+    ctx.save();
+    ctx.translate(sx(cow.x), sy(heightAt(this.level, cow.x)));
+    ctx.scale(m, -m);
+    paintCow(ctx, now / 1000, clamp(Math.min(cow.look, COW.look - cow.look) / 0.25, 0, 1));
+    ctx.restore();
+  }
+
+  // The flares for a flip: each rises from behind the finish line (or, with
+  // the finish still out of sight ahead, from behind the land toward it),
+  // flashes and bursts into sparks that spread, fall and fade.
+  drawFlares(W, H, sx, sy) {
+    if (!this.flares.length) return;
+    const { ctx } = this;
+    const S = Math.min(W, H);
+    const fx = this.level.finish + 1;
+    const x0 = clamp(sx(fx), W * 0.25, W * 0.9);
+    const y0 = clamp(sy(heightAt(this.level, fx)), H * 0.5, H * 0.85);
+    const spread = (u) => (1 - Math.exp(-3 * u)) / 3; // sparks slow as they go
+    ctx.lineCap = 'round';
+    for (const f of this.flares) {
+      if (f.t < 0) continue;
+      const x = x0 + f.dx * W;
+      const top = H * f.apex;
+      if (f.t < FLARE.rise) {
+        const at = (t) => y0 + (top - y0) * (1 - (1 - Math.max(0, t) / FLARE.rise) ** 2);
+        strokeWith(ctx, fade(HUD.amber, 0.8), 3, () => {
+          ctx.moveTo(x, at(f.t - 0.15));
+          ctx.lineTo(x, at(f.t));
+        });
+        fillWith(ctx, '#fff6dc', () => blob(ctx, x, at(f.t), 4));
+        continue;
+      }
+      const u = f.t - FLARE.rise;
+      if (u < 0.2) fillWith(ctx, fade('#fff6dc', 0.8 * (1 - u / 0.2)), () => blob(ctx, x, top, S * 0.07 * (0.4 + u / 0.2)));
+      ctx.globalAlpha = Math.max(0, 1 - u / FLARE.fall);
+      const at = (s, t) => [x + Math.cos(s.a) * s.v * S * spread(t), top - Math.sin(s.a) * s.v * S * spread(t) + 0.12 * S * t * t];
+      for (const s of f.sparks) {
+        strokeWith(ctx, s.c, 3, () => {
+          ctx.moveTo(...at(s, Math.max(0, u - 0.12)));
+          ctx.lineTo(...at(s, u));
+        });
+      }
+      // White-hot heads while they're fresh.
+      if (u < 0.6) fillWith(ctx, '#fff6dc', () => f.sparks.forEach((s) => blob(ctx, ...at(s, u), 1.6)));
+      ctx.globalAlpha = 1;
     }
     ctx.lineCap = 'butt';
   }
@@ -974,20 +1093,28 @@ export class Play {
     fillWith(ctx, FRAME, () => blob(ctx, left + clamp(B.x, 0, L.length) * k, at(heightAt(L, B.x)), 3.5));
   }
 
-  // A message -- a checkpoint, a crash -- in the instruments' style: amber
-  // capitals on a dark slip below the band.
+  // A message -- a checkpoint, a crash, a flip -- in the instruments' style:
+  // amber capitals on a dark slip below the band, with any second line in
+  // white under them. A big one starts at 1.6× for half a second and
+  // settles back to size.
   drawMessage(W, H) {
-    const { ctx } = this;
-    const text = this.message.text;
+    const { ctx, message: M } = this;
     ctx.font = `700 ${W > 600 ? 14 : 12}px ${HUD.font}`;
     ctx.textAlign = 'center';
-    const w = ctx.measureText(text).width + 32;
-    const y = Math.max(HUD.h + 34, H * 0.24);
+    const w = Math.max(...[M.text, M.sub ?? ''].map((s) => ctx.measureText(s).width)) + 32;
+    const h = M.sub ? 50 : 30;
+    const k = M.big ? ease(clamp((M.secs - M.t - 0.5) / 0.3, 0, 1)) : 1;
+    ctx.save();
+    ctx.translate(W / 2, Math.max(HUD.h + 34, H * 0.24));
+    ctx.scale(1.6 - 0.6 * k, 1.6 - 0.6 * k);
     ctx.fillStyle = HUD.band;
-    ctx.fillRect((W - w) / 2, y - 15, w, 30);
+    ctx.fillRect(-w / 2, -15, w, h);
     ctx.fillStyle = HUD.amber;
-    ctx.fillRect((W - w) / 2, y - 15, 2, 30);
-    ctx.fillText(text, W / 2, y + 1);
+    ctx.fillRect(-w / 2, -15, 2, h);
+    ctx.fillText(M.text, 0, 1);
+    ctx.fillStyle = HUD.ink;
+    if (M.sub) ctx.fillText(M.sub, 0, 22);
+    ctx.restore();
   }
 }
 
@@ -1002,10 +1129,32 @@ const reading = (ctx, x, y, label, value, colour = HUD.ink) => {
   return x + ctx.measureText(value).width + 16;
 };
 
+// The i-th flare for a flip: a little after the one before and to one side
+// of it, bursting at its own height (a share of the screen's, from the top)
+// into sparks of the bike's red and amber.
+const flare = (i) => ({
+  t: -0.45 * i,
+  dx: (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.07,
+  apex: 0.2 + 0.08 * Math.random(),
+  sparks: Array.from({ length: FLARE.sparks }, (_, k) => ({ a: (k / FLARE.sparks) * TAU + Math.random() * 0.3, v: 0.4 + 0.25 * Math.random(), c: k % 2 ? FRAME : HUD.amber })),
+});
+
+// Where the cow stands: on the crest of the first hill past the first flag
+// (or of the first hill, if none is), or nowhere if the course has none.
+const cowOn = (L) => {
+  const hills = L.features.filter((f) => f.kind === 'hill');
+  const hill = hills.find((f) => f.x0 > (L.flags[0] ?? Infinity)) ?? hills[0];
+  if (!hill) return null;
+  let x = hill.x0;
+  for (let at = hill.x0; at <= hill.x1; at += STEP) if (heightAt(L, at) > heightAt(L, x)) x = at;
+  return { x, look: 0 };
+};
+
 // ------------------------------------------------------------- scenery art
 
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const ease = (k) => k * k * (3 - 2 * k); // 0 to 1, gently at both ends
 
 // The backdrop repeats every SPAN pixels and is drawn PAD pixels past the
 // screen's edges; a layer's things sit at x from 0 to SPAN.
@@ -1738,4 +1887,90 @@ export function paintBike(ctx, B, pose = B.lean ?? 0, { rider = true } = {}) {
   nearLeg?.();
   line([PEG, [PEG[0] + 0.08, PEG[1]]], 0.035, METAL); // footpeg
   body?.();
+}
+
+// The cow on the hill of every tenth course, drawn like the bike in its own
+// frame's metres: her feet on the ground at the origin, y up, side on and
+// facing -x (the way the bike comes from), a black-and-white Friesian about
+// 1.4 m long and 1.2 m tall. `t` (s) keeps her chewing and now and then
+// flicks her tail; `up`, from 0 to 1, lifts her head from the grass to
+// look. Shared with the card picture on the hub.
+const HIDE = ['#f6f3ec', '#c9c4b8']; // near side, far side
+const MUZZLE = '#e9a6a0';
+const COW_BODY = [[-0.55, 0.98], [-0.45, 1.08], [-0.12, 1.05], [0.25, 1.07], [0.55, 1.1], [0.66, 0.98], [0.64, 0.74], [0.55, 0.55], [0.2, 0.5], [-0.2, 0.53], [-0.5, 0.6], [-0.6, 0.78]];
+const COW_PATCHES = [[-0.14, 0.9, 0.22, 0.16, 0.3], [0.45, 0.98, 0.18, 0.14, -0.2], [0.15, 0.6, 0.13, 0.08, 0], [-0.52, 0.7, 0.08, 0.1, 0]];
+const COW_HEAD = [[0.07, 0.1], [-0.1, 0.13], [-0.27, 0.08], [-0.37, 0], [-0.38, -0.1], [-0.3, -0.16], [-0.12, -0.15], [0.04, -0.1], [0.09, 0]];
+
+export function paintCow(ctx, t, up = 0) {
+  const { line, shape, disc } = pen(ctx);
+  const k = ease(clamp(up, 0, 1));
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // A smooth closed outline through the midpoints of points, as the path.
+  const rounded = (pts) => {
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const q = pts[(i + 1) % pts.length];
+      if (!i) ctx.moveTo(...mix(pts.at(-1), p, 0.5));
+      ctx.quadraticCurveTo(p[0], p[1], ...mix(p, q, 0.5));
+    });
+    ctx.closePath();
+  };
+  // A leg, outlined, with its hoof.
+  const leg = (x, colour) => {
+    line([[x, 0.62], [x + 0.01, 0.07]], 0.13, INK);
+    line([[x, 0.62], [x + 0.01, 0.07]], 0.095, colour);
+    line([[x + 0.01, 0.08], [x + 0.01, 0.02]], 0.13, INK);
+  };
+
+  // The far legs, in shadow, and the tail hanging from the rump, swung out
+  // in a flick every few seconds.
+  leg(-0.3, HIDE[1]);
+  leg(0.5, HIDE[1]);
+  const swing = 0.12 + 0.8 * Math.max(0, Math.sin(t * 1.7)) ** 16;
+  const root = [0.6, 1.02];
+  const tip = [root[0] + Math.sin(swing) * 0.55, root[1] - Math.cos(swing) * 0.55];
+  line([root, [root[0] + 0.04 + Math.sin(swing) * 0.25, root[1] - 0.3], tip], 0.035, INK);
+  disc(tip[0], tip[1], 0.05, INK);
+
+  // The neck, out to her head: down at the grass, or up to look.
+  const head = mix([-0.68, 0.38], [-0.72, 1.15], k);
+  line([[-0.35, 0.9], head], 0.3, INK);
+  line([[-0.35, 0.9], head], 0.25, HIDE[0]);
+
+  // The udder, then the body over it, white with black patches.
+  disc(0.32, 0.52, 0.08, MUZZLE, INK, 0.015);
+  rounded(COW_BODY);
+  ctx.fillStyle = HIDE[0];
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  for (const [x, y, rx, ry, a] of COW_PATCHES) {
+    ctx.moveTo(x + rx * Math.cos(a), y + rx * Math.sin(a));
+    ctx.ellipse(x, y, rx, ry, a, 0, TAU);
+  }
+  ctx.fill();
+  ctx.restore();
+  rounded(COW_BODY);
+  ctx.lineWidth = 0.02;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+  leg(-0.4, HIDE[0]);
+  leg(0.4, HIDE[0]);
+
+  // The head, turned down to graze (chewing as she goes) or up to look: a
+  // white face with a black poll, an ear, an eye and a pink muzzle.
+  ctx.save();
+  ctx.translate(head[0], head[1]);
+  ctx.rotate(1.15 - 1.5 * k + 0.04 * Math.sin(t * 5) * (1 - k));
+  shape(COW_HEAD, HIDE[0], INK, 0.02);
+  disc(0, 0.01, 0.09, INK); // the black poll
+  shape([[0, 0.06], [0.12, 0.17], [0.2, 0.12], [0.07, 0.02]], INK, null); // ear
+  disc(-0.11, 0.03, 0.022, HIDE[0]); // eye
+  disc(-0.115, 0.03, 0.013, INK);
+  disc(-0.32, -0.06, 0.075, MUZZLE, INK, 0.015);
+  disc(-0.35, -0.04, 0.012, INK); // nostril
+  ctx.restore();
 }

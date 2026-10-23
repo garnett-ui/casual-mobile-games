@@ -1,6 +1,10 @@
 // Card illustration for the arcade hub: the bike mid-jump over a dirt ramp,
-// nose up, with the hills behind.
-import { paintBike } from './play.js';
+// nose up, with the hills behind -- or, for an hour after the bike has
+// flown over the cow on a tenth course, the cow herself, looking up.
+import { paintBike, paintCow } from './play.js';
+import { load } from '../../js/lib/storage.js';
+
+const HOUR = 60 * 60 * 1000;
 
 export function paint(canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -42,7 +46,8 @@ export function paint(canvas) {
   ctx.beginPath();
   for (let x = 0; x <= W; x += 2) ctx.lineTo(x, ground(x));
   ctx.stroke();
-  // A flag, and the bike in the air past the lip.
+  // A flag, and the bike in the air past the lip (or the cow on the level
+  // beyond it).
   ctx.strokeStyle = '#444';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -55,12 +60,18 @@ export function paint(canvas) {
   ctx.lineTo(W * 0.86 + 22, H * 0.46);
   ctx.lineTo(W * 0.86, H * 0.52);
   ctx.fill();
-  ctx.save();
-  ctx.translate(W * 0.55, H * 0.42);
-  ctx.rotate(-0.42);
   const scale = Math.min(48, H * 0.3);
-  ctx.scale(scale, -scale);
-  paintBike(ctx, { angle: 0, spin: 0.4 }, 0.6);
+  ctx.save();
+  if (Date.now() - load('trial-bike:cow', 0) < HOUR) {
+    ctx.translate(W * 0.6, H * 0.82);
+    ctx.scale(scale * 1.3, -scale * 1.3);
+    paintCow(ctx, 0, 1);
+  } else {
+    ctx.translate(W * 0.55, H * 0.42);
+    ctx.rotate(-0.42);
+    ctx.scale(scale, -scale);
+    paintBike(ctx, { angle: 0, spin: 0.4 }, 0.6);
+  }
   ctx.restore();
   return rect;
 }
