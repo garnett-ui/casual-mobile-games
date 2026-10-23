@@ -1,6 +1,12 @@
 // Lunar Lander in play: camera, rendering (lander, terrain, Earthrise, retro
 // instrument panel, explosion) and the thruster controls.
 import { step, newLander, heightAt, clearance, underRock, flightPath, autopilot, bestTilt, G, SAFE, FEET, HEIGHT, TRACK_DT } from './engine.js';
+import { bestFlight, follow } from './pilot.js';
+
+// The autopilot's best flight for a level (worked out once), and the route
+// it takes -- or, should it find none, the careful pilot's.
+const best = (level) => (level.best ??= bestFlight(level) || false);
+const routeOf = (level) => (best(level) ? best(level).path : flightPath(level));
 import { rng } from '../../js/lib/random.js';
 
 const PHOSPHOR = '#3dff7a';
@@ -51,7 +57,7 @@ export class Play {
     // route, to the base, and back to the lander on its pad.
     if (intro) {
       this.intro = { t: 0, dur: 5.4 };
-      this.level.route ??= flightPath(this.level);
+      this.level.route ??= routeOf(this.level);
     }
     this.last = performance.now();
     const loop = (now) => {
@@ -67,6 +73,7 @@ export class Play {
   reset() {
     if (this.demo) {
       this.demo = false;
+      this.exact = false;
       this.pilot = null;
       this.timeScale = 1;
       this.hooks.onDemo?.(false);
@@ -86,11 +93,13 @@ export class Play {
     this.track = []; // where this flight has been, for the replay after a crash
     this.trackT = 0;
     this.hooks.onSound?.('stop');
+    this.rumble(false);
   }
 
   destroy() {
     cancelAnimationFrame(this.raf);
     this.hooks.onSound?.('stop');
+    this.rumble(false);
   }
 
   setInput(key, on) {
@@ -127,18 +136,35 @@ export class Play {
     this.intro = { t: 0, dur: this.lastTry ? 6.4 : 5.4 };
   }
 
-  // "Show me": the autopilot flies the mission as well as it knows how
-  // (the style that scores best), at double speed, for you to watch.
+  // "Show me": the autopilot flies the mission as well as it knows how --
+  // its best flight, step for step as it was worked out (so landing just as
+  // it did then) -- at double speed, for you to watch.
   showMe() {
-    const tilt = bestTilt(this.level);
+    const flight = best(this.level);
+    const tilt = flight ? 0 : bestTilt(this.level);
     this.reset();
     this.lastTry = null;
     this.intro = null;
     this.cam = null;
     this.demo = true;
-    this.pilot = (level, L) => autopilot(level, L, tilt);
+    this.exact = !!flight;
+    this.ahead = 0;
+    this.pilot = flight ? (level, L) => follow(flight.plan, L) : (level, L) => autopilot(level, L, tilt);
     this.timeScale = 2;
     this.hooks.onDemo?.(true);
+  }
+
+  // A light rumble you can feel while the main engine fires: short pulses,
+  // topped up as they run out, stopped the moment it cuts.
+  rumble(on) {
+    const now = performance.now();
+    if (on && now >= (this.rumbleTo || 0)) {
+      this.hooks.haptic?.([35, 45, 35, 45, 35, 45, 35, 45]);
+      this.rumbleTo = now + 320;
+    } else if (!on && this.rumbleTo) {
+      this.hooks.haptic?.(0);
+      this.rumbleTo = 0;
+    }
   }
 
   skipIntro() {
@@ -156,15 +182,23 @@ export class Play {
     const L = this.L;
     if (!this.outcome || this.outcome.kind === 'touchdown') {
       const was = L.landed;
-      // Physics in fixed small steps for stability.
+      // Physics in fixed small steps for stability. (Exactly 1/120 s each for
+      // the autopilot's best flight, as it was worked out.)
       let res = null;
-      const n = Math.ceil(dt / (1 / 120));
+      let n = Math.ceil(dt / (1 / 120));
+      let h = dt / n;
+      if (this.exact) {
+        this.ahead += dt;
+        n = Math.floor(this.ahead * 120 + 1e-6);
+        h = 1 / 120;
+        this.ahead -= n * h;
+      }
       // (Assist on at any time in the flight, it counts as an assisted landing.)
       if (this.assist && !this.pilot && !L.landed) this.assisted = true;
       for (let k = 0; k < n && !res; k++) {
         // Tests can fly with an autopilot that steers every physics step.
         if (this.pilot) Object.assign(this.input, this.pilot(this.level, L));
-        res = step(this.level, L, { ...this.input, assist: this.assist && !this.pilot }, dt / n);
+        res = step(this.level, L, { ...this.input, assist: this.assist && !this.pilot }, h);
       }
       if (!L.landed) {
         this.trackT += dt;
@@ -183,6 +217,7 @@ export class Play {
         else if (res.kind === 'landed') {
           this.track.push([L.x, L.y]);
           this.hooks.onSound?.('stop');
+          this.rumble(false);
           this.hooks.sfx?.('contact');
           // The flag pops out of the hatch -- "The Eagle has landed" -- then
           // the score.
@@ -199,6 +234,7 @@ export class Play {
       // (Silent once down on the base: nothing runs after that.)
       const down = L.crashed || this.outcome?.kind === 'landed';
       this.hooks.onSound?.('engine', L.thrusting && !down);
+      this.rumble(L.thrusting && !down && !this.demo);
       this.hooks.onSound?.('rcs', !!L.rcs && !down);
       // Low fuel alarm.
       if (!L.landed && L.fuel > 0 && L.fuel / L.fuelMax < 0.15 && L.t > this.alarmAt) {
@@ -240,6 +276,7 @@ export class Play {
   explode() {
     const L = this.L;
     this.hooks.onSound?.('stop');
+    this.rumble(false);
     this.hooks.sfx?.('explode');
     this.hooks.haptic?.(400);
     this.flash = 0.8;
@@ -863,7 +900,7 @@ export class Play {
   routeSvg() {
     const { level } = this;
     const path = this.track;
-    const auto = (level.route ??= flightPath(level));
+    const auto = (level.route ??= routeOf(level));
     const xs = [level.startPad.x0, level.startPad.x1, level.base.x0, level.base.x1, ...path.map(([x]) => x), ...auto.map(([x]) => x)];
     const x0 = Math.min(...xs) - 12;
     const x1 = Math.max(...xs) + 12;
@@ -1059,7 +1096,7 @@ export class Play {
     ctx.font = '700 15px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const cap = this.lastTry ? 'Red: your last try · yellow: a good route' : `Mission ${level.n}: ${dist} m to the base`;
+    const cap = this.lastTry ? 'Red: your last try · yellow: the autopilot’s fastest' : `Mission ${level.n}: ${dist} m to the base`;
     const sub = `A dot every ${every} s: close together = slow · tap to skip`;
     const w = Math.max(ctx.measureText(cap).width, (ctx.font = '600 12px system-ui, sans-serif', ctx.measureText(sub).width)) + 24;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';

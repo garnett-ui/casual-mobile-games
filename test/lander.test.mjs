@@ -216,18 +216,34 @@ test('stability assist: sideways drift dies away once level (but not without ass
   assert.ok(Math.abs(drift(false) - 4) < 0.01, 'coasts on without assist');
 });
 
-test('show me: the autopilot picks the way of flying that scores best, and lands', async () => {
-  const { bestTilt, autopilot } = await import('../games/lander/engine.js');
-  for (const n of [3, 11]) {
+test('show me (and the route shown): the autopilot’s fastest flight -- a curve, at full push, landing safely', async () => {
+  const { bestFlight, flyPlan } = await import('../games/lander/pilot.js');
+  for (const n of [1, 3, 5, 8, 11, 12, 13, 17, 20, 25]) {
     const level = makeLevel(n);
-    const tilt = bestTilt(level);
-    assert.ok(tilt >= 15 && tilt <= 35, `mission ${n}: ${tilt}°`);
-    const L = newLander(level, level.fuel);
-    let res = null;
-    for (let t = 0; t < 900 && (!res || res.kind === 'touchdown'); t += 1 / 120) res = step(level, L, autopilot(level, L, tilt), 1 / 120);
-    assert.equal(res.kind, 'landed', `mission ${n}`);
-    assert.ok(res.score.total > 700, `mission ${n} scores ${res.score.total}`);
+    const best = bestFlight(level);
+    assert.equal(best?.res.kind, 'landed', `mission ${n} lands`);
+    assert.ok(best.res.score.total > 600, `mission ${n} scores ${best.res.score.total}`);
+    // Far quicker than the careful pilot that sizes the fuel, with the
+    // level's own fuel, and about as quick as planned.
+    const careful = simulate(level, level.fuel);
+    assert.ok(best.time < careful.time * 0.75, `mission ${n}: ${best.time.toFixed(0)} s vs ${careful.time.toFixed(0)} s`);
+    assert.ok(best.time < best.plan.time * 1.1 + 5, `mission ${n} flown as planned`);
+    // The same flight every time (Show me replays it step for step).
+    const again = flyPlan(level, best.plan);
+    assert.deepEqual(again.path, best.path);
+    // Over open ground, not a climb, a traverse and a descent: rarely level,
+    // rarely straight up or down. (Caves and tunnels are level inside.)
+    if (level.rocks.length) continue;
+    const open = best.path.slice(8, -24);
+    let square = 0;
+    for (let i = 1; i < open.length; i++) {
+      const a = Math.atan2(Math.abs(open[i][1] - open[i - 1][1]), Math.abs(open[i][0] - open[i - 1][0]));
+      if (a < 0.03 || a > Math.PI / 2 - 0.03) square++;
+    }
+    assert.ok(square <= open.length * 0.2, `mission ${n}: ${square} of ${open.length} legs level or upright`);
   }
+  // Mostly at the engine's full push.
+  assert.equal(bestFlight(makeLevel(7)).push, 1);
 });
 
 test('side thrusters are balanced: equal bursts left and right cancel exactly (assist off)', () => {

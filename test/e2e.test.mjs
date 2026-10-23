@@ -652,6 +652,9 @@ test('lunar lander: thrust button lifts off, a landing scores, a crash explodes'
     await page.evaluate(() => (window.__lander.timeScale = 6));
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 60000 });
     assert.match(await page.locator('.dialog h3').textContent(), /how it/);
+    // Its best flight, exactly as worked out: the same score.
+    const planned = await page.evaluate(() => window.__lander.level.best.res.score.total);
+    assert.match(await page.locator('.dialog').textContent(), new RegExp(`scored ${planned},`));
     const after = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:lander:progress')));
     assert.deepEqual(after, saved);
     await page.locator('[data-act=retry]').click();

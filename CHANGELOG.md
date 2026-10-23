@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.69.0
+- Lunar Lander: the autopilot's route (shown before each mission and on the
+  score card) and **Show me** are now its fastest landing: a smooth curve
+  over the mountains (or through the cave, tunnel or shaft), as fast as
+  the engine allows, curving into the drop onto the base -- often in half
+  the time of the old square-cornered climb, cross and descend.
+- Lunar Lander: the main engine gives a light rumble you can feel while it
+  fires (on phones that can vibrate; not iPhones).
+
 ## 1.68.1
 - Lunar Lander, assist off: small spins (under 1.5°/s) now fade gently,
   halving every second once you let go of the turn buttons -- so a small

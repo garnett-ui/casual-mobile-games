@@ -126,7 +126,19 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
   lunar horizon, and the ground you fly over is the photo's surface.
 - Endless missions: every one is test-flown by an autopilot when generated,
   so it is always possible; fuel is what it needed plus a margin that shrinks
-  from 2× to 1.25×, while mountains rise and the base narrows.
+  from 2× to 1.25×, while mountains rise and the base narrows. (That careful
+  pilot flies slowly: its fuel is what a careful player needs.)
+- The route shown before each mission and on the score card, and flown for
+  **Show me**, is the autopilot's fastest landing (`pilot.js`): a smooth
+  curve from pad to base -- over everything with room to spare, or through
+  the cave, tunnel or shaft -- curving into a straight drop onto the base;
+  the fastest speed along it the engine allows at each point (speeding up,
+  slowing down and bending the flight against gravity, leaning at most 40°);
+  the curve reshaped a point at a time for the quickest flight. A pilot
+  follows it, turning ahead of time (turning is slow) and pulsing the
+  engine; the boldest plan that lands wins, flown exactly the same in Show me.
+- The main engine gives a light rumble you can feel (on phones that
+  vibrate), as well as its sound.
 
 ## Night Driver
 

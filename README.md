@@ -86,7 +86,7 @@ games/car-jam/index.js      level select, HUD, win dialog
 games/tap-maze/             Tap Maze: model.js (rules, generator), levels.js,
                             play.js, draw.js, index.js, worker.js
 games/breakout/             Breakout: engine.js (physics, rules), play.js, index.js
-games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), play.js
+games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot), pilot.js (the fastest flight), play.js
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
 games/morse/                Morse Rain: code.js (the code, lessons, timing; runs in Node), play.js (the cloud)
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), play.js
