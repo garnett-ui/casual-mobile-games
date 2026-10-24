@@ -10,7 +10,7 @@
 // close in on a helper while it's off on a job, back out to see everyone
 // when it's done. Drag the ground to look about.
 import { SIZE, isRoad, route, nearestRoad, jobAt, nextJob } from './town.js';
-import { walkways, walkDoor, nearestWalk, junctions, crossings, isJunction, isLit, lights, walkSignal } from './streets.js';
+import { walkways, walkDoor, nearestWalk, junctions, crossings, isJunction, isLit, lights, walkSignal, armOf } from './streets.js';
 import { Traffic, lanePoint, startDir, streetTiles } from './traffic.js';
 import { ahead, driveTurn, walkAhead, walkTurn } from './steer.js';
 import * as D from './draw.js';
@@ -432,7 +432,9 @@ export class Play {
     const f = this.fp;
     const h = f.h;
     const busy = h.pause > 0 || !!h.deliver;
-    const want = f.gas !== null && !busy ? SPEED[h.kind] : 0;
+    // (A little slower than they go by themselves: time to look about, and
+    // to turn.)
+    const want = f.gas !== null && !busy ? SPEED[h.kind] * 0.7 : 0;
     f.v += clamp(want - f.v, -6 * dt, 3 * dt);
     if (h.kind === 'walker') this.planWalk(f, h);
     else this.planDrive(f, h);
@@ -457,20 +459,36 @@ export class Play {
   }
 
   // Driving: the street on ahead from where you are (or the tile you're
-  // heading into), turning at the next intersection the way you asked --
-  // till the light lets you through; then that's the way you're going.
+  // heading into), turning at the next intersection the way you asked. You
+  // can change your mind right up to the middle of the intersection --
+  // unless someone's on the crosswalk you'd turn onto.
   planDrive(f, h) {
     if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) f.intent = 'straight';
     f.last = h.tile;
     const at = lanePoint(h.tile, h.dir);
-    const moving = h.path.length > 0 && Math.hypot(h.x - at.x, h.y - at.y) > 0.02;
+    const off = Math.hypot(h.x - at.x, h.y - at.y);
+    const inside = isJunction(h.tile.x, h.tile.y);
+    if (inside && h.path.length && off > 0.3) return; // (on the way out: too late to turn now)
+    const moving = !inside && h.path.length > 0 && off > 0.02;
     const base = moving ? h.path[0] : h.tile;
     const dir = moving && (base.x !== h.tile.x || base.y !== h.tile.y) ? { x: base.x - h.tile.x, y: base.y - h.tile.y } : h.dir;
     const to = this.target(h);
     f.hint = to ? driveTurn(base, dir, to) : null;
     f.route = to ? this.driveRoute(base, dir, to) : [];
-    if (isJunction(base.x, base.y) && h.pass === `${base.x},${base.y}` && h.path.length) return;
-    h.path = [...(moving ? [base] : []), ...ahead(base, dir, f.intent)];
+    const plan = [...(moving ? [base] : []), ...ahead(base, dir, f.intent)];
+    // Let through the intersection already, and turning another way now: so
+    // long as the crosswalk that way is clear.
+    const k = plan.findIndex((t) => isJunction(t.x, t.y));
+    const j = k >= 0 ? plan[k] : inside ? h.tile : null;
+    const exit = k >= 0 ? plan[k + 1] : plan[0];
+    if (j && exit && h.pass === `${j.x},${j.y}`) {
+      const arm = armOf(j, exit);
+      if (!h.passArms.includes(arm)) {
+        if (this.traffic.peopleOn(j, [arm])) return;
+        h.passArms = [h.passArms[0], arm];
+      }
+    }
+    h.path = plan;
   }
 
   // The way the turns shown would take you (for the dots on the road).

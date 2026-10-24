@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.79.1
+- Benji's Town, driving: turning is easier. ◀ or ▶ now works right up to
+  the middle of the intersection (it used to be too late once the light
+  let you through, a truck's length before the corner), and you drive a
+  little slower, with more time to turn.
+
 ## 1.79.0
 - Benji's Town: be the driver! From level 6, tap a helper and you're in
   its seat, seeing the little town from the cab of the garbage truck, the

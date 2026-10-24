@@ -87,8 +87,10 @@ pictures and a sound for every touch.
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --
   or walking the dog, the dog trotting ahead. Three big buttons: hold ▲
-  to go (let go and you stop), ◀ ▶ to turn at the next corner; at a dead
-  end you turn round by yourself. The rules hold you just the same: you
+  to go (let go and you stop), ◀ ▶ to turn at the next corner -- right
+  up to the middle of the intersection (unless someone's on the crosswalk
+  you'd turn onto) -- a little slower than they drive themselves, for time
+  to turn; at a dead end you turn round by yourself. The rules hold you just the same: you
   stop at a red light and wait for anyone on the crosswalk however hard
   you press, and on foot you wait for the walking man. The way to the job
   shows as yellow dots along the road, an arrow stands over the place, the
