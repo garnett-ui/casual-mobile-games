@@ -57,7 +57,7 @@ export function mount(root, ctx, sub) {
       id: 'benji',
       title: 'Benji’s Town',
       intro: 'Tap the garbage truck, the mail van, the dog walker and the cement mixer, and off they go to work!',
-      outro: 'From level 6, drive them yourself: put a finger on one and lead it along the streets.',
+      outro: 'From level 6, tap a helper and you’re the driver: hold ▲ to go, and ◀ ▶ to turn at the corner.',
       progress,
     });
   }
@@ -69,7 +69,7 @@ export function mount(root, ctx, sub) {
       <div class="screen play-screen bt-screen">
         <header class="bar">
           <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
-          <h2>Level ${n}${town.drive ? ' 👆' : ''}</h2>
+          <h2>Level ${n}${town.drive ? ' 🚗' : ''}</h2>
           <button class="icon-btn" data-act="restart" aria-label="Start again">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas></div>
@@ -88,7 +88,7 @@ export function mount(root, ctx, sub) {
       window.__benji = play;
     };
     start();
-    say(town.drive ? 'Drive them with your finger!' : 'Tap a truck!');
+    say(town.drive ? 'Tap a truck and drive it!' : 'Tap a truck!');
     onResize = () => play?.resize();
     window.addEventListener('resize', onResize);
     root.querySelector('[data-act=levels]').onclick = () => ctx.back('#/benji');

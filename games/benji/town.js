@@ -86,7 +86,7 @@ export function nearestRoad(px, py) {
 // ------------------------------------------------------------------ levels
 
 // Each level: some jobs, and whether you tap the helpers (they go by
-// themselves) or drive them with a finger.
+// themselves) or drive them yourself, from the driver's seat.
 //   garbage: bins out at that many houses -- collect them, then to the dump
 //   mail:    that many letters and packages to deliver (every other one a
 //            package)

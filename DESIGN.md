@@ -54,10 +54,8 @@ pictures and a sound for every touch.
   follows it on its job (the postal worker at the door, the dog in the
   park); a moment after it's done, it eases back out to show all the
   helpers and where they're going next. It starts on the whole town, and
-  ends there with the confetti. While a finger is leading a helper the
-  camera holds still (so the spot under the finger stays put), scrolling
-  along only when the finger nears the edge; dragging the ground looks
-  round the town for a few seconds.
+  ends there with the confetti. Dragging the ground looks round the town
+  for a few seconds.
 - Road safety, shown not told. Every street has a sidewalk down each side,
   and people (the dog walker too) keep to them, crossing only at the zebra
   crossings by the intersections. Three intersections, corner to corner
@@ -83,10 +81,22 @@ pictures and a sound for every touch.
   trips (slab, walls, roof), going back to the yard to load up in between.
   Houses built stay built: the town grows from level to level.
 - Levels 1-5: tap a helper and it goes to its next job by itself (a
-  bouncing arrow in its colour shows where). From level 6 you drive: put a
-  finger on a helper and it follows along the streets toward your finger,
-  doing its job when it gets there; a dotted trail and, until you've done
-  it once, an animated finger show the way.
+  bouncing arrow in its colour shows where).
+- From level 6 you're the driver. Tap a helper ("Let's go!") and the view
+  drops into its seat: the same little town all round at street level, in
+  perspective, from the cab of the garbage truck, the mail van or the
+  cement mixer (a dashboard and a steering wheel that turns as you turn) --
+  or walking the dog, the dog trotting ahead. Three big buttons: hold ▲
+  to go (let go and you stop), ◀ ▶ to turn at the next corner; at a dead
+  end you turn round by yourself. The rules hold you just the same: you
+  stop at a red light and wait for anyone on the crosswalk however hard
+  you press, and on foot you wait for the walking man. The way to the job
+  shows as yellow dots along the road, an arrow stands over the place, the
+  button for the next turn glows, and the town says "Turn left!" ("Turn
+  right!", "Turn around!"). Jobs happen as you get there; at a house the
+  mail van stops and you are the postal worker, walking the letter or
+  parcel up to the door and back. When the helper's jobs are done (or with
+  the map button, top left) you're back over the town.
 - Every finished level is three stars, a shower of confetti and "Yay!
   Great job!" said out loud (with the sound on).
 - Everything it says is in a child's voice: short clips recorded once (by
@@ -98,7 +108,11 @@ pictures and a sound for every touch.
   `traffic.js` (lanes, stopping, queueing, waiting to cross) are all tested
   in Node -- a few minutes of busy traffic, checking every step that cars
   go on green, people start across on the walk signal, and nobody is ever
-  on a crosswalk with a car; `iso.js` (the 3D: the camera, simple solids
+  on a crosswalk with a car; `steer.js` (driving yourself: the street or
+  sidewalk on ahead, turning where asked, and which way to turn for the
+  job -- tested by following the turn shown from everywhere to every door);
+  `iso.js` (the 3D: the cameras -- from above, and the driver's eye, in
+  perspective, cutting off what's behind it -- simple solids
   -- boxes, roofs, drums, balls -- flat-shaded and drawn back to front, and
   the town's things made of them), `draw.js` (the flat pictures that face
   you: lights, walk signals, bubbles, arrows), `play.js` (the screen and

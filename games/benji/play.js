@@ -1,8 +1,9 @@
 // Benji's Town: the town on screen, in 3D -- the helpers going about their
 // jobs, people and cars pottering about, and a tray of the level's jobs
 // ticking off. Tap a helper and it goes to its next job (the early levels);
-// later, drive it there with a finger, along the streets. Everyone minds the
-// traffic lights, and people cross only at the crosswalks.
+// later, tap one and you're its driver -- or walking the dog -- seeing the
+// town from the driver's seat. Everyone minds the traffic lights (you too),
+// and people cross only at the crosswalks.
 //
 // The town is seen from above at an angle (isometric), turned a quarter at
 // a time with the buttons at the bottom. The camera follows the action:
@@ -11,6 +12,7 @@
 import { SIZE, isRoad, route, nearestRoad, jobAt, nextJob } from './town.js';
 import { walkways, walkDoor, nearestWalk, junctions, crossings, isJunction, isLit, lights, walkSignal } from './streets.js';
 import { Traffic, lanePoint, startDir, streetTiles } from './traffic.js';
+import { ahead, driveTurn, walkAhead, walkTurn } from './steer.js';
 import * as D from './draw.js';
 import * as I from './iso.js';
 
@@ -38,7 +40,6 @@ export class Play {
     this.fx = [];
     this.confetti = [];
     this.won = false;
-    this.drag = null;
     this.stage = {}; // building lots: stages built so far
     // The sidewalks: each place's spot outside its door, and the places by
     // each spot (for the dog walker).
@@ -84,6 +85,8 @@ export class Play {
     this.said = -99;
     // The camera: the whole town to begin with, then in to the helpers.
     this.view = new I.View();
+    this.eye = new I.Eye(); // (in the driver's seat)
+    this.fp = null; // whose seat you're in: { h, gas, v, intent, hint, ... }
     this.rot = 0; // quarter turns
     this.spin = null;
     this.cam = { x: SIZE / 2, y: SIZE / 2, k: 0 };
@@ -141,6 +144,19 @@ export class Play {
     if (!this.cam.k) this.cam.k = this.kFit;
     const y = this.viewH + this.trayH / 2;
     this.buttons = [{ x: BTN + 10, y, dir: -1 }, { x: this.W - BTN - 10, y, dir: 1 }];
+    // In the driver's seat: the view, and the buttons -- ◀ ▲ ▶ along the
+    // bottom, and back to the town top left.
+    this.seatH = this.H - 110;
+    const py = this.H - 55;
+    this.pads = [
+      { act: 'left', x: this.W * 0.18, y: py, r: 34 },
+      { act: 'go', x: this.W / 2, y: py, r: 42 },
+      { act: 'right', x: this.W * 0.82, y: py, r: 34 },
+      { act: 'exit', x: 34, y: 34, r: 24 },
+    ];
+    this.eye.F = this.W / 2 / Math.tan((40 * Math.PI) / 180);
+    this.eye.ox = this.W / 2;
+    this.eye.oy = this.seatH * 0.36;
     this.camera(0);
   }
 
@@ -176,15 +192,6 @@ export class Play {
 
   target(h) {
     return this.targetPlace(h)?.door || null;
-  }
-
-  // The way a helper would go to its next job, as points (in tiles): along
-  // the streets, or the sidewalks.
-  way(h) {
-    const p = this.targetPlace(h);
-    if (!p) return [];
-    if (h.kind === 'walker') return this.walk.route(h.node, this.spot.get(p.id)).map((n) => this.walk.nodes[n]);
-    return route(h.tile, p.door).map((t) => ({ x: t.x + 0.5, y: t.y + 0.5 }));
   }
 
   // Tap mode: off it goes to its next job.
@@ -315,6 +322,10 @@ export class Play {
     const r = this.canvas.getBoundingClientRect();
     const sx = e.clientX - r.left;
     const sy = e.clientY - r.top;
+    if (this.fp) {
+      this.seat(e, type, sx, sy);
+      return;
+    }
     if (type === 'down') {
       e.preventDefault();
       this.canvas.setPointerCapture?.(e.pointerId);
@@ -334,10 +345,10 @@ export class Play {
       const h = near(this.helpers);
       if (h) {
         h.hop = 1;
+        // Tap one to send it off (the early levels) -- or to be its driver.
         if (this.town.drive) {
-          this.drag = { h, id: e.pointerId, moved: false, sx, sy };
-          this.focus = h;
-          this.manual = 0;
+          if (this.targetPlace(h) && !this.won && h.pause <= 0) this.enter(h);
+          else this.hooks.sfx?.('tap');
         } else if (!h.path.length && h.pause <= 0) {
           this.send(h);
           this.focus = h;
@@ -364,43 +375,48 @@ export class Play {
           this.cam.y = clamp(this.pan.y - d.y, 0, SIZE);
         }
       } else this.pan = null;
-      return;
-    }
-    if (!this.drag || e.pointerId !== this.drag.id) return;
-    if (type === 'move') {
-      Object.assign(this.drag, { sx, sy });
-      this.steer();
-    } else {
-      this.drag = null;
     }
   }
 
-  // Leading a helper with a finger: along the streets (or the sidewalks)
-  // toward the spot under it.
-  steer() {
-    const d = this.drag;
-    const h = d.h;
-    const p = this.view.ground(d.sx, d.sy);
-    if (h.kind === 'walker') {
-      const to = nearestWalk(this.walk, p.x, p.y);
-      if (to === d.to) return;
-      d.to = to;
-      d.moved = true;
-      this.driven = true;
-      const at = this.walk.nodes[h.node];
-      const from = h.path.length && Math.hypot(h.x - at.x, h.y - at.y) > 1e-6 ? h.path[0] : h.node;
-      const way = this.walk.route(from, to);
-      h.path = from === h.node ? way.slice(1) : way;
+  // In the driver's seat (or walking the dog): hold ▲ to go; ◀ and ▶ turn
+  // at the next corner (turn round, walking, when that's the way); the
+  // button at the top back out to the town. A tap anywhere else: honk!
+  seat(e, type, sx, sy) {
+    const f = this.fp;
+    if (type === 'down') {
+      e.preventDefault();
+      this.canvas.setPointerCapture?.(e.pointerId);
+      const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
+      if (!b) this.hooks.sfx?.(f.h.kind === 'walker' ? 'pop' : 'honk');
+      else if (b.act === 'exit') this.leave();
+      else if (b.act === 'go') f.gas = e.pointerId;
+      else {
+        f.intent = f.h.kind === 'walker' && f.hint === 'back' ? 'back' : b.act;
+        this.hooks.sfx?.('tap');
+      }
       return;
     }
-    const to = nearestRoad(p.x, p.y);
-    if (d.to && to.x === d.to.x && to.y === d.to.y) return;
-    d.to = to;
-    d.moved = true;
-    this.driven = true;
-    const from = h.path[0] || h.tile;
-    h.path = route(from, to);
-    if (!h.path.length || (h.path[0].x === h.tile.x && h.path[0].y === h.tile.y && !h.path[1])) h.path = [];
+    if (type !== 'move' && f.gas === e.pointerId) f.gas = null;
+  }
+
+  // Into the driver's seat of a helper (or the dog walker's shoes).
+  enter(h) {
+    h.path = [];
+    this.fp = { h, gas: null, v: 0, intent: 'straight', hint: null, head: h.head, wheel: 0, done: 0, said: null, saidT: -9, last: h.kind === 'walker' ? h.node : h.tile };
+    this.focus = h;
+    this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk');
+    this.hooks.say?.('Let’s go!');
+  }
+
+  // Back out to the town (the helper stops at the next street tile).
+  leave() {
+    const h = this.fp.h;
+    this.fp = null;
+    if (h.kind === 'walker') h.path = h.path.slice(0, 1);
+    else h.path = isJunction(h.path[0]?.x, h.path[0]?.y) ? h.path.slice(0, 2) : h.path.slice(0, 1);
+    Object.assign(this.cam, { x: h.x, y: h.y, k: this.kIn });
+    this.calm = 0;
+    this.manual = 0;
   }
 
   // A quarter turn of the town (dir 1: clockwise).
@@ -410,19 +426,119 @@ export class Play {
     this.hooks.sfx?.('tap');
   }
 
+  // ------------------------------------------------------ driving yourself
+
+  fpSteer(dt) {
+    const f = this.fp;
+    const h = f.h;
+    const busy = h.pause > 0 || !!h.deliver;
+    const want = f.gas !== null && !busy ? SPEED[h.kind] : 0;
+    f.v += clamp(want - f.v, -6 * dt, 3 * dt);
+    if (h.kind === 'walker') this.planWalk(f, h);
+    else this.planDrive(f, h);
+    // Which way you're looking, and the wheel, turning with you.
+    const d = h.head - f.head;
+    const turnRate = Math.atan2(Math.sin(d), Math.cos(d));
+    f.head += turnRate * Math.min(1, dt * 6);
+    const lean = { left: -0.5, right: 0.5 }[f.intent] || 0;
+    f.wheel += (clamp(turnRate * 3, -1.4, 1.4) + lean - f.wheel) * Math.min(1, dt * 6);
+    // A word when there's a turn to make.
+    if (['left', 'right', 'back'].includes(f.hint) && f.hint !== f.intent && f.hint !== f.said && this.t - f.saidT > 4) {
+      f.said = f.hint;
+      f.saidT = this.t;
+      this.hooks.say?.({ left: 'Turn left!', right: 'Turn right!', back: 'Turn around!' }[f.hint]);
+    }
+    if (f.hint === 'straight' || !f.hint) f.said = null;
+    // Back out to the town a moment after its jobs are all done.
+    if (!this.targetPlace(h) && !busy) {
+      f.done += dt;
+      if (f.done > 1.5) this.leave();
+    } else f.done = 0;
+  }
+
+  // Driving: the street on ahead from where you are (or the tile you're
+  // heading into), turning at the next intersection the way you asked --
+  // till the light lets you through; then that's the way you're going.
+  planDrive(f, h) {
+    if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) f.intent = 'straight';
+    f.last = h.tile;
+    const at = lanePoint(h.tile, h.dir);
+    const moving = h.path.length > 0 && Math.hypot(h.x - at.x, h.y - at.y) > 0.02;
+    const base = moving ? h.path[0] : h.tile;
+    const dir = moving && (base.x !== h.tile.x || base.y !== h.tile.y) ? { x: base.x - h.tile.x, y: base.y - h.tile.y } : h.dir;
+    const to = this.target(h);
+    f.hint = to ? driveTurn(base, dir, to) : null;
+    f.route = to ? this.driveRoute(base, dir, to) : [];
+    if (isJunction(base.x, base.y) && h.pass === `${base.x},${base.y}` && h.path.length) return;
+    h.path = [...(moving ? [base] : []), ...ahead(base, dir, f.intent)];
+  }
+
+  // The way the turns shown would take you (for the dots on the road).
+  driveRoute(t, d, to) {
+    const out = [t];
+    for (let n = 0; n < 40 && (t.x !== to.x || t.y !== to.y); n++) {
+      const next = ahead(t, d, driveTurn(t, d, to))[0];
+      if (!next) break;
+      d = { x: next.x - t.x, y: next.y - t.y };
+      t = next;
+      out.push(t);
+    }
+    return out.map((q, i) => lanePoint(q, i ? { x: q.x - out[i - 1].x, y: q.y - out[i - 1].y } : d));
+  }
+
+  // Walking the dog: along the sidewalk the way you're facing, round the
+  // bends, and where the way divides, the way you asked (or back round).
+  planWalk(f, h) {
+    const w = this.walk;
+    if (h.node !== f.last && w.adj[h.node].length > 2) f.intent = 'straight';
+    f.last = h.node;
+    let a = h.node;
+    let b = h.path[0];
+    if (b === undefined) {
+      // Standing still: the way you're facing.
+      const p = w.nodes[a];
+      const fx = Math.cos(h.head);
+      const fy = Math.sin(h.head);
+      const ways = w.adj[a].map((e) => e.to).sort((u, v) => {
+        const dot = (n) => ((w.nodes[n].x - p.x) * fx + (w.nodes[n].y - p.y) * fy) / Math.hypot(w.nodes[n].x - p.x, w.nodes[n].y - p.y);
+        return dot(v) - dot(u);
+      });
+      b = f.intent === 'back' ? ways.at(-1) : ways[0];
+      if (f.intent === 'back') f.intent = 'straight';
+    } else if (f.intent === 'back') {
+      [a, b] = [b, a];
+      f.intent = 'straight';
+    }
+    const to = this.targetPlace(h) && this.spot.get(this.targetPlace(h).id);
+    f.hint = to !== undefined && to !== false ? walkTurn(w, a, b, to) : null;
+    f.route = to !== undefined && to !== false ? w.route(b, to).map((n) => w.nodes[n]) : [];
+    h.path = [b, ...walkAhead(w, a, b, f.intent)];
+  }
+
+  // Where the postal worker is, out of the van on a delivery.
+  postie(d) {
+    const f = d.t / DELIVER;
+    const out = f < 0.5;
+    const q = out ? Math.min(1, f / 0.4) : Math.max(0, 1 - (f - 0.6) / 0.4);
+    const e = q * q * (3 - 2 * q);
+    return {
+      x: d.from.x + (d.to.x - d.from.x) * e,
+      y: d.from.y + (d.to.y - d.from.y) * e,
+      head: Math.atan2(d.to.y - d.from.y, d.to.x - d.from.x) + (out ? 0 : Math.PI),
+      out,
+      walking: q > 0 && q < 1,
+    };
+  }
+
   // ------------------------------------------------------------- camera
 
   // Where the camera wants to be: on the helper that's busy (the one tapped
   // last), close in; a moment after the job's done, back out to see all the
-  // helpers and where they're going next. Still while a finger is leading
-  // one (so the spot under it stays put), or after the town's been dragged.
+  // helpers and where they're going next. Still for a while after the town's
+  // been dragged.
   goal(dt) {
     const busy = (h) => h.path.length > 0 || h.pause > 0 || !!h.deliver;
     if (this.won) return { x: SIZE / 2, y: SIZE / 2, k: this.kFit };
-    if (this.drag) {
-      this.calm = 0;
-      return null;
-    }
     const f = (this.focus && busy(this.focus) && this.focus) || this.helpers.find(busy);
     if (f) {
       this.focus = f;
@@ -461,25 +577,12 @@ export class Play {
     this.intro -= dt;
     this.manual -= dt;
     const c = this.cam;
-    const goal = this.goal(dt);
+    const goal = this.fp ? null : this.goal(dt);
     if (goal) {
       const a = 1 - Math.exp(-dt * 2.6);
       c.x += (goal.x - c.x) * a;
       c.y += (goal.y - c.y) * a;
       c.k += (goal.k - c.k) * (1 - Math.exp(-dt * 1.8));
-    }
-    // Leading a helper off the edge of the screen: the town scrolls along.
-    const d = this.drag;
-    if (d?.moved) {
-      const m = 50;
-      const ex = d.sx < m ? d.sx - m : d.sx > this.W - m ? d.sx - this.W + m : 0;
-      const ey = d.sy < m ? d.sy - m : d.sy > this.viewH - m ? d.sy - this.viewH + m : 0;
-      if (ex || ey) {
-        const s = this.view.shift(ex * dt * 3, ey * dt * 3);
-        c.x += s.x;
-        c.y += s.y;
-        this.steer();
-      }
     }
     c.x = clamp(c.x, 0, SIZE);
     c.y = clamp(c.y, 0, SIZE);
@@ -491,6 +594,7 @@ export class Play {
   update(dt) {
     this.t += dt;
     this.traffic.t = this.t;
+    if (this.fp) this.fpSteer(dt);
     const move = (m) => {
       if (m.pause > 0) {
         m.pause -= dt;
@@ -502,11 +606,12 @@ export class Play {
       }
       m.playing = 0;
       const helper = m.kind !== 'car' && m.kind !== 'person';
+      const speed = this.fp?.h === m ? this.fp.v : SPEED[m.kind];
       if (m.kind === 'walker' || m.kind === 'person') {
-        const node = this.traffic.walk(m, SPEED[m.kind], dt);
+        const node = this.traffic.walk(m, speed, dt);
         if (node !== null && helper) this.reached(m, node);
       } else {
-        const tile = this.traffic.drive(m, SPEED[m.kind], dt);
+        const tile = this.traffic.drive(m, speed, dt);
         if (tile && helper) this.arrive(m, tile);
       }
     };
@@ -563,95 +668,10 @@ export class Play {
   // --------------------------------------------------------------- draw
 
   draw() {
-    const { g, view } = this;
-    const k = view.k;
+    const { g } = this;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const sky = g.createLinearGradient(0, 0, 0, this.viewH);
-    sky.addColorStop(0, '#a9dcff');
-    sky.addColorStop(1, '#e4f6ff');
-    g.fillStyle = sky;
-    g.fillRect(0, 0, this.W, this.viewH);
-    g.save();
-    g.beginPath();
-    g.rect(0, 0, this.W, this.viewH);
-    g.clip();
-    I.paint(g, view, I.slab(SIZE).parts);
-    this.drawGround();
-    // Shadows on the ground.
-    const shadow = 'rgba(0,0,0,0.16)';
-    for (const m of [...this.helpers, ...this.ambient]) I.disc(g, view, m.x, m.y, m.kind === 'person' || m.kind === 'walker' ? 0.12 : 0.3, m.kind === 'person' || m.kind === 'walker' ? 0.12 : 0.3, shadow);
-    // Where each helper's going next, while driving: a dotted trail along
-    // the streets (or sidewalks) to it.
-    const bob = Math.sin(this.t * 5) * k * 0.06;
-    const ways = new Map();
-    for (const h of this.helpers) {
-      if (h.path.length || h.pause > 0 || !this.targetPlace(h)) continue;
-      ways.set(h, this.way(h));
-      if (!this.town.drive) continue;
-      g.strokeStyle = COLORS[h.kind];
-      g.globalAlpha = 0.6;
-      g.lineWidth = Math.max(2, k * 0.08);
-      g.setLineDash([k * 0.08, k * 0.14]);
-      g.beginPath();
-      ways.get(h).forEach((p, i) => {
-        const [x, y] = view.at(p.x, p.y);
-        if (i) g.lineTo(x, y);
-        else g.moveTo(x, y);
-      });
-      g.stroke();
-      g.setLineDash([]);
-      g.globalAlpha = 1;
-    }
-    // Everything standing up, back to front -- see-through when it's in
-    // front of a helper.
-    const things = this.things();
-    const spots = this.helpers.map((h) => ({ d: view.depth(h.x, h.y), at: view.at(h.x, h.y, 0.2) }));
-    for (const o of things.sort((a, b) => a.d - b.d)) {
-      let alpha = 1;
-      if (o.tall) {
-        const [ox, oy] = view.at(o.x, o.y);
-        if (spots.some((s) => s.d < o.d && Math.abs(s.at[0] - ox) < k * 0.5 && s.at[1] > oy - k * o.tall && s.at[1] < oy + k * 0.3)) alpha = 0.35;
-      }
-      o.draw(alpha);
-    }
-    // Arrows over where the helpers are going, and the letters and parcels
-    // houses are waiting for.
-    const waiting = new Map();
-    for (const j of this.town.jobs) if (!this.done.has(j.i) && (j.kind === 'letter' || j.kind === 'parcel')) waiting.set(j.place, ICONS[j.kind]);
-    for (const p of this.town.places) {
-      if (!waiting.has(p.id)) continue;
-      const [x, y] = view.at(p.x + (p.w || 1) / 2, p.y + (p.h || 1) / 2, 0.75);
-      D.bubble(g, x, y, k * 0.9, waiting.get(p.id), bob);
-    }
-    for (const [h, way] of ways) {
-      const dest = this.targetPlace(h);
-      const [x, y] = view.at(dest.x + (dest.w || 1) / 2, dest.y + (dest.h || 1) / 2, 0.85);
-      D.arrow(g, x, y, k, COLORS[h.kind], bob);
-      // (Until you've driven one: a finger showing how, along the trail.)
-      if (this.town.drive && !this.driven && h === this.helpers.find((o) => ways.has(o)) && way.length > 1) {
-        const f = Math.min(1, (this.t % 3) / 2.4) * (way.length - 1);
-        const a = way[Math.floor(f)];
-        const b = way[Math.min(way.length - 1, Math.floor(f) + 1)];
-        const u = f - Math.floor(f);
-        const [hx, hy] = view.at(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u);
-        g.font = `${Math.round(Math.max(28, k * 0.7))}px system-ui, sans-serif`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText('👆', hx + k * 0.12, hy + k * 0.3);
-      }
-    }
-    // Little pictures popping up where a job was done.
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    for (const f of this.fx) {
-      const [x, y] = view.at(f.x, f.y, 0.7 + f.t * 0.8);
-      g.globalAlpha = Math.max(0, 1 - f.t / 1.4);
-      g.font = `${Math.round(k * (0.5 + f.t * 0.3))}px system-ui, sans-serif`;
-      g.fillText(f.icon, x, y);
-    }
-    g.globalAlpha = 1;
-    g.restore();
-    this.drawTray();
+    if (this.fp) this.drawSeat();
+    else this.drawTown();
     for (const c of this.confetti) {
       g.save();
       g.translate(c.x, c.y);
@@ -662,17 +682,223 @@ export class Play {
     }
   }
 
-  // Is a spot in the town too far off screen for anything there to show?
-  offScreen(x, y) {
-    const [sx, sy] = this.view.at(x, y);
-    const k = this.view.k;
-    return sx < -k * 1.3 || sx > this.W + k * 1.3 || sy < -k * 0.7 || sy > this.viewH + k * 1.3;
+  sky(h) {
+    const { g } = this;
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#a9dcff');
+    sky.addColorStop(1, '#e4f6ff');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, this.W, h);
+  }
+
+  // The town from above.
+  drawTown() {
+    const { g, view } = this;
+    const k = view.k;
+    this.sky(this.viewH);
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, this.W, this.viewH);
+    g.clip();
+    I.paint(g, view, I.slab(SIZE).parts);
+    this.drawGround(view);
+    // Everything standing up, back to front -- see-through when it's in
+    // front of a helper.
+    const spots = this.helpers.map((h) => ({ d: view.depth(h.x, h.y), at: view.at(h.x, h.y, 0.2) }));
+    for (const o of this.things(view).sort((a, b) => a.d - b.d)) {
+      let alpha = 1;
+      if (o.tall) {
+        const [ox, oy] = view.at(o.x, o.y);
+        if (spots.some((s) => s.d < o.d && Math.abs(s.at[0] - ox) < k * 0.5 && s.at[1] > oy - k * o.tall && s.at[1] < oy + k * 0.3)) alpha = 0.35;
+      }
+      o.draw(alpha);
+    }
+    this.overlays(view, this.helpers.filter((h) => !h.path.length && h.pause <= 0));
+    g.restore();
+    this.drawTray(false);
+  }
+
+  // From the driver's seat (the walker's eyes; the postal worker's, out on
+  // a delivery): the town all round at street level, the way to the job in
+  // dots, the dashboard and wheel -- and the buttons.
+  drawSeat() {
+    const { g, eye } = this;
+    const f = this.fp;
+    const h = f.h;
+    const d = h.deliver;
+    if (d) {
+      const p = this.postie(d);
+      eye.set(p.x, p.y, 0.42, p.head, -0.28);
+    } else if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head, -0.34);
+    else eye.set(h.x + Math.cos(f.head) * 0.2, h.y + Math.sin(f.head) * 0.2, 0.36, f.head, -0.16);
+    this.sky(this.seatH);
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, this.W, this.seatH);
+    g.clip();
+    // Fields all round the town, then the town.
+    I.rect(g, eye, -40, -40, SIZE + 40, SIZE + 40, '#7cc15a');
+    I.rect(g, eye, 0, 0, SIZE, SIZE, '#8fd16a');
+    this.drawGround(eye);
+    // The way to the job: dots along it.
+    if (!d) {
+      const pts = f.route || [];
+      let left = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const [a, b] = [pts[i - 1], pts[i]];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        for (; left < len; left += 0.35) {
+          const u = left / len;
+          I.disc(g, eye, a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, 0.06, 0.06, '#ffd166', 0.01);
+        }
+        left -= len;
+      }
+    }
+    for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
+    this.overlays(eye, d ? [] : [h]);
+    // In the cab: the dashboard and the wheel, turning as you turn.
+    if (h.kind !== 'walker' && !d) this.dashboard(h, f.wheel);
+    // Out with the letter or parcel, held out in front.
+    if (d && this.postie(d).out) {
+      g.font = `${Math.round(this.W * 0.22)}px system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(ICONS[d.kind], this.W / 2, this.seatH - this.W * 0.13);
+    }
+    g.restore();
+    this.drawPads();
+    this.drawTray(true);
+  }
+
+  // The dashboard across the bottom of the windscreen, in the cab's colour,
+  // and the steering wheel.
+  dashboard(h, wheel) {
+    const { g, W } = this;
+    const top = this.seatH - Math.min(90, this.seatH * 0.16);
+    g.fillStyle = { garbage: '#2f3e46', mail: '#3d0e14', mixer: '#4a3b1a' }[h.kind] || '#333333';
+    g.beginPath();
+    g.moveTo(0, this.seatH);
+    g.lineTo(0, top + 18);
+    g.quadraticCurveTo(W / 2, top - 14, W, top + 18);
+    g.lineTo(W, this.seatH);
+    g.closePath();
+    g.fill();
+    const r = Math.min(W * 0.2, 80);
+    const cx = W / 2;
+    const cy = this.seatH + r * 0.25;
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(wheel);
+    g.strokeStyle = '#1b1b1b';
+    g.lineWidth = r * 0.22;
+    g.beginPath();
+    g.arc(0, 0, r, 0, Math.PI * 2);
+    g.stroke();
+    g.lineWidth = r * 0.14;
+    g.beginPath();
+    for (const a of [Math.PI, 0, -Math.PI / 2]) {
+      g.moveTo(0, 0);
+      g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    g.stroke();
+    g.fillStyle = COLORS[h.kind];
+    g.beginPath();
+    g.arc(0, 0, r * 0.28, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+
+  // Arrows over where the helpers (those given) are going next, and the
+  // letters and parcels houses are waiting for; little pictures popping up
+  // where a job was done.
+  overlays(view, pointing) {
+    const { g } = this;
+    const bob = Math.sin(this.t * 5) * 0.06;
+    const size = (x, y, z) => Math.min(150, view.scale(x, y, z));
+    const waiting = new Map();
+    for (const j of this.town.jobs) if (!this.done.has(j.i) && (j.kind === 'letter' || j.kind === 'parcel')) waiting.set(j.place, ICONS[j.kind]);
+    for (const p of this.town.places) {
+      if (!waiting.has(p.id)) continue;
+      const [x, y, z] = [p.x + (p.w || 1) / 2, p.y + (p.h || 1) / 2, 0.75];
+      const at = view.at(x, y, z);
+      if (at) D.bubble(g, at[0], at[1], size(x, y, z) * 0.9, waiting.get(p.id), bob * size(x, y, z));
+    }
+    for (const h of pointing) {
+      const dest = this.targetPlace(h);
+      if (!dest) continue;
+      const [x, y, z] = [dest.x + (dest.w || 1) / 2, dest.y + (dest.h || 1) / 2, 0.85];
+      const at = view.at(x, y, z);
+      if (at) D.arrow(g, at[0], at[1], size(x, y, z), COLORS[h.kind], bob * size(x, y, z));
+    }
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    for (const f of this.fx) {
+      const at = view.at(f.x, f.y, 0.7 + f.t * 0.8);
+      if (!at) continue;
+      g.globalAlpha = Math.max(0, 1 - f.t / 1.4);
+      g.font = `${Math.round(size(f.x, f.y, 0.7) * (0.5 + f.t * 0.3))}px system-ui, sans-serif`;
+      g.fillText(f.icon, at[0], at[1]);
+    }
+    g.globalAlpha = 1;
+  }
+
+  // The driving buttons: ◀ ▲ ▶ along the bottom (the way to turn glowing),
+  // and the way back out to the town, top left.
+  drawPads() {
+    const { g } = this;
+    const f = this.fp;
+    g.fillStyle = '#f1f5f9';
+    g.fillRect(0, this.seatH, this.W, this.H - this.seatH);
+    const glow = 0.5 + 0.5 * Math.sin(this.t * 8);
+    for (const b of this.pads) {
+      const lit = (b.act === 'left' || b.act === 'right') && (f.hint === b.act || f.hint === 'back') && f.intent !== b.act
+        || (b.act === 'go' && f.gas === null && f.hint);
+      if (lit) {
+        g.fillStyle = `rgba(255,200,0,${0.35 + 0.4 * glow})`;
+        g.beginPath();
+        g.arc(b.x, b.y, b.r + 9, 0, Math.PI * 2);
+        g.fill();
+      }
+      const on = (b.act === 'go' && f.gas !== null) || f.intent === b.act;
+      g.fillStyle = b.act === 'go' ? (on ? '#1b9e4b' : '#2ecc71') : b.act === 'exit' ? '#ffffff' : on ? '#ffd166' : '#ffffff';
+      g.strokeStyle = '#1d3557';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      if (b.act === 'exit') {
+        g.font = `${Math.round(b.r * 1.1)}px system-ui, sans-serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText('🗺️', b.x, b.y + 1);
+        continue;
+      }
+      // An arrow: up, left or right.
+      const a = { go: -Math.PI / 2, left: Math.PI, right: 0 }[b.act];
+      const s = b.r * 0.55;
+      g.fillStyle = b.act === 'go' ? '#ffffff' : '#1d3557';
+      g.beginPath();
+      g.moveTo(b.x + Math.cos(a) * s, b.y + Math.sin(a) * s);
+      g.lineTo(b.x + Math.cos(a + 2.4) * s, b.y + Math.sin(a + 2.4) * s);
+      g.lineTo(b.x + Math.cos(a - 2.4) * s, b.y + Math.sin(a - 2.4) * s);
+      g.closePath();
+      g.fill();
+    }
+  }
+
+  // Could anything at (x, y) show, from this camera?
+  seen(view, x, y) {
+    if (view instanceof I.Eye) return view.sees(x, y);
+    const [sx, sy] = view.at(x, y);
+    const k = view.k;
+    return sx > -k * 1.3 && sx < this.W + k * 1.3 && sy > -k * 0.7 && sy < this.viewH + k * 1.3;
   }
 
   // The ground: the places' yards, the sidewalks and streets, the middle
   // lines, crosswalks and stop lines.
-  drawGround() {
-    const { g, view } = this;
+  drawGround(view) {
+    const { g } = this;
     const R = (x0, y0, x1, y1, c) => I.rect(g, view, x0, y0, x1, y1, c);
     for (const p of this.town.places) {
       const c = { park: '#6cc04a', lot: '#c8a27a', dump: '#a98467', yard: '#e9c46a' }[p.kind];
@@ -680,7 +906,7 @@ export class Play {
       if (p.kind === 'park') I.disc(g, view, p.x + 1.25, p.y + 1.2, 0.42, 0.3, '#4cc9f0');
     }
     const roads = [];
-    for (let x = 0; x < SIZE; x++) for (let y = 0; y < SIZE; y++) if (isRoad(x, y) && !this.offScreen(x + 0.5, y + 0.5)) roads.push([x, y]);
+    for (let x = 0; x < SIZE; x++) for (let y = 0; y < SIZE; y++) if (isRoad(x, y) && this.seen(view, x + 0.5, y + 0.5)) roads.push([x, y]);
     const W = 0.18;
     for (const [x, y] of roads) R(x - W, y - W, x + 1 + W, y + 1 + W, '#b5bac2');
     for (const [x, y] of roads) R(x - W + 0.02, y - W + 0.02, x + 1 + W - 0.02, y + 1 + W - 0.02, '#e1e4e9');
@@ -698,7 +924,7 @@ export class Play {
       }
     }
     for (const { ix: x, iy: y, arm } of this.crossings) {
-      if (this.offScreen(x + 0.5, y + 0.5)) continue;
+      if (!this.seen(view, x + 0.5, y + 0.5)) continue;
       for (let q = 0; q < 5; q++) {
         const o = 0.06 + q * 0.2;
         if (arm === 'n') R(x + o, y - 0.4, x + o + 0.1, y - 0.1, white);
@@ -711,25 +937,36 @@ export class Play {
       if (arm === 'w') R(x - 0.48, y + 0.5, x - 0.44, y + 1, white);
       if (arm === 'e') R(x + 1.44, y, x + 1.48, y + 0.5, white);
     }
+    // Shadows under everyone.
+    for (const m of [...this.helpers, ...this.ambient]) {
+      if (this.fp?.h === m && !m.deliver) continue;
+      const r = m.kind === 'person' || m.kind === 'walker' ? 0.12 : 0.3;
+      if (view instanceof I.Eye && Math.hypot(m.x - view.x, m.y - view.y) < 0.45) continue;
+      if (this.seen(view, m.x, m.y)) I.disc(g, view, m.x, m.y, r, r, 'rgba(0,0,0,0.16)');
+    }
   }
 
   // Everything standing up in the town: { x, y (where it stands), d (how
   // near), tall (how high it stands, if it can hide a helper), draw(alpha) }.
-  things() {
-    const { g, view, t } = this;
-    const k = view.k;
+  // (From the driver's seat, not the truck you're in -- just the dog, when
+  // you're walking it.)
+  things(view) {
+    const { g, t } = this;
     const list = [];
-    const add = (x, y, draw, tall = 0) => {
-      if (this.offScreen(x, y)) return;
+    const add = (x, y, draw, tall = 0, close = 0.2) => {
+      if (!this.seen(view, x, y)) return;
+      // (Not anyone right on top of you, filling the view.)
+      if (view instanceof I.Eye && Math.hypot(x - view.x, y - view.y) < close) return;
       list.push({ x, y, d: view.depth(x, y), tall, draw });
     };
-    const model = (m, tall) => add(m.x, m.y, (a) => I.paint(g, view, m.parts, a), tall);
+    const model = (m, tall, close) => add(m.x, m.y, (a) => I.paint(g, view, m.parts, a), tall, close);
     const sign = (x, y, z, icon) => {
-      const [sx, sy] = view.at(x, y, z);
-      g.font = `${Math.round(k * 0.34)}px system-ui, sans-serif`;
+      const at = view.at(x, y, z);
+      if (!at) return;
+      g.font = `${Math.round(Math.min(120, view.scale(x, y, z) * 0.34))}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(icon, sx, sy);
+      g.fillText(icon, at[0], at[1]);
     };
     const taken = new Set();
     for (const p of this.town.places) {
@@ -773,7 +1010,11 @@ export class Play {
       }
     }
     // The traffic lights on the corners, and the walk signals by the
-    // crosswalks.
+    // crosswalks (drawn flat, facing you).
+    const flatOn = (x, y, z, draw) => {
+      const at = view.at(x, y, z);
+      if (at) draw(at, Math.min(220, view.scale(x, y, z)));
+    };
     for (const { x, y } of this.junctions) {
       if (!isLit(x, y)) continue;
       const l = lights(x, y, t);
@@ -781,8 +1022,7 @@ export class Play {
         const m = I.pole(x + cx, y + cy, 0.42);
         add(x + cx, y + cy, () => {
           I.paint(g, view, m.parts);
-          const [sx, sy] = view.at(x + cx, y + cy, 0.62);
-          D.signal(g, sx, sy, k * 0.8, l[axis]);
+          flatOn(x + cx, y + cy, 0.62, ([sx, sy], s) => D.signal(g, sx, sy, s * 0.8, l[axis]));
         });
       }
     }
@@ -794,8 +1034,7 @@ export class Play {
         const m = I.pole(c.ix + cx, c.iy + cy, 0.3);
         add(c.ix + cx, c.iy + cy, () => {
           I.paint(g, view, m.parts);
-          const [sx, sy] = view.at(c.ix + cx, c.iy + cy, 0.38);
-          D.walkSign(g, sx, sy, k * 0.7, sign2, t);
+          flatOn(c.ix + cx, c.iy + cy, 0.38, ([sx, sy], s) => D.walkSign(g, sx, sy, s * 0.7, sign2, t));
         });
       }
     }
@@ -804,12 +1043,14 @@ export class Play {
     for (const m of [...this.ambient, ...this.helpers]) {
       const helper = this.helpers.includes(m);
       const idle = helper && !m.path.length && m.pause <= 0 && this.target(m);
-      const lift = Math.sin(m.hop * Math.PI) * 0.35 + (idle ? Math.max(0, Math.sin(t * 4)) * 0.15 : 0);
+      const lift = Math.sin(m.hop * Math.PI) * 0.35 + (idle && !this.fp ? Math.max(0, Math.sin(t * 4)) * 0.15 : 0);
       const going = m.path.length > 0 && !m.wait;
+      const me = this.fp?.h === m;
       if (m.kind === 'person' || m.kind === 'walker') {
         const dog = m.kind === 'walker';
-        model(I.person(m.x, m.y, m.head, t, dog ? COLORS.walker : m.color, { walking: going || m.playing > 0, dog, z: lift }));
-      } else {
+        if (me) model(I.dog(m.x, m.y, m.head, t, going), 0, 0);
+        else model(I.person(m.x, m.y, m.head, t, dog ? COLORS.walker : m.color, { walking: going || m.playing > 0, dog, z: lift }), 0, 0.45);
+      } else if (!me || m.deliver) {
         const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift);
         add(m.x, m.y, (a) => {
           I.paint(g, view, v.parts, a);
@@ -817,60 +1058,62 @@ export class Play {
         });
       }
       // The postal worker out of the van, up to the door with the letter
-      // or parcel, and back without it.
-      const d = m.deliver;
-      if (d) {
-        const f = d.t / DELIVER;
-        const out = f < 0.5;
-        const q = out ? Math.min(1, f / 0.4) : Math.max(0, 1 - (f - 0.6) / 0.4);
-        const e = q * q * (3 - 2 * q);
-        const px = d.from.x + (d.to.x - d.from.x) * e;
-        const py = d.from.y + (d.to.y - d.from.y) * e;
-        const head = Math.atan2(d.to.y - d.from.y, d.to.x - d.from.x) + (out ? 0 : Math.PI);
-        model(I.person(px, py, head, t, '#1d4e89', { walking: q > 0 && q < 1, postie: true, carry: out ? d.kind : null }));
+      // or parcel, and back without it. (Unless it's you.)
+      if (m.deliver && !me) {
+        const p = this.postie(m.deliver);
+        model(I.person(p.x, p.y, p.head, t, '#1d4e89', { walking: p.walking, postie: true, carry: p.out ? m.deliver.kind : null }));
       }
     }
     return list;
   }
 
-  // The level's jobs as pictures, each ticked off when it's done, between
-  // the two turn buttons.
-  drawTray() {
+  // The level's jobs as pictures, each ticked off when it's done: in the
+  // band at the bottom between the two turn buttons -- or, in the driver's
+  // seat, small along the top.
+  drawTray(seat) {
     const { g } = this;
-    const top = this.viewH;
-    g.fillStyle = '#f1f5f9';
-    g.fillRect(0, top, this.W, this.trayH);
-    g.fillStyle = 'rgba(0,0,0,0.08)';
-    g.fillRect(0, top, this.W, 2);
     const jobs = this.town.jobs;
-    const box = BOX;
-    const gap = 5;
-    const cols = Math.min(jobs.length, this.per);
-    const rows = Math.ceil(jobs.length / this.per);
-    const y0 = top + (this.trayH - rows * (box + gap) + gap) / 2;
+    const box = seat ? 30 : BOX;
+    const gap = seat ? 4 : 5;
+    const per = seat ? Math.max(1, Math.floor((this.W - 90) / (box + gap))) : this.per;
+    const cols = Math.min(jobs.length, per);
+    const rows = Math.ceil(jobs.length / per);
+    let y0;
+    if (seat) {
+      y0 = 10;
+    } else {
+      const top = this.viewH;
+      g.fillStyle = '#f1f5f9';
+      g.fillRect(0, top, this.W, this.trayH);
+      g.fillStyle = 'rgba(0,0,0,0.08)';
+      g.fillRect(0, top, this.W, 2);
+      y0 = top + (this.trayH - rows * (box + gap) + gap) / 2;
+    }
+    const x0 = seat ? 70 + (this.W - 70 - cols * (box + gap)) / 2 : (this.W - cols * (box + gap) + gap) / 2;
     jobs.forEach((j, n) => {
-      const x = (this.W - cols * (box + gap) + gap) / 2 + (n % this.per) * (box + gap);
-      const y = y0 + Math.floor(n / this.per) * (box + gap);
+      const x = x0 + (n % per) * (box + gap);
+      const y = y0 + Math.floor(n / per) * (box + gap);
       const done = this.done.has(j.i);
       g.fillStyle = done ? '#c7f9cc' : '#fff';
       g.strokeStyle = COLORS[this.town.helpers.find((h) => h.id === j.helper).kind];
-      g.lineWidth = 3;
+      g.lineWidth = seat ? 2 : 3;
       g.beginPath();
-      g.roundRect(x, y, box, box, 10);
+      g.roundRect(x, y, box, box, seat ? 7 : 10);
       g.fill();
       g.stroke();
-      g.font = '24px system-ui, sans-serif';
+      g.font = `${Math.round(box * 0.6)}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.globalAlpha = done ? 0.45 : 1;
       g.fillText(j.kind === 'build' && j.stage === 3 ? '🏠' : ICONS[j.kind], x + box / 2, y + box / 2 + 1);
       g.globalAlpha = 1;
       if (done) {
-        g.font = '900 22px system-ui, sans-serif';
+        g.font = `900 ${Math.round(box * 0.55)}px system-ui, sans-serif`;
         g.fillStyle = '#2b9348';
-        g.fillText('✓', x + box - 9, y + 11);
+        g.fillText('✓', x + box - box * 0.22, y + box * 0.27);
       }
     });
+    if (seat) return;
     // The turn buttons: round arrows, anticlockwise and clockwise.
     for (const b of this.buttons) {
       g.fillStyle = '#ffffff';

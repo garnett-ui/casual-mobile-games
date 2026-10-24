@@ -3,9 +3,11 @@
 // in quarter turns, flat-shaded and drawn back to front.
 //
 // World coordinates are the town's tiles: x east, y south, z up (a tile is
-// 1 x 1).
+// 1 x 1). Two cameras: View, the town from above at an angle, and Eye, from
+// the driver's seat (in perspective).
 
 const COS30 = Math.cos(Math.PI / 6);
+const NEAR = 0.03; // the Eye sees nothing nearer than this
 
 // The camera: looking at (x, y) on the ground, k pixels to a tile, turned
 // yaw quarter turns (fractional while it's turning), the point looked at at
@@ -54,6 +56,97 @@ export class View {
     const v = dsy / (0.5 * this.k);
     return { x: u * this.c + v * this.s, y: -u * this.s + v * this.c };
   }
+
+  // A shape's corners on screen.
+  poly(pts) {
+    return pts.map((q) => this.at(q[0], q[1], q[2]));
+  }
+
+  // Does a face (outward normal n) face the camera?
+  facing(n) {
+    return n[0] * this.eye[0] + n[1] * this.eye[1] + n[2] * this.eye[2] > 1e-6;
+  }
+
+  // Pixels to a tile (the same everywhere, from up here).
+  scale() {
+    return this.k;
+  }
+}
+
+// The camera in the driver's seat: at (x, y, z) looking along heading h,
+// tipped down a little (pitch); F the focal length in pixels, the horizon
+// straight ahead at (ox, oy) on screen.
+export class Eye {
+  constructor() {
+    Object.assign(this, { F: 300, ox: 0, oy: 0 });
+    this.set(0, 0, 0.37, 0, -0.15);
+    const n = Math.hypot(-0.35, 0.55, 0.8);
+    this.light = [-0.35 / n, 0.55 / n, 0.8 / n];
+  }
+
+  set(x, y, z, h, pitch = this.pitch) {
+    Object.assign(this, { x, y, z, h, pitch });
+    this.fx = Math.cos(h);
+    this.fy = Math.sin(h);
+    this.cp = Math.cos(pitch);
+    this.sp = Math.sin(pitch);
+  }
+
+  // A point relative to the eye: [right, up, ahead].
+  cam(x, y, z) {
+    const dx = x - this.x;
+    const dy = y - this.y;
+    const dz = z - this.z;
+    const fwd = dx * this.fx + dy * this.fy;
+    return [-dx * this.fy + dy * this.fx, -fwd * this.sp + dz * this.cp, fwd * this.cp + dz * this.sp];
+  }
+
+  proj([xc, yc, zc]) {
+    return [this.ox + (xc / zc) * this.F, this.oy - (yc / zc) * this.F];
+  }
+
+  at(x, y, z = 0) {
+    const c = this.cam(x, y, z);
+    return c[2] < NEAR ? null : this.proj(c);
+  }
+
+  // A shape's corners on screen, cut off where it passes behind the eye
+  // (null if it's all behind).
+  poly(pts) {
+    const cs = pts.map((q) => this.cam(q[0], q[1], q[2]));
+    const out = [];
+    for (let i = 0; i < cs.length; i++) {
+      const a = cs[i];
+      const b = cs[(i + 1) % cs.length];
+      if (a[2] >= NEAR) out.push(a);
+      if ((a[2] >= NEAR) !== (b[2] >= NEAR)) {
+        const t = (NEAR - a[2]) / (b[2] - a[2]);
+        out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR]);
+      }
+    }
+    return out.length >= 3 ? out.map((c) => this.proj(c)) : null;
+  }
+
+  // Nearer: more (drawn later).
+  depth(x, y, z = 0) {
+    return -Math.hypot(x - this.x, y - this.y, z - this.z);
+  }
+
+  facing(n, p) {
+    return n[0] * (this.x - p[0]) + n[1] * (this.y - p[1]) + n[2] * (this.z - p[2]) > 1e-6;
+  }
+
+  // Pixels to a tile, at a point (0 behind the eye).
+  scale(x, y, z = 0) {
+    const c = this.cam(x, y, z);
+    return c[2] < NEAR ? 0 : this.F / c[2];
+  }
+
+  // Could anything standing at (x, y) be in sight?
+  sees(x, y) {
+    const c = this.cam(x, y, 0);
+    return c[2] > -1.2 && Math.hypot(x - this.x, y - this.y) < 16;
+  }
 }
 
 // A colour (#rrggbb) in light or shade (f: 1 as it is).
@@ -73,9 +166,10 @@ export function shade(hex, f) {
 
 // A shape on the ground (or at height z): points [x, y].
 export function flat(g, view, pts, fill, z = 0) {
+  const s = view.poly(pts.map(([x, y]) => [x, y, z]));
+  if (!s) return;
   g.beginPath();
-  pts.forEach(([x, y], i) => {
-    const [sx, sy] = view.at(x, y, z);
+  s.forEach(([sx, sy], i) => {
     if (i) g.lineTo(sx, sy);
     else g.moveTo(sx, sy);
   });
@@ -86,8 +180,8 @@ export function flat(g, view, pts, fill, z = 0) {
 export const rect = (g, view, x0, y0, x1, y1, fill, z = 0) => flat(g, view, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], fill, z);
 // A circle on the ground (an ellipse on screen).
 export function disc(g, view, x, y, rx, ry, fill, z = 0) {
-  const [sx, sy] = view.at(x, y, z);
-  if (Math.abs(rx - ry) < 1e-6) {
+  if (view instanceof View && Math.abs(rx - ry) < 1e-6) {
+    const [sx, sy] = view.at(x, y, z);
     g.beginPath();
     g.ellipse(sx, sy, rx * view.k, rx * view.k * 0.5, 0, 0, Math.PI * 2);
     g.fillStyle = fill;
@@ -188,7 +282,6 @@ export class Model {
 // Draws things' faces, nearest last: those facing away left out, each
 // shaded by how it faces the light.
 export function paint(g, view, parts, alpha = 1) {
-  const [ex, ey, ez] = view.eye;
   const [lx, ly, lz] = view.light;
   const list = [];
   for (const p of parts) {
@@ -196,7 +289,7 @@ export function paint(g, view, parts, alpha = 1) {
       list.push({ p, d: view.depth(...p.ball) });
       continue;
     }
-    if (p.n[0] * ex + p.n[1] * ey + p.n[2] * ez <= 1e-6) continue;
+    if (!view.facing(p.n, p.pts[0])) continue;
     let d = 0;
     for (const q of p.pts) d += view.depth(q[0], q[1], q[2]);
     list.push({ p, d: d / p.pts.length });
@@ -206,8 +299,10 @@ export function paint(g, view, parts, alpha = 1) {
   g.lineJoin = 'round';
   for (const { p } of list) {
     if (p.ball) {
-      const [sx, sy] = view.at(...p.ball);
-      const r = p.r * view.k;
+      const at = view.at(...p.ball);
+      if (!at) continue;
+      const [sx, sy] = at;
+      const r = p.r * view.scale(...p.ball);
       g.fillStyle = shade(p.c, 0.92);
       g.beginPath();
       g.arc(sx, sy, r, 0, Math.PI * 2);
@@ -226,9 +321,10 @@ export function paint(g, view, parts, alpha = 1) {
 }
 
 function poly(g, view, pts, fill, edge) {
+  const s = view.poly(pts);
+  if (!s) return;
   g.beginPath();
-  pts.forEach((q, i) => {
-    const [x, y] = view.at(q[0], q[1], q[2]);
+  s.forEach(([x, y], i) => {
     if (i) g.lineTo(x, y);
     else g.moveTo(x, y);
   });
@@ -375,13 +471,23 @@ export function person(x, y, h, t, color, opts = {}) {
   }
   if (opts.carry === 'letter') m.box(0.05, -0.055, 0.22, 0.065, 0.055, 0.3, '#ffffff');
   if (opts.carry === 'parcel') m.box(0.05, -0.07, 0.19, 0.17, 0.07, 0.31, '#c68642');
-  if (opts.dog) {
-    const b = Math.abs(Math.sin(t * 12)) * (opts.walking ? 0.02 : 0);
-    m.box(0.12, 0.1, 0.05 + b, 0.3, 0.18, 0.13 + b, '#a0522d');
-    m.box(0.27, 0.105, 0.1 + b, 0.35, 0.175, 0.18 + b, '#a0522d');
-    m.box(0.33, 0.125, 0.12 + b, 0.37, 0.155, 0.15 + b, '#5c2e0e');
-    m.box(0.06, 0.13, 0.12 + b, 0.13, 0.15, 0.14 + b, '#a0522d');
-  }
+  if (opts.dog) addDog(m, t, opts.walking);
+  return m;
+}
+
+// The dog, trotting along at the walker's right.
+function addDog(m, t, walking) {
+  const b = Math.abs(Math.sin(t * 12)) * (walking ? 0.02 : 0);
+  m.box(0.12, 0.1, 0.05 + b, 0.3, 0.18, 0.13 + b, '#a0522d');
+  m.box(0.27, 0.105, 0.1 + b, 0.35, 0.175, 0.18 + b, '#a0522d');
+  m.box(0.33, 0.125, 0.12 + b, 0.37, 0.155, 0.15 + b, '#5c2e0e');
+  m.box(0.06, 0.13, 0.12 + b, 0.13, 0.15, 0.14 + b, '#a0522d');
+}
+
+// Just the dog (seen by its walker).
+export function dog(x, y, h, t, walking) {
+  const m = new Model(x, y, h);
+  addDog(m, t, walking);
   return m;
 }
 

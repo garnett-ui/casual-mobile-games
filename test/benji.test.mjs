@@ -240,3 +240,65 @@ test('the voice: every line it says is listed (to be recorded), and every record
     assert.ok(existsSync(new URL(`../games/benji/voice/${slug(text)}.mp3`, import.meta.url)), `${slug(text)}.mp3 is there`);
   }
 });
+
+// ---------------------------------------------------- being the driver
+
+test('driving yourself: following the turn shown, from where each helper starts, gets you to every door', async () => {
+  const { ahead, driveTurn } = await import('../games/benji/steer.js');
+  const town = makeTown(10);
+  for (const h of town.helpers.filter((x) => x.kind !== 'walker')) {
+    for (const p of town.places) {
+      let t = h.at;
+      let d = startDir(t);
+      let steps = 0;
+      for (; steps < 80 && !(t.x === p.door.x && t.y === p.door.y); steps++) {
+        const path = ahead(t, d, driveTurn(t, d, p.door));
+        assert.ok(path.length, `somewhere to go from ${t.x},${t.y}`);
+        const n = path[0];
+        assert.equal(Math.abs(n.x - t.x) + Math.abs(n.y - t.y), 1, 'a tile at a time, along the streets');
+        assert.ok(isRoad(n.x, n.y));
+        d = { x: n.x - t.x, y: n.y - t.y };
+        t = n;
+      }
+      assert.ok(steps < 80, `${h.kind} from ${h.at.x},${h.at.y} to ${p.id}`);
+    }
+  }
+  // Nothing ahead but a dead end: round, and back.
+  const on = ahead;
+  assert.deepEqual(on({ x: 0, y: 1 }, { x: -1, y: 0 }), [{ x: 1, y: 1 }, { x: 2, y: 1 }]);
+  // At an intersection, out the way you're turning.
+  assert.deepEqual(on({ x: 2, y: 1 }, { x: -1, y: 0 }, 'left'), [{ x: 1, y: 1 }, { x: 1, y: 2 }]);
+  assert.deepEqual(on({ x: 2, y: 1 }, { x: -1, y: 0 }, 'right'), [{ x: 1, y: 1 }, { x: 1, y: 0 }]);
+});
+
+test('walking the dog yourself: following the turn shown gets you to the park and home, and only crosses at crosswalks', async () => {
+  const { onFrom, walkAhead, walkTurn } = await import('../games/benji/steer.js');
+  const w = walkways();
+  const town = makeTown(10);
+  const spots = town.places.map((p) => walkDoor(w, p));
+  for (const from of spots.slice(0, 8)) {
+    for (const to of spots) {
+      if (from === to) continue;
+      let a = from;
+      let b = w.adj[from][0].to;
+      let n = 0;
+      for (; n < 400 && a !== to && b !== to; n++) {
+        const turn = walkTurn(w, a, b, to);
+        if (turn === 'back') {
+          [a, b] = [b, a];
+          continue;
+        }
+        const path = walkAhead(w, a, b, turn);
+        assert.ok(path.length);
+        // (Each step along a sidewalk or a crosswalk: a link in the network.)
+        assert.ok(w.adj[b].some((e) => e.to === path[0]));
+        [a, b] = [b, path[0]];
+      }
+      assert.ok(n < 400, `from ${from} to ${to}`);
+    }
+  }
+  // Round a bend there's only one way on.
+  const bendAt = w.nodes.findIndex((_, i) => w.adj[i].length === 2);
+  const [x, y] = w.adj[bendAt].map((e) => e.to);
+  assert.equal(onFrom(w, x, bendAt), y);
+});

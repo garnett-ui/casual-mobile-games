@@ -538,7 +538,7 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
   }
 });
 
-test('benji’s town: tap the helpers and they do their jobs; later, drive them with a finger; a big yay at the end', { skip: !chromium, timeout: 120000 }, async () => {
+test('benji’s town: tap the helpers and they do their jobs; later, drive them from the driver\'s seat; a big yay at the end', { skip: !chromium, timeout: 120000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -572,40 +572,49 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     assert.equal(await page.locator('.dialog .stars i.on').count(), 3, 'three stars, always');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:benji:progress')));
     assert.equal(saved.unlocked, 2);
-    // A driving level: lead each helper along the streets with a finger.
+    // A driving level: tap a helper and you're in the driver's seat. Hold ▲
+    // to go, and press the turn button that glows; the lights and the
+    // crosswalks hold you up just the same.
     await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:progress', JSON.stringify({ unlocked: 6, stars: {} })));
     await page.goto(`http://localhost:${server.address().port}/#/benji/6`);
     await page.reload();
     await page.waitForFunction(() => window.__benji?.town.drive);
-    // (A tap alone doesn't send it off.)
-    const [truck] = await spots();
-    await page.mouse.click(truck.x, truck.y);
-    await page.waitForTimeout(300);
-    assert.equal(await page.evaluate(() => window.__benji.helpers[0].path.length), 0);
-    for (let k = 0; k < 60 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
-      const plan = await page.evaluate(async () => {
+    const pad = (act) => page.evaluate((act) => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      const b = p.pads.find((q) => q.act === act);
+      return { x: r.left + b.x, y: r.top + b.y };
+    }, act);
+    let seated = false;
+    for (let k = 0; k < 400 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
+      const st = await page.evaluate(() => {
         const p = window.__benji;
-        const { route } = await import('/games/benji/town.js');
-        const h = p.helpers.find((m) => p.target(m));
-        if (!h || h.path.length || h.pause > 0) return null;
-        return { from: p.screenOf(h.x, h.y, 0.25), way: route(h.tile, p.target(h)) };
+        const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
+        return h && { fp: !!p.fp, at: p.screenOf(h.x, h.y, 0.25), hint: p.fp?.hint, intent: p.fp?.intent };
       });
-      if (!plan) {
-        await page.waitForTimeout(500);
+      if (!st) {
+        await page.waitForTimeout(300);
         continue;
       }
-      await page.mouse.move(plan.from.x, plan.from.y);
-      await page.mouse.down();
-      // (The camera holds still while a finger leads, so the way can be
-      // followed on screen.)
-      for (const t of plan.way) {
-        const w = await page.evaluate(([x, y]) => window.__benji.screenOf(x + 0.5, y + 0.5), [t.x, t.y]);
-        await page.mouse.move(w.x, w.y, { steps: 3 });
-        await page.waitForTimeout(120);
+      if (!st.fp) {
+        await page.mouse.up();
+        await page.mouse.click(st.at.x, st.at.y);
+        await page.waitForTimeout(300);
+        continue;
       }
-      await page.waitForTimeout(2500);
-      await page.mouse.up();
+      seated = true;
+      if ((st.hint === 'left' || st.hint === 'right') && st.intent !== st.hint) {
+        await page.mouse.up();
+        const b = await pad(st.hint);
+        await page.mouse.click(b.x, b.y);
+      }
+      const go = await pad('go');
+      await page.mouse.move(go.x, go.y);
+      await page.mouse.down();
+      await page.waitForTimeout(250);
     }
+    await page.mouse.up();
+    assert.ok(seated, 'drove it from the driver\'s seat');
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
     assert.deepEqual(errors, []);
   } finally {

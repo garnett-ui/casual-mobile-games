@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.79.0
+- Benji's Town: be the driver! From level 6, tap a helper and you're in
+  its seat, seeing the little town from the cab of the garbage truck, the
+  mail van or the cement mixer -- or walking the dog. Hold ▲ to go, and ◀
+  ▶ to turn at the corner (the one to press glows, and the town says
+  "Turn left!"). Red lights and crosswalks stop you just like everyone
+  else, and at each house you hop out with the letter or parcel. (This
+  replaces leading them with a finger.)
+
 ## 1.78.0
 - Benji's Town talks in a child's voice: "Tap a truck!", "Red light.
   Stop!", "A package for you!", "Yay! Great job!" and the rest are now
