@@ -162,11 +162,15 @@ test('course 1 is hills and one small jump; logs, climbs, drops, ledges, cliffs 
   delete first.down; // (the slope that closes a set piece)
   assert.deepEqual(first, { hill: 1, jump: 1, log: 2, climb: 2, drop: 3, step: 4, cliff: 4, gap: 5 });
   // From course 3 every course has a set piece, packed close, with a flag just before it.
-  for (const n of [3, 7, 12]) {
+  const setOf = (level) => level.features.filter((f) => f.set).map((f) => f.kind).join('+');
+  for (const n of [3, 4, 5, 6, 7, 12]) {
     const level = makeCourse(n);
     const set = level.features.filter((f) => f.set);
     assert.ok(set.length >= 1, `course ${n} has a set piece`);
     assert.ok(level.flags.some((x) => x < set[0].x0 && x > set[0].x0 - 12), 'with a flag at its start');
+    const after = level.features.filter((f) => !f.set && f.x0 > set.at(-1).x1).length;
+    assert.ok(after >= 2, `course ${n}: ${after} obstacles after the set piece -- it isn't the ending`);
+    if (n > 3) assert.notEqual(setOf(level), setOf(makeCourse(n - 1)), `course ${n} has a different set piece from course ${n - 1}`);
   }
   assert.ok(specFor(1).combo === 0 && specFor(10).combo > specFor(3).combo, 'obstacles come closer together as courses go on');
 });
@@ -215,10 +219,10 @@ test('a fall onto the front wheel pitched down is a crash; the same fall on the 
 });
 
 test('a climb is long and steep but never over 35 degrees; a cliff is sheer and lands on the flat', () => {
-  const level = makeLevel(17); // (as played, re-rolls and all)
+  const level = makeLevel(15); // (as played, re-rolls and all)
   const climb = level.features.find((f) => f.kind === 'climb' && !f.set);
   const cliff = level.features.find((f) => f.kind === 'cliff' && !f.set);
-  assert.ok(climb && cliff, 'course 17 has both');
+  assert.ok(climb && cliff, 'course 15 has both');
   let steepest = 0;
   let top = -Infinity;
   for (let x = climb.x0; x <= climb.x1; x += STEP) {

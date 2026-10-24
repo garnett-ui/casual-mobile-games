@@ -367,20 +367,22 @@ keyboard.
   before every gap, and where a jump, a drop or a cliff comes down there's
   open ground -- or the next part of a combination, a further fall or the
   next kicker, never a log or a ledge. From course 3, each course has a
-  **set piece** in its second half, with a flag just before it:
-  three kickers in a row, one long wall of a climb, a climb to a crest and
-  a cliff straight off it, three ledges up and a cliff down the lot, or
-  the big gap -- whichever the course's obstacles allow, picked by the
-  seed, so the course has a moment the rest builds to. The computer rider rides each
+  **set piece** past the middle, with a flag just before it and more
+  course after: three kickers in a row, one long wall of a climb, a climb
+  to a crest and a cliff straight off it, three ledges up and a cliff down
+  the lot, or the big gap -- taken in turn from those the course's
+  obstacles allow, never the same one two courses running, so the course
+  has a moment the rest builds to. The computer rider rides each
   course at three paces as it is generated; one it can't finish is
   re-rolled, and its best time, rounded up to the second, is **par**.
 - **Stars** against par and your crashes: three for beating par clean, two
   for within 1.5× par with at most one crash, one for getting there. The
   course tile shows your best time.
-- **Flips.** Turn the bike right over in the air (lean hard off a jump) and
-  land it, and each full turn takes two seconds off your clock -- the only
-  way to beat the computer rider's time by much, since it never flips. A
-  turn that isn't finished by the ground is just a crash. One landed gets
+- **Flips.** Turn the bike over in the air (lean hard off a jump) and come
+  down on the wheels -- either wheel first, three quarters of a turn or
+  more -- and each turn takes two seconds off your clock: the only way to
+  beat the computer rider's time by much, since it never flips. A turn that
+  ends on the helmet is just a crash. One landed gets
   the big celebration: a fanfare, the banner swelling (with DOUBLE! or
   TRIPLE! under it for more), a flare going up from behind the finish for
   every turn, and the crowd there forty strong, arms up and jumping, for
@@ -394,7 +396,7 @@ keyboard.
   nose-up off an edge, and in the air the slope where it will come down. It
   carries the speed a gap needs and eases off everywhere else. **SHOW ME**,
   offered after a crash, runs it on the course, at 1×, 2× or 4×.
-- **GHOST** (off to start) rides the computer's par run beside you: a
+- **GHOST** (on from course 3, until you say otherwise) rides the computer's par run beside you: a
   faint blue bike and rider, behind yours, at the point the par ride had
   reached at your time on the clock (so it waits on the start line until
   you touch the gas, and a flip doesn't move it -- the bonus shows at the

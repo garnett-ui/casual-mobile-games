@@ -1,7 +1,7 @@
 // Card illustration for the arcade hub: golden hour over the meadow, the
-// bike mid-backflip off a kicker with a flare bursting behind it -- or, for
-// an hour after the bike has flown over the cow on a tenth course, the cow
-// herself, looking up.
+// bike flying nose-up off a kicker with a flare bursting behind it -- or,
+// for an hour after the bike has flown over the cow on a tenth course, the
+// cow herself, looking up.
 import { paintBike, paintCow } from './play.js';
 import { load } from '../../js/lib/storage.js';
 
@@ -95,10 +95,10 @@ export function paint(canvas) {
     ctx.scale(scale * 1.3, -scale * 1.3);
     paintCow(ctx, 0, 1);
   } else {
-    // A flare bursting behind the bike, then the bike itself, upside down
-    // at the top of a backflip.
-    const bx = W * 0.56;
-    const by = H * 0.36;
+    // A flare bursting behind the bike, then the bike itself, nose up at
+    // the top of its flight.
+    const bx = W * 0.55;
+    const by = H * 0.4;
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2;
       const len = H * (0.08 + 0.05 * (i % 3));
@@ -110,9 +110,9 @@ export function paint(canvas) {
       ctx.stroke();
     }
     ctx.translate(bx, by);
-    ctx.rotate(Math.PI * 0.82);
+    ctx.rotate(-0.5);
     ctx.scale(scale, -scale);
-    paintBike(ctx, { angle: 0, spin: 0.4 }, 1);
+    paintBike(ctx, { angle: 0, spin: 0.4 }, 0.7);
   }
   ctx.restore();
   // The game's vignette, so the card sits with the screens behind it.

@@ -48,8 +48,8 @@ export const LEVEL = { spring: 4, damp: 4 };
 // first), or either wheel at all. About a 2.5 m and a 6 m fall.
 export const HARD = { nose: 7, flat: 11 };
 export const NOSE_DOWN = (20 * Math.PI) / 180; // pitched this far below the ground's slope counts as nose first
-export const FLIP = 0.85 * 2 * Math.PI; // turned this far in the air and landed: a flip
-export const LANDED = (50 * Math.PI) / 180; // within this of the ground's slope at touchdown counts as on the wheels
+export const FLIP = 0.75 * 2 * Math.PI; // turned this far in the air and come down: a flip
+export const LANDED = (80 * Math.PI) / 180; // within this of the ground's slope at touchdown counts as on the wheels (either wheel first)
 export const FLIP_BONUS = 2; // seconds off the clock per flip landed
 export const BASE_SEED = 20261021;
 export const DT = 1 / 240; // physics substep: stiff tyres need small steps
@@ -155,6 +155,16 @@ const SET_PIECES = {
 };
 const NEEDS = { ledge: 'step', ascent: 'climb' }; // which spec a composed kind draws on
 const setPiecesFor = (spec) => Object.keys(SET_PIECES).filter((name) => SET_PIECES[name].parts.every(([kind]) => spec[NEEDS[kind] ?? kind]));
+// Course n's set piece: courses take them in turn, and never the same one
+// as the course before (which the turn alone can't promise as new ones
+// unlock).
+const setPieceFor = (n) => {
+  if (n < 3) return null;
+  const sets = setPiecesFor(specFor(n));
+  if (!sets.length) return null;
+  const name = sets[n % sets.length];
+  return name === setPieceFor(n - 1) ? sets[(n + 1) % sets.length] : name;
+};
 
 // The kinds of obstacle course n is made of, in order: a string for an
 // ordinary obstacle, or { kind, size, between } for part of the set piece
@@ -173,11 +183,14 @@ function kindsFor(n, spec, r) {
   const fresh = { 2: ['log', 'climb'], 3: ['drop'], 4: ['step', 'cliff'], 5: ['gap'] }[n] ?? [];
   const kinds = [];
   for (let i = 0; i < spec.features; i++) kinds.push(allowed[Math.floor(r() * allowed.length)]);
-  const sets = n >= 3 ? setPiecesFor(spec) : [];
-  if (sets.length) {
-    const { parts, between } = SET_PIECES[sets[Math.floor(r() * sets.length)]];
-    // (The set piece takes the place of a couple of ordinary obstacles.)
-    kinds.splice(Math.round(kinds.length * 0.65), Math.min(2, kinds.length - 3), ...parts.map(([kind, size], k) => ({ kind, size, between: k < parts.length - 1 ? between : null })));
+  const set = setPieceFor(n);
+  if (set) {
+    // The set piece goes in past the middle, with at least two ordinary
+    // obstacles still to come after it, in place of one or two of them.
+    const { parts, between } = SET_PIECES[set];
+    const remove = kinds.length >= 8 ? 2 : kinds.length >= 6 ? 1 : 0;
+    const at = Math.max(1, Math.min(Math.round(kinds.length * 0.6), kinds.length - 2 - remove));
+    kinds.splice(at, remove, ...parts.map(([kind, size], k) => ({ kind, size, between: k < parts.length - 1 ? between : null })));
   }
   // What's new this course goes in an ordinary slot (never the first, never
   // the set piece), if the draw left it out.
@@ -497,10 +510,11 @@ export function step(course, B, input, dt) {
     B.rear = rear?.contact ?? null;
     B.front = front?.contact ?? null;
     B.spin += ((rear ? rear.contact.vt : B.vx) / WHEEL) * h;
-    // Turning in the air: a full turn by the time a wheel touches is a flip
-    // -- credited below, once the landing has been judged -- but only if
-    // the bike comes down somewhere near its wheels; a turn that ends on
-    // the rear wheel pointing at the sky is a loop still in progress.
+    // Turning in the air: three quarters of a turn or more by the time a
+    // wheel touches is a flip -- credited below, once the landing has been
+    // judged -- as long as the bike comes down on its wheels, either one
+    // first; a turn that ends on the rear wheel pointing straight up is a
+    // loop still in progress.
     const down = !!(rear || front);
     if (down && Math.abs(B.air) >= FLIP && Math.abs(Math.atan2(Math.sin(B.angle), Math.cos(B.angle)) - Math.atan(slopeAt(course, B.x))) < LANDED) {
       B.pending = { flips: Math.round(Math.abs(B.air) / (2 * Math.PI)), back: B.air > 0 };

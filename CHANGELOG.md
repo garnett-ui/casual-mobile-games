@@ -25,8 +25,8 @@ anything taken away (not internal fixes or renames along the way).
   wheel, nose down, and you're off; land a cliff flat on both. Flip the
   bike right over off a jump and land it, and every full turn takes two
   seconds off your clock -- to a fanfare, a flare over the finish and a
-  crowd of forty. Turn on **GHOST** to race the computer's par ride,
-  riding faintly alongside you.
+  crowd of forty. From course 3 a **GHOST** rides the computer's par
+  ride faintly alongside you, to race; a button in the bar turns it off.
 
 ## 1.62.3
 - Morse Rain, sending: fixed letters breaking apart -- a K read as T E T --
