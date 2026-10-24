@@ -1,0 +1,25 @@
+// Benji's Town: everything it says out loud. Each line is recorded in a
+// child's voice by tools/benji-voice.py (into games/benji/voice/, precached
+// with the rest, so it plays offline); a line not recorded yet is spoken by
+// the phone's own voice instead.
+
+export const LINES = [
+  'Tap a truck!',
+  'Drive them with your finger!',
+  'Red light. Stop!',
+  'Green light. Go!',
+  'Wait for the walking man!',
+  'Walk!',
+  'Here’s your letter!',
+  'A package for you!',
+  'Yay! Great job!',
+];
+
+// The lines recorded so far. (Rewritten by tools/benji-voice.py.)
+export const RECORDED = [];
+
+// A line's file name: 'Red light. Stop!' -> red-light-stop.
+export const slug = (text) => text.toLowerCase().replace(/’/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// Where a line's recording is, if it has one.
+export const clipFor = (text) => (RECORDED.includes(text) ? new URL(`./voice/${slug(text)}.mp3`, import.meta.url).href : null);

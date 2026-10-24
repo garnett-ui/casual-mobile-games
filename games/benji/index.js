@@ -1,6 +1,7 @@
 // Benji's Town: the levels, the town, and a big "Yay!" at the end of each.
 import { makeTown } from './town.js';
 import { Play } from './play.js';
+import { RECORDED, clipFor } from './voice.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 
 const CHEERS = ['Yay!', 'Well done!', 'Hooray!', 'Super!', 'Brilliant!'];
@@ -10,9 +11,12 @@ export function mount(root, ctx, sub) {
   let play = null;
   let onResize = null;
 
-  // Said out loud, for someone too little to read (with the sound on).
-  const say = (text) => {
-    if (!ctx.getSetting('sound') || !window.speechSynthesis) return;
+  // Said out loud, for someone too little to read (with the sound on): in
+  // a child's recorded voice, or -- for a line not recorded, or if the
+  // recording won't play -- the phone's own.
+  let hush = null;
+  const speak = (text) => {
+    if (!window.speechSynthesis) return;
     try {
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 0.9;
@@ -23,6 +27,22 @@ export function mount(root, ctx, sub) {
       // (No voice: just the pictures, then.)
     }
   };
+  const say = (text) => {
+    if (!ctx.getSetting('sound')) return;
+    hush?.();
+    hush = null;
+    const url = clipFor(text);
+    if (!url || !ctx.loadClip) {
+      speak(text);
+      return;
+    }
+    ctx.loadClip(url).then((clip) => {
+      if (clip) hush = ctx.playClip(url, 1);
+      else speak(text);
+    });
+  };
+  // (Loaded ahead, so the first line isn't late.)
+  for (const text of RECORDED) ctx.loadClip?.(clipFor(text));
 
   function teardown() {
     if (play) play.destroy();

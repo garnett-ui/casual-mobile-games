@@ -220,3 +220,23 @@ test('the traffic: cars stop at red and go on green (or take turns), people cros
     for (const p of tr.people) assert.ok(p.trips >= 3, `everyone keeps walking (${p.trips} trips)`);
   }
 });
+
+test('the voice: every line it says is listed (to be recorded), and every recording it claims is there', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { LINES, RECORDED, slug } = await import('../games/benji/voice.js');
+  const said = new Set();
+  for (const file of ['index.js', 'play.js']) {
+    const src = readFileSync(new URL(`../games/benji/${file}`, import.meta.url), 'utf8');
+    for (const call of src.matchAll(/\bsay\??\.?\((.*)\);/g)) {
+      for (const [, text] of call[1].matchAll(/'([A-Z][^']*[!.])'/g)) said.add(text);
+    }
+  }
+  assert.ok(said.size >= 9, [...said].join(' | '));
+  for (const text of said) assert.ok(LINES.includes(text), `"${text}" is in LINES`);
+  assert.equal(new Set(LINES.map(slug)).size, LINES.length, 'each its own file');
+  assert.equal(slug('Here’s your letter!'), 'heres-your-letter');
+  for (const text of RECORDED) {
+    assert.ok(LINES.includes(text));
+    assert.ok(existsSync(new URL(`../games/benji/voice/${slug(text)}.mp3`, import.meta.url)), `${slug(text)}.mp3 is there`);
+  }
+});
