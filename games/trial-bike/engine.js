@@ -174,9 +174,9 @@ const setPieceFor = (n) => {
 function kindsFor(n, spec, r) {
   const allowed = ['hill', 'hill', 'jump', 'jump'];
   if (spec.log) allowed.push('log');
-  if (spec.drop) allowed.push('drop');
+  if (spec.drop) allowed.push('drop', 'stepdown');
   if (spec.step) allowed.push('step');
-  if (spec.gap) allowed.push('gap', 'gap');
+  if (spec.gap) allowed.push('gap', 'launch');
   if (spec.climb) allowed.push('climb');
   if (spec.cliff) allowed.push('cliff');
   if (n === 1) return ['hill', 'jump', 'hill', 'hill'];
@@ -265,6 +265,35 @@ export function makeCourse(n, attempt = 0) {
         piece('jump', up + land, (d) => (d < up ? h * (d / up) ** 1.5 : 0), 0, h, 6 + 1.3 * h);
         break;
       }
+      case 'stepdown': {
+        // A step-down, as on a motocross track: a low roller at the brow
+        // of a long, steep bank. The bike leaves the roller and comes down
+        // on the bank, where a fast landing is a soft one -- so the brave
+        // line is the quick one.
+        const h = Math.min(0.8, spec.jump * s * 0.5);
+        const up = h * 3;
+        const drop = Math.min(3.5, 1.5 + spec.drop * s * 0.6);
+        const slope = 12 + 4 * r();
+        piece('jump', up, (d) => h * Math.sin((Math.PI / 2) * (d / up)), h, 0);
+        piece('down', slope, (d) => -(h + drop) * (d / slope), -(h + drop), 1);
+        break;
+      }
+      case 'launch': {
+        // A kicker at the lip of a gap: the kicker is the way across --
+        // wider than a gap you'd clear from the flat.
+        const w = Math.min(4.2, spec.gap * s * 1.4);
+        const h = Math.min(1.6, spec.jump * s);
+        const up = h * 2.6;
+        flat(Math.max(0, 15 + 4 * w - (x - lastEnd)));
+        piece('jump', up, (d) => h * (d / up) ** 1.5, h, 0);
+        // The pit's far side is a steep bank back up to the level the kicker
+        // rose from: a bike that comes up short slides down into the pit
+        // rather than hanging off the lip.
+        const pit = 2 + w + h;
+        const bank = 0.8;
+        piece('gap', w + bank, (d) => (d > w ? -pit + (pit - h) * smooth((d - w) / bank) : -pit), -h, 0.5);
+        break;
+      }
       case 'log': {
         // A fallen log: short and round, lift the front wheel over it.
         const h = spec.log * s;
@@ -326,9 +355,13 @@ export function makeCourse(n, attempt = 0) {
         // A gap in the ground: too deep to climb out of, so clear it -- which
         // takes speed, so there's a run-up.
         const w = Math.min(3.3, spec.gap * s);
-        flat(Math.max(0, 12 + 3 * w - (x - lastEnd)));
+        flat(Math.max(0, 15 + 4 * w - (x - lastEnd)));
         const pit = 2 + w; // depth: a fall is a fall
-        piece('gap', w + 0.8, (d) => (d < 0.4 ? -pit * smooth(d / 0.2) : d > w + 0.4 ? -pit * smooth((w + 0.8 - d) / 0.2) : -pit), 0, 0.5);
+        // The far side is a steep bank, not a wall: a bike that comes up
+        // short slides down into the pit rather than hanging off the lip.
+        const bank = 0.8;
+        const far = w + 0.6 - bank; // where the bank starts
+        piece('gap', w + 0.6, (d) => (d < 0.4 ? -pit * smooth(d / 0.2) : d > far ? -pit * (1 - smooth((d - far) / bank)) : -pit), 0, 0.5);
         break;
       }
     }
@@ -361,6 +394,21 @@ export function makeCourse(n, attempt = 0) {
   const ph1 = r() * Math.PI * 2;
   const ph2 = r() * Math.PI * 2;
   const roll = (gx) => spec.roll * (0.6 * Math.sin((gx / w1) * Math.PI * 2 + ph1) + 0.4 * Math.sin((gx / w2) * Math.PI * 2 + ph2));
+  // A gap is jumped on the level: the land is held still from the last of
+  // the run-up across the pit, then eased back in over the landing, so the
+  // far lip is never a surprise hidden in a slope.
+  const gaps = features.filter((f) => f.kind === 'gap');
+  const lie = (gx) => {
+    for (const g of gaps) {
+      const from = g.x0 - 6;
+      const to = g.x1 + 10;
+      if (gx > from && gx < to) {
+        const held = roll(from);
+        return held + (roll(gx) - held) * smooth((gx - g.x1) / 10);
+      }
+    }
+    return roll(gx);
+  };
   const heights = [];
   let p = 0;
   for (let i = 0; i * STEP <= length + STEP; i++) {
@@ -369,7 +417,7 @@ export function makeCourse(n, attempt = 0) {
     const pc = pieces[p];
     // (To the centimetre: courses are kept on the device, and the sixth
     // decimal of a hill is neither ridden nor seen.)
-    heights.push(Math.round((roll(gx) + pc.y0 + pc.f(clamp(gx - pc.x0, 0, pc.x1 - pc.x0))) * 100) / 100);
+    heights.push(Math.round((lie(gx) + pc.y0 + pc.f(clamp(gx - pc.x0, 0, pc.x1 - pc.x0))) * 100) / 100);
   }
   const minY = Math.min(...heights);
   const maxY = Math.max(...heights);
@@ -447,7 +495,7 @@ function wheelForces(course, B, along, input, drives, at = null) {
   const tangent = clamp(push, -limit, limit);
   const fx = c.nx * normal + tx * tangent;
   const fy = c.ny * normal + ty * tangent;
-  return { fx, fy, torque: rx * fy - ry * fx, contact: { ...c, slip: Math.abs(push) > limit, vt, vy } };
+  return { fx, fy, torque: rx * fy - ry * fx, contact: { ...c, slip: Math.abs(push) > limit, vt } };
 }
 
 // Advance the bike by dt. input: { gas, brake, lean } -- gas and brake
@@ -465,7 +513,7 @@ export function step(course, B, input, dt) {
   const steps = Math.max(1, Math.round(dt / DT));
   const h = dt / steps;
   for (let k = 0; k < steps; k++) {
-    const vy0 = B.vy; // the fall before this substep's tyres start to take it
+    const [vx0, vy0] = [B.vx, B.vy]; // the bike's motion before this substep's tyres start to take it
     const rear = wheelForces(course, B, -BASE / 2, input, true);
     const front = wheelForces(course, B, BASE / 2, input, false);
     let fx = 0;
@@ -499,11 +547,13 @@ export function step(course, B, input, dt) {
     B.y += B.vy * h;
     B.angle += B.omega * h;
     B.t += h;
-    // A wheel meeting the ground: how fast the bike came down on it. (Ground,
+    // A wheel meeting the ground: how fast the bike came down INTO it --
+    // straight into the surface, so a landing on a downslope at speed is
+    // the soft one it is in life, and the bike's motion, not the wheel's
+    // (a spinning bike's wheel moves much faster than the bike). Ground,
     // not the side of something: running into a wall is a wall, not a
-    // landing. And the bike's fall, not the wheel's: a spinning bike's wheel
-    // is moving much faster than the bike is.)
-    const hit = (w, was) => (w && !was && w.contact.ny > 0.8 ? Math.max(0, -vy0) : 0);
+    // landing.
+    const hit = (w, was) => (w && !was && w.contact.ny > 0.8 ? Math.max(0, -(vx0 * w.contact.nx + vy0 * w.contact.ny)) : 0);
     B.hitRear = Math.max(B.hitRear ?? 0, hit(rear, B.rear));
     B.hitFront = Math.max(B.hitFront ?? 0, hit(front, B.front));
     if (hit(front, B.front) && !rear && B.angle < Math.atan(slopeAt(course, B.x)) - NOSE_DOWN) B.noseFirst = true;
@@ -541,6 +591,9 @@ export function step(course, B, input, dt) {
     B.trick = B.pending;
     B.pending = null;
   }
+  // Down in a gap, axles below its lips: that's a fall, not a place to ride.
+  const inGap = course.features.some((f) => f.kind === 'gap' && B.x > f.x0 && B.x < f.x1 && B.y - COM < Math.min(heightAt(course, f.x0 - 0.5), heightAt(course, f.x1 + 0.5)) - 0.5);
+  if (inGap) return crash(B, 'Into the gap');
   // Standing still (against a wall, or balanced on the back wheel).
   B.stall = grounded(B) && Math.abs(B.vx) < 0.25 ? (B.stall ?? 0) + dt : 0;
   while (B.flag + 1 < course.flags.length && B.x > course.flags[B.flag + 1]) B.flag++;

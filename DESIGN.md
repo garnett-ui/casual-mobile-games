@@ -348,7 +348,7 @@ keyboard.
   (about a 2.5 m fall), or on either wheel at over 11 m/s (about 6 m) --
   and a little less nose-down than that, the helmet reaches the ground
   first anyway. So a drop has to be landed on the back wheel or flat, and a
-  cliff on both.
+  cliff on both. Down in a pit below its lips is a crash too.
   Anything else -- a stall against a ledge, a nose-wheelie -- is yours to
   recover from. The bike tumbles for a moment, then the first touch puts
   you back on the last flag with the clock still running. Stuck with
@@ -364,9 +364,17 @@ keyboard.
   grow in size and number and, more and more often, come one straight after
   another (a drop at the top of a climb, a cliff off the end of a jump).
   Hills and climbs are never steeper than about 35°, there's a run-up
-  before every gap, and where a jump, a drop or a cliff comes down there's
-  open ground -- or the next part of a combination, a further fall or the
-  next kicker, never a log or a ledge. From course 3, each course has a
+  before every gap and the land holds level across it, and where a jump, a
+  drop or a cliff comes down there's open ground -- or the next part of a
+  combination, a further fall or the next kicker, never a log or a ledge.
+  Two of the kinds are jumps with a reason: a **launch** (from course 5) is
+  a kicker straight into a pit, so the speed is the whole question, and a
+  **step-down** (from course 3) is a low roller at the brow of a long bank,
+  where the faster line comes down on the bank and the timid one on the
+  level past the roller. (A landing is measured straight into the ground,
+  so a fast one on a bank is soft.) The far side of every pit is a steep
+  bank, and a bike that comes up short slides down into it -- a fall, not
+  a stall. From course 3, each course has a
   **set piece** past the middle, with a flag just before it and more
   course after: three kickers in a row, one long wall of a climb, a climb
   to a crest and a cliff straight off it, three ledges up and a cliff down
@@ -401,7 +409,8 @@ keyboard.
   reached at your time on the clock (so it waits on the start line until
   you touch the gas, and a flip doesn't move it -- the bonus shows at the
   finish), with a hollow amber ring for it on the course line in the
-  instruments. With it on, the finish card says who won and by how much.
+  instruments. With it on, the finish card says who won and by how much,
+  and beating it is the headline.
 - **Landscape plays best** (the course is wide) but it works upright too,
   with the ground lower to leave room for the jumps. Not locked: the camera
   keeps the bike a third of the way across so you see what's coming.

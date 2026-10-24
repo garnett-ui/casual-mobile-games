@@ -20,6 +20,7 @@ const TIPS = {
   3: 'The blue bike is the GHOST: the computer’s par ride, racing you (GHOST in the bar turns it off). Lean hard back off a kicker to flip, and land it: every turn takes two seconds off your clock.',
   4: 'Ledges: lift the front wheel onto the top, keep the gas on, and the back wheel climbs up after it. Off a drop, a touch of lean back so the back wheel lands first.',
   5: 'A gap! Full gas from well back, and lean back as you leave the lip. Crash and you restart at the last flag.',
+  6: 'A roller at the brow of a long bank: the faster you take it, the further down the bank you land -- and a fast landing on a slope is a soft one.',
 };
 
 export function mount(root, ctx, sub) {
@@ -363,7 +364,7 @@ export function mount(root, ctx, sub) {
     const ride = play.level.ride ?? par;
     const raced = play.ghost ? (time <= ride ? ` You beat the ghost by ${(ride - time).toFixed(1)} s.` : ` The ghost beat you by ${(time - ride).toFixed(1)} s.`) : '';
     showDialog(root.querySelector('.dialog'), ctx, {
-      title: got === 3 ? 'Clean ride!' : got === 2 ? 'Made it!' : 'Over the line',
+      title: play.ghost && time <= ride ? 'You beat the ghost!' : got === 3 ? 'Clean ride!' : got === 2 ? 'Made it!' : 'Over the line',
       stars: got,
       text: `<b>${time.toFixed(1)} s</b>, ${vs} (the computer rider’s ${par} s), ${crashes ? `${crashes} crash${crashes === 1 ? '' : 'es'}` : 'no crashes'}${play.flips ? `, ${play.flips} flip${play.flips === 1 ? '' : 's'} (−${play.bonus.toFixed(0)} s)` : ''}.${raced}
         ${got < 3 ? '<br><small>Three stars: beat par with no crashes. A flip landed takes seconds off the clock.</small>' : ''}`,

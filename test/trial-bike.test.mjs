@@ -176,11 +176,20 @@ test('course 1 is hills and one small jump; logs, climbs, drops, ledges, cliffs 
 });
 
 test('the rider reads the ground ahead: a log is a wall, a lip is an edge, a pit is a gap', () => {
-  const level = makeCourse(12);
-  const log = level.features.find((f) => f.kind === 'log');
-  const gap = level.features.find((f) => f.kind === 'gap');
-  const jump = level.features.find((f) => f.kind === 'jump');
-  assert.ok(log && gap && jump, 'course 12 has them all');
+  // The first course from 8 on with a log, a gap and a kicker that stands
+  // alone (not the one that throws the bike over a launch pit).
+  let level;
+  let log;
+  let gap;
+  let jump;
+  for (let n = 8; n <= 20 && !(log && gap && jump); n++) {
+    level = makeCourse(n);
+    const next = (f) => level.features.find((g) => g.x0 >= f.x1 && g.x0 < f.x1 + 1);
+    log = level.features.find((f) => f.kind === 'log');
+    gap = level.features.find((f) => f.kind === 'gap');
+    jump = level.features.find((f) => f.kind === 'jump' && !next(f));
+  }
+  assert.ok(log && gap && jump, 'a course has them all');
   const B = newBike(level, log.x0 - 3);
   const r = readAhead(level, B);
   assert.ok(r.wall > 2 && r.wall < 4 && r.wallH > 0.2, JSON.stringify(r));
@@ -287,4 +296,39 @@ test('riding flat out into a ledge without lifting the front is a crash or a sta
   const B = newBike(level, ledge.x0 - 12);
   const res = ride(level, B, { gas: true, lean: -0.3 }, 6);
   assert.ok((res && res.kind === 'crash') || B.x < ledge.x1, `stopped by the ledge: ${res?.kind} at ${B.x}`);
+});
+
+test('a gap is cleared or fallen into: coming up short is a fall, never a stall; a bank catches a fast landing softly', () => {
+  // The first course with a launch pit (a kicker straight into a gap) and a
+  // step-down (a roller at the brow of a bank).
+  let launch;
+  let bank;
+  let course;
+  for (let n = 5; n <= 30 && !(launch && bank); n++) {
+    course = makeCourse(n);
+    const f = course.features;
+    for (let i = 0; i + 1 < f.length; i++) {
+      if (f[i].kind !== 'jump' || f[i + 1].x0 - f[i].x1 > 0.01) continue;
+      if (f[i + 1].kind === 'gap' && f[i + 1].x1 - f[i + 1].x0 > 3.5) launch ??= f[i + 1];
+      if (f[i + 1].kind === 'down') bank ??= f[i + 1];
+    }
+    if (!(launch && bank)) launch = bank = null;
+  }
+  assert.ok(launch && bank, 'a course has both');
+  // Rolling off the kicker's lip at a jogging pace drops the bike into the pit.
+  const B = newBike(course, launch.x0 - 0.5);
+  B.y = heightAt(course, B.x) + WHEEL + 0.55;
+  B.vx = 4;
+  const res = ride(course, B, idle, 4);
+  assert.deepEqual(res, { kind: 'crash', reason: 'Into the gap' }, `short of the far lip: ${JSON.stringify(res)}`);
+  assert.ok(B.x > launch.x0 && B.x < launch.x1, 'down in the gap');
+  // Off the roller at speed, the bike comes down on the bank and rides on.
+  const C = newBike(course, bank.x0 - 0.3);
+  C.y = heightAt(course, C.x) + WHEEL + 0.55;
+  C.vx = 11;
+  const gas = { gas: true, brake: false, lean: 0 };
+  assert.equal(ride(course, C, gas, 1), null, 'a second on: no crash');
+  assert.ok(grounded(C) && C.x > bank.x0 + 3 && C.x < bank.x1, `came down on the bank: at ${C.x.toFixed(1)} of ${bank.x0.toFixed(1)}-${bank.x1.toFixed(1)}`);
+  assert.equal(ride(course, C, gas, 1.5), null, 'and rode on');
+  assert.ok(C.vx > 5, `still going: ${C.vx.toFixed(1)} m/s`);
 });

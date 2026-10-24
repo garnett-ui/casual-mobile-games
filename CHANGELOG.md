@@ -21,12 +21,15 @@ anything taken away (not internal fixes or renames along the way).
   run out, getting longer and rougher as you go, through meadow, forest,
   quarry and mountains, from morning to night, each with a set piece --
   three kickers in a row, a climb to a cliff, the big gap -- in its
-  second half. Land a drop on the front
+  second half. Some jumps ask a question: a kicker straight into a pit
+  wants speed, and a roller at the brow of a long bank rewards it (come
+  down fast on the bank and it's soft). Land a drop on the front
   wheel, nose down, and you're off; land a cliff flat on both. Flip the
   bike right over off a jump and land it, and every full turn takes two
   seconds off your clock -- to a fanfare, a flare over the finish and a
   crowd of forty. From course 3 a **GHOST** rides the computer's par
-  ride faintly alongside you, to race; a button in the bar turns it off.
+  ride faintly alongside you, to race (beat it and the finish card says
+  so); a button in the bar turns it off.
 
 ## 1.62.3
 - Morse Rain, sending: fixed letters breaking apart -- a K read as T E T --
