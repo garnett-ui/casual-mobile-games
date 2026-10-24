@@ -120,6 +120,21 @@ test('crossing the finish line ends the ride with a time, and stars go by par an
   assert.equal(stars(level, 28, 1), 2);
   assert.equal(stars(level, 28, 2), 1);
   assert.equal(stars(level, 50, 0), 1);
+  // A wreck sliding over the line has finished too, and one sliding past a
+  // flag has reached it.
+  const slide = flat();
+  slide.finish = 20;
+  slide.flags = [18];
+  const C = newBike(slide, 15);
+  C.vx = 12;
+  C.angle = Math.PI; // upside down: the helmet is in the ground
+  C.y = 0.2;
+  assert.equal(ride(slide, C, idle, 0.1).kind, 'crash');
+  assert.equal(C.flag, -1);
+  const after = ride(slide, C, idle, 3);
+  assert.equal(after?.kind, 'finished', `slid over the line: ${JSON.stringify(after)} at ${C.x.toFixed(1)}`);
+  assert.equal(C.flag, 0, 'and past the flag on the way');
+  assert.equal(ride(slide, C, idle, 1), null, 'finished once');
 });
 
 test('the same course number builds the same course everywhere', () => {

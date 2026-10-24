@@ -1,7 +1,7 @@
 // Card illustration for the arcade hub: golden hour over the meadow, the
-// bike flying nose-up off a kicker with a flare bursting behind it -- or,
+// bike flying nose-up off a kicker with a flare bursting behind it -- and,
 // for an hour after the bike has flown over the cow on a tenth course, the
-// cow herself, looking up.
+// cow herself under it, looking up.
 import { paintBike, paintCow } from './play.js';
 import { load } from '../../js/lib/storage.js';
 
@@ -89,31 +89,33 @@ export function paint(canvas) {
   ctx.fill();
 
   const scale = Math.min(46, H * 0.29);
-  ctx.save();
-  if (cow) {
-    ctx.translate(W * 0.6, H * 0.84);
-    ctx.scale(scale * 1.3, -scale * 1.3);
-    paintCow(ctx, 0, 1);
-  } else {
-    // A flare bursting behind the bike, then the bike itself, nose up at
-    // the top of its flight.
-    const bx = W * 0.55;
-    const by = H * 0.4;
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2;
-      const len = H * (0.08 + 0.05 * (i % 3));
-      ctx.strokeStyle = FLARE[i % 2];
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(bx + 40 + Math.cos(a) * len * 0.4, by - 20 + Math.sin(a) * len * 0.4);
-      ctx.lineTo(bx + 40 + Math.cos(a) * len, by - 20 + Math.sin(a) * len);
-      ctx.stroke();
-    }
-    ctx.translate(bx, by);
-    ctx.rotate(-0.5);
-    ctx.scale(scale, -scale);
-    paintBike(ctx, { angle: 0, spin: 0.4 }, 0.7);
+  // A flare bursting behind the bike, then the bike itself, nose up at the
+  // top of its flight -- over the cow, grazing where it will come down, on
+  // the hour she's earned.
+  const bx = W * 0.5;
+  const by = H * 0.4;
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const len = H * (0.08 + 0.05 * (i % 3));
+    ctx.strokeStyle = FLARE[i % 2];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx + 40 + Math.cos(a) * len * 0.4, by - 20 + Math.sin(a) * len * 0.4);
+    ctx.lineTo(bx + 40 + Math.cos(a) * len, by - 20 + Math.sin(a) * len);
+    ctx.stroke();
   }
+  if (cow) {
+    ctx.save();
+    ctx.translate(W * 0.71, H * 0.84);
+    ctx.scale(scale * 0.68, -scale * 0.68);
+    paintCow(ctx, 0, 1);
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.rotate(-0.5);
+  ctx.scale(scale, -scale);
+  paintBike(ctx, { angle: 0, spin: 0.4 }, 0.7);
   ctx.restore();
   // The game's vignette, so the card sits with the screens behind it.
   const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, W * 0.75);

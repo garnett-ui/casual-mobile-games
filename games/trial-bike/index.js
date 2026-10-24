@@ -349,6 +349,7 @@ export function mount(root, ctx, sub) {
 
   function finished(n, res) {
     if (!play) return;
+    root.querySelector('.tb-showme').hidden = true; // (offered if a crash came first)
     const time = play.time - play.bonus; // flips landed buy seconds back
     const crashes = play.crashes;
     const got = stars(play.level, time, crashes);

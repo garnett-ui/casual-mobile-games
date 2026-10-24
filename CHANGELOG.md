@@ -24,7 +24,8 @@ anything taken away (not internal fixes or renames along the way).
   second half. Some jumps ask a question: a kicker straight into a pit
   wants speed, and a roller at the brow of a long bank rewards it (come
   down fast on the bank and it's soft). Land a drop on the front
-  wheel, nose down, and you're off; land a cliff flat on both. Flip the
+  wheel, nose down, and you're off; land a cliff flat on both (though a
+  wreck that slides over the line has still finished). Flip the
   bike right over off a jump and land it, and every full turn takes two
   seconds off your clock -- to a fanfare, a flare over the finish and a
   crowd of forty. From course 3 a **GHOST** rides the computer's par

@@ -382,12 +382,25 @@ export class Play {
     // Physics in small steps for stability.
     const n = Math.ceil(dt / (1 / 120));
     // After a crash the wreck tumbles on until it has lain still a moment,
-    // or for three seconds; the rider flies off on his own.
+    // or for three seconds; the rider flies off on his own. Where it slides
+    // still counts: past a flag, the ride goes again from there; over the
+    // line, the ride is finished (the crash against it).
     const W = this.wreck;
-    if (this.outcome?.kind === 'crash' && W && W.t < 3 && W.still < 0.3) {
-      for (let k = 0; k < n; k++) step(this.level, B, this.input, dt / n);
+    if (this.outcome && W && W.t < 3 && W.still < 0.3) {
+      const wasFlag = B.flag;
+      let slid = null;
+      for (let k = 0; k < n; k++) slid ??= step(this.level, B, this.input, dt / n);
       W.t += dt;
       W.still = Math.abs(B.vx) < 0.3 && Math.abs(B.vy) < 0.3 && Math.abs(B.omega) < 0.3 ? W.still + dt : 0;
+      if (B.flag > wasFlag) this.hooks.sfx?.('checkpoint');
+      if (slid?.kind === 'finished' && !this.demo) {
+        this.outcome = slid;
+        this.waiting = false; // (the crash's "tap to go again" no longer applies)
+        this.message = null;
+        this.hooks.sfx?.('win');
+        this.hooks.haptic?.(40);
+        this.report(this.hooks.onFinished, slid, 900);
+      }
     }
     if (this.thrown) this.fly(this.thrown, dt);
     if (!this.outcome && !this.waiting) {

@@ -579,6 +579,14 @@ export function step(course, B, input, dt) {
     B.x = WHEEL;
     B.vx = Math.abs(B.vx) * 0.2;
   }
+  // A flag is passed by whatever crosses it, and so is the finish: a wreck
+  // sliding over the line has finished (with the crash against it), and
+  // one sliding past a flag goes again from there.
+  while (B.flag + 1 < course.flags.length && B.x > course.flags[B.flag + 1]) B.flag++;
+  if (B.x - BASE / 2 > course.finish && !B.finished) {
+    B.finished = true;
+    return { kind: 'finished', time: B.t };
+  }
   if (B.crashed) return null;
   // Landings: too hard, or nose first too hard, and the rider is off.
   const { hitRear, hitFront, noseFirst } = B;
@@ -596,15 +604,10 @@ export function step(course, B, input, dt) {
   if (inGap) return crash(B, 'Into the gap');
   // Standing still (against a wall, or balanced on the back wheel).
   B.stall = grounded(B) && Math.abs(B.vx) < 0.25 ? (B.stall ?? 0) + dt : 0;
-  while (B.flag + 1 < course.flags.length && B.x > course.flags[B.flag + 1]) B.flag++;
   // The helmet touching the ground is a crash; so is falling out of the world.
   if (B.y < course.minY - 4) return crash(B, 'Fell');
   const [hx, hy] = toWorld(B, HEAD[0], HEAD[1]);
   if (hy < heightAt(course, hx) || contactAt(course, hx, hy, 0.18)) return crash(B, 'Over the handlebars');
-  if (B.x - BASE / 2 > course.finish) {
-    B.finished = true;
-    return { kind: 'finished', time: B.t };
-  }
   return null;
 }
 

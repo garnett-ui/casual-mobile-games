@@ -351,8 +351,10 @@ keyboard.
   cliff on both. Down in a pit below its lips is a crash too.
   Anything else -- a stall against a ledge, a nose-wheelie -- is yours to
   recover from. The bike tumbles for a moment, then the first touch puts
-  you back on the last flag with the clock still running. Stuck with
-  nowhere to go, the ↶ button does the same at the price of a crash.
+  you back on the last flag with the clock still running -- and where the
+  wreck slides counts: past a flag, you go again from that one; over the
+  line, you've finished, crash and all. Stuck with nowhere to go, the ↶
+  button does the same at the price of a crash.
 - **Endless courses from a seed**, and every one test-ridden. Course *n* is
   built from its seed (and re-rolled from the same seed, up to a dozen
   times, until the computer rider can finish it): a slow rise and fall of
