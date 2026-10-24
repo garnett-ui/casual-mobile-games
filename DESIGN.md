@@ -86,19 +86,26 @@ pictures and a sound for every touch.
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --
-  or walking the dog, the dog trotting ahead. Three big buttons: hold ▲
-  to go (let go and you stop), ◀ ▶ to turn at the next corner -- right
-  up to the middle of the intersection (unless someone's on the crosswalk
-  you'd turn onto) -- a little slower than they drive themselves, for time
-  to turn; at a dead end you turn round by yourself. The rules hold you just the same: you
-  stop at a red light and wait for anyone on the crosswalk however hard
-  you press, and on foot you wait for the walking man. The way to the job
-  shows as yellow dots along the road, an arrow stands over the place, the
-  button for the next turn glows, and the town says "Turn left!" ("Turn
-  right!", "Turn around!"). Jobs happen as you get there; at a house the
-  mail van stops and you are the postal worker, walking the letter or
-  parcel up to the door and back. When the helper's jobs are done (or with
-  the map button, top left) you're back over the town.
+  or walking the dog, the dog trotting ahead.
+- Made for a three-year-old: every press does something you can see and
+  hear at once, and nothing is ever stuck. Three big buttons. Any of them
+  and you're off -- no holding; you keep going by yourself. ◀ ▲ ▶ choose
+  the way at the next corner: a big yellow arrow is painted on the road
+  there, the yellow dots re-route, the wheel turns, and it's said ("Left!",
+  "Straight on!", "Right!"). Choose nothing and you go the way to the job
+  (that button glows). You can change your mind right up to the middle of
+  the intersection (after that, it's for the next one). At a dead end you
+  turn round by yourself. At each job you stop, and ▲ glows for the next.
+- The rules hold you just the same, but you're told why, every time: at a
+  red light a big traffic light shows up top and the town says "Red
+  light. Stop!" (press anything and it says "Wait for green!"), and when
+  it turns green you go on by yourself ("Green light. Go!"); someone on the
+  crosswalk -- even one you've just turned toward -- and it's "Wait!
+  Someone's crossing."; on foot, "Wait for the walking man!" ... "Walk!".
+  Jobs happen as you get there; at a house the mail van stops and you are
+  the postal worker, walking the letter or parcel up to the door and back.
+  When the helper's jobs are done (or with the map button, top left)
+  you're back over the town. Helpers start facing into town.
 - Every finished level is three stars, a shower of confetti and "Yay!
   Great job!" said out loud (with the sound on).
 - Everything it says is in a child's voice: short clips recorded once (by

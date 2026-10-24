@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.80.0
+- Benji's Town, driving, made for little hands: tap any arrow and you're
+  off (no holding), and you keep going by yourself the way to the job.
+  ◀ ▲ ▶ choose the way at the next corner -- a big arrow appears on the
+  road and it's said out loud ("Left!"). Nothing is ever stuck: at a red
+  light a big traffic light shows and the town tells you to wait, and you
+  go again by yourself on green; a turn is never refused (you wait for
+  anyone crossing). You start facing into town.
+
 ## 1.79.1
 - Benji's Town, driving: turning is easier. ◀ or ▶ now works right up to
   the middle of the intersection (it used to be too late once the light

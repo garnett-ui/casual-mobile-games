@@ -225,6 +225,7 @@ export class Play {
       if (tile.x === yard.x && tile.y === yard.y) {
         h.loaded = true;
         h.pause = 0.6;
+        if (this.fp?.h === h) this.fp.go = false;
         this.pop('🪣', yard);
         this.hooks.sfx?.('pour', 0.5);
       }
@@ -233,6 +234,7 @@ export class Play {
     const job = jobAt(this.town, h, tile, this.done);
     if (!job) return;
     this.done.add(job.i);
+    if (this.fp?.h === h) this.fp.go = false; // (there: wait for a press to go on)
     h.path = [];
     const p = this.place(job.place);
     const at = { x: p.x + (p.w || 1) / 2 - 0.5, y: p.y + (p.h || 1) / 2 - 0.5 };
@@ -378,31 +380,45 @@ export class Play {
     }
   }
 
-  // In the driver's seat (or walking the dog): hold ▲ to go; ◀ and ▶ turn
-  // at the next corner (turn round, walking, when that's the way); the
-  // button at the top back out to the town. A tap anywhere else: honk!
+  // In the driver's seat (or walking the dog), made for a three-year-old:
+  // every button does something you can see and hear, at once. Any arrow
+  // and you're off (no holding); ◀ ▲ ▶ choose the way at the next corner --
+  // left, straight on, right -- shown on the road and said out loud; with
+  // no choice made you go the way to the job. Held up (a red light, someone
+  // crossing), a press is told why. The map button: back out to the town.
+  // A tap anywhere else: honk!
   seat(e, type, sx, sy) {
+    if (type !== 'down') return;
+    e.preventDefault();
+    const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
+    if (!b) this.hooks.sfx?.(this.fp.h.kind === 'walker' ? 'pop' : 'honk');
+    else if (b.act === 'exit') this.leave();
+    else this.choose(b.act === 'go' ? 'straight' : b.act);
+  }
+
+  choose(way) {
     const f = this.fp;
-    if (type === 'down') {
-      e.preventDefault();
-      this.canvas.setPointerCapture?.(e.pointerId);
-      const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
-      if (!b) this.hooks.sfx?.(f.h.kind === 'walker' ? 'pop' : 'honk');
-      else if (b.act === 'exit') this.leave();
-      else if (b.act === 'go') f.gas = e.pointerId;
-      else {
-        f.intent = f.h.kind === 'walker' && f.hint === 'back' ? 'back' : b.act;
-        this.hooks.sfx?.('tap');
-      }
-      return;
-    }
-    if (type !== 'move' && f.gas === e.pointerId) f.gas = null;
+    const h = f.h;
+    if (h.kind === 'walker' && f.hint === 'back' && way !== 'straight') way = 'back';
+    f.intent = way;
+    f.go = true;
+    this.hooks.sfx?.('tap');
+    const why = { light: 'Wait for green!', walk: 'Wait for the walking man!', people: 'Wait! Someone’s crossing.', car: 'Wait for the car!', turn: 'Wait for the car!' }[h.wait];
+    this.tell(why || { left: 'Left!', right: 'Right!', straight: 'Straight on!', back: 'Turn around!' }[way]);
+  }
+
+  // Says something (but not the same thing again straight away).
+  tell(line) {
+    if (line === this.told && this.t - this.toldT < 1.5) return;
+    this.told = line;
+    this.toldT = this.t;
+    this.hooks.say?.(line);
   }
 
   // Into the driver's seat of a helper (or the dog walker's shoes).
   enter(h) {
     h.path = [];
-    this.fp = { h, gas: null, v: 0, intent: 'straight', hint: null, head: h.head, wheel: 0, done: 0, said: null, saidT: -9, last: h.kind === 'walker' ? h.node : h.tile };
+    this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
     this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk');
     this.hooks.say?.('Let’s go!');
@@ -434,7 +450,7 @@ export class Play {
     const busy = h.pause > 0 || !!h.deliver;
     // (A little slower than they go by themselves: time to look about, and
     // to turn.)
-    const want = f.gas !== null && !busy ? SPEED[h.kind] * 0.7 : 0;
+    const want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
     f.v += clamp(want - f.v, -6 * dt, 3 * dt);
     if (h.kind === 'walker') this.planWalk(f, h);
     else this.planDrive(f, h);
@@ -444,13 +460,17 @@ export class Play {
     f.head += turnRate * Math.min(1, dt * 6);
     const lean = { left: -0.5, right: 0.5 }[f.intent] || 0;
     f.wheel += (clamp(turnRate * 3, -1.4, 1.4) + lean - f.wheel) * Math.min(1, dt * 6);
-    // A word when there's a turn to make.
-    if (['left', 'right', 'back'].includes(f.hint) && f.hint !== f.intent && f.hint !== f.said && this.t - f.saidT > 4) {
-      f.said = f.hint;
-      f.saidT = this.t;
-      this.hooks.say?.({ left: 'Turn left!', right: 'Turn right!', back: 'Turn around!' }[f.hint]);
-    }
-    if (f.hint === 'straight' || !f.hint) f.said = null;
+    // Held up (for more than a moment): say why, every time -- and say go
+    // when you go again.
+    const now = f.go && !busy ? h.wait : null;
+    f.waited = now && now === f.held ? f.waited + dt : 0;
+    f.held = now;
+    const wait = now && (now === 'light' || now === 'walk' || f.waited > 0.5) ? now : null;
+    if (wait && wait !== 'car' && wait !== f.wait) {
+      this.tell({ light: 'Red light. Stop!', walk: 'Wait for the walking man!', people: 'Wait! Someone’s crossing.', turn: 'Wait for the car!' }[wait]);
+    } else if (!wait && f.wait === 'light') this.tell('Green light. Go!');
+    else if (!wait && f.wait === 'walk') this.tell('Walk!');
+    f.wait = wait;
     // Back out to the town a moment after its jobs are all done.
     if (!this.targetPlace(h) && !busy) {
       f.done += dt;
@@ -459,11 +479,12 @@ export class Play {
   }
 
   // Driving: the street on ahead from where you are (or the tile you're
-  // heading into), turning at the next intersection the way you asked. You
-  // can change your mind right up to the middle of the intersection --
-  // unless someone's on the crosswalk you'd turn onto.
+  // heading into), turning at the next intersection the way you chose (or,
+  // not choosing, the way to the job). You can change your mind right up to
+  // the middle of the intersection (choosing after that is for the next
+  // one); turned toward someone on a crosswalk, you wait for them.
   planDrive(f, h) {
-    if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) f.intent = 'straight';
+    if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) f.intent = null;
     f.last = h.tile;
     const at = lanePoint(h.tile, h.dir);
     const off = Math.hypot(h.x - at.x, h.y - at.y);
@@ -474,28 +495,33 @@ export class Play {
     const dir = moving && (base.x !== h.tile.x || base.y !== h.tile.y) ? { x: base.x - h.tile.x, y: base.y - h.tile.y } : h.dir;
     const to = this.target(h);
     f.hint = to ? driveTurn(base, dir, to) : null;
-    f.route = to ? this.driveRoute(base, dir, to) : [];
-    const plan = [...(moving ? [base] : []), ...ahead(base, dir, f.intent)];
-    // Let through the intersection already, and turning another way now: so
-    // long as the crosswalk that way is clear.
+    const turn = f.intent || f.hint || 'straight';
+    f.route = to ? this.driveRoute(base, dir, to, turn) : [];
+    const plan = [...(moving ? [base] : []), ...ahead(base, dir, turn)];
+    // The corner, and the way out of it (for the arrow on the road).
     const k = plan.findIndex((t) => isJunction(t.x, t.y));
     const j = k >= 0 ? plan[k] : inside ? h.tile : null;
     const exit = k >= 0 ? plan[k + 1] : plan[0];
+    const prev = k > 0 ? plan[k - 1] : moving ? h.tile : base;
+    const into = inside ? h.dir : j && { x: j.x - prev.x, y: j.y - prev.y };
+    f.corner = j && exit ? { j, exit, into, chosen: !!f.intent } : null;
+    // Let through the intersection already, and turning another way now:
+    // that crosswalk's yours too (and anyone on it, you wait for).
     if (j && exit && h.pass === `${j.x},${j.y}`) {
       const arm = armOf(j, exit);
-      if (!h.passArms.includes(arm)) {
-        if (this.traffic.peopleOn(j, [arm])) return;
-        h.passArms = [h.passArms[0], arm];
-      }
+      if (!h.passArms.includes(arm)) h.passArms = [h.passArms[0], arm];
     }
     h.path = plan;
   }
 
-  // The way the turns shown would take you (for the dots on the road).
-  driveRoute(t, d, to) {
+  // The way you'd go (for the dots on the road): turning at the first
+  // corner the way you chose (first), and after that the way to the job.
+  driveRoute(t, d, to, first) {
     const out = [t];
     for (let n = 0; n < 40 && (t.x !== to.x || t.y !== to.y); n++) {
-      const next = ahead(t, d, driveTurn(t, d, to))[0];
+      const corner = isJunction(t.x, t.y);
+      const next = ahead(t, d, corner && first ? first : driveTurn(t, d, to))[0];
+      if (corner) first = null;
       if (!next) break;
       d = { x: next.x - t.x, y: next.y - t.y };
       t = next;
@@ -508,8 +534,10 @@ export class Play {
   // bends, and where the way divides, the way you asked (or back round).
   planWalk(f, h) {
     const w = this.walk;
-    if (h.node !== f.last && w.adj[h.node].length > 2) f.intent = 'straight';
+    if (h.node !== f.last && w.adj[h.node].length > 2) f.intent = null;
     f.last = h.node;
+    const target = this.targetPlace(h);
+    const to = target ? this.spot.get(target.id) : null;
     let a = h.node;
     let b = h.path[0];
     if (b === undefined) {
@@ -517,21 +545,22 @@ export class Play {
       const p = w.nodes[a];
       const fx = Math.cos(h.head);
       const fy = Math.sin(h.head);
-      const ways = w.adj[a].map((e) => e.to).sort((u, v) => {
-        const dot = (n) => ((w.nodes[n].x - p.x) * fx + (w.nodes[n].y - p.y) * fy) / Math.hypot(w.nodes[n].x - p.x, w.nodes[n].y - p.y);
-        return dot(v) - dot(u);
-      });
-      b = f.intent === 'back' ? ways.at(-1) : ways[0];
-      if (f.intent === 'back') f.intent = 'straight';
-    } else if (f.intent === 'back') {
-      [a, b] = [b, a];
-      f.intent = 'straight';
+      const dot = (n) => ((w.nodes[n].x - p.x) * fx + (w.nodes[n].y - p.y) * fy) / Math.hypot(w.nodes[n].x - p.x, w.nodes[n].y - p.y);
+      b = w.adj[a].map((e) => e.to).sort((u, v) => dot(v) - dot(u))[0];
     }
-    const to = this.targetPlace(h) && this.spot.get(this.targetPlace(h).id);
-    f.hint = to !== undefined && to !== false ? walkTurn(w, a, b, to) : null;
-    f.route = to !== undefined && to !== false ? w.route(b, to).map((n) => w.nodes[n]) : [];
-    h.path = [b, ...walkAhead(w, a, b, f.intent)];
+    let hint = to !== null ? walkTurn(w, a, b, to) : null;
+    // Turning round: you chose to, or (not choosing) it's the way to go.
+    if (f.intent === 'back' || (!f.intent && hint === 'back')) {
+      [a, b] = [b, a];
+      if (f.intent === 'back') f.intent = null;
+      hint = to !== null ? walkTurn(w, a, b, to) : null;
+    }
+    f.hint = hint;
+    f.route = to !== null ? w.route(b, to).map((n) => w.nodes[n]) : [];
+    f.corner = null;
+    h.path = [b, ...walkAhead(w, a, b, f.intent || (hint === 'back' ? null : hint) || 'straight')];
   }
+
 
   // Where the postal worker is, out of the van on a delivery.
   postie(d) {
@@ -643,6 +672,8 @@ export class Play {
         if (h.deliver.t >= DELIVER) h.deliver = null;
       }
       // A helper held up at a red light: say so (now and then), and say go.
+      // (Yours, from the driver's seat: fpSteer says, every time.)
+      if (this.fp?.h === h) continue;
       if ((h.wait === 'light' || h.wait === 'walk') && !h.held && this.t - this.said > 15) {
         h.held = true;
         this.said = this.t;
@@ -767,11 +798,15 @@ export class Play {
         const len = Math.hypot(b.x - a.x, b.y - a.y);
         for (; left < len; left += 0.35) {
           const u = left / len;
-          I.disc(g, eye, a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, 0.06, 0.06, '#ffd166', 0.01);
+          const [px, py] = [a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u];
+          if (Math.hypot(px - eye.x, py - eye.y) > 0.6) I.disc(g, eye, px, py, 0.06, 0.06, '#ffd166', 0.01);
         }
         left -= len;
       }
     }
+    // The way you'll go at the next corner: a big arrow on the road (bright
+    // when it's the way you chose).
+    if (f.corner && !d) this.roadArrow(eye, f.corner);
     for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
     this.overlays(eye, d ? [] : [h]);
     // In the cab: the dashboard and the wheel, turning as you turn.
@@ -783,9 +818,54 @@ export class Play {
       g.textBaseline = 'middle';
       g.fillText(ICONS[d.kind], this.W / 2, this.seatH - this.W * 0.13);
     }
+    // Held up: why, big, up top -- a red light, the red hand, someone
+    // crossing, a car.
+    if (f.wait) this.waitSign(f.wait);
     g.restore();
     this.drawPads();
     this.drawTray(true);
+  }
+
+  // An arrow painted on the road through an intersection: in, and out the
+  // way you'll go.
+  roadArrow(view, { j, exit, into, chosen }) {
+    const out = { x: exit.x - j.x, y: exit.y - j.y };
+    const cx = j.x + 0.5;
+    const cy = j.y + 0.5;
+    const fill = chosen ? '#ffd166' : 'rgba(255,255,255,0.8)';
+    const bar = (ax, ay, bx, by) => {
+      const len = Math.hypot(bx - ax, by - ay) || 1;
+      const [nx, ny] = [(-(by - ay) / len) * 0.08, ((bx - ax) / len) * 0.08];
+      I.flat(this.g, view, [[ax + nx, ay + ny], [bx + nx, by + ny], [bx - nx, by - ny], [ax - nx, ay - ny]], fill, 0.012);
+    };
+    bar(cx - into.x * 0.45, cy - into.y * 0.45, cx + into.x * 0.08, cy + into.y * 0.08);
+    bar(cx - out.x * 0.08, cy - out.y * 0.08, cx + out.x * 0.3, cy + out.y * 0.3);
+    const [tx, ty] = [cx + out.x * 0.58, cy + out.y * 0.58];
+    const [bx, by] = [cx + out.x * 0.28, cy + out.y * 0.28];
+    I.flat(this.g, view, [[tx, ty], [bx - out.y * 0.2, by + out.x * 0.2], [bx + out.y * 0.2, by - out.x * 0.2]], fill, 0.012);
+  }
+
+  // Why you're waiting, as a big picture at the top of the view.
+  waitSign(why) {
+    const { g } = this;
+    const x = this.W / 2;
+    const y = 112;
+    const r = 46 + Math.sin(this.t * 6) * 3;
+    g.fillStyle = 'rgba(255,255,255,0.92)';
+    g.strokeStyle = '#e63946';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    if (why === 'light') D.signal(g, x, y, 170, 'red');
+    else if (why === 'walk') D.walkSign(g, x, y, 300, 'stop', 0);
+    else {
+      g.font = '50px system-ui, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(why === 'people' ? '🚶' : '🚗', x, y + 2);
+    }
   }
 
   // The dashboard across the bottom of the windscreen, in the cab's colour,
@@ -869,15 +949,16 @@ export class Play {
     g.fillRect(0, this.seatH, this.W, this.H - this.seatH);
     const glow = 0.5 + 0.5 * Math.sin(this.t * 8);
     for (const b of this.pads) {
-      const lit = (b.act === 'left' || b.act === 'right') && (f.hint === b.act || f.hint === 'back') && f.intent !== b.act
-        || (b.act === 'go' && f.gas === null && f.hint);
+      // (Glowing: ▲ while you're stopped, waiting for you; an arrow, the
+      // way to the job at the next corner, till you choose.)
+      const lit = (b.act === 'go' && !f.go && f.hint !== null) || ((b.act === 'left' || b.act === 'right') && f.hint === b.act && !f.intent);
       if (lit) {
         g.fillStyle = `rgba(255,200,0,${0.35 + 0.4 * glow})`;
         g.beginPath();
         g.arc(b.x, b.y, b.r + 9, 0, Math.PI * 2);
         g.fill();
       }
-      const on = (b.act === 'go' && f.gas !== null) || f.intent === b.act;
+      const on = f.intent === b.act || (b.act === 'go' && f.intent === 'straight');
       g.fillStyle = b.act === 'go' ? (on ? '#1b9e4b' : '#2ecc71') : b.act === 'exit' ? '#ffffff' : on ? '#ffd166' : '#ffffff';
       g.strokeStyle = '#1d3557';
       g.lineWidth = 3;

@@ -572,13 +572,19 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     assert.equal(await page.locator('.dialog .stars i.on').count(), 3, 'three stars, always');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:benji:progress')));
     assert.equal(saved.unlocked, 2);
-    // A driving level: tap a helper and you're in the driver's seat. Hold ▲
-    // to go, and press the turn button that glows; the lights and the
-    // crosswalks hold you up just the same.
+    // A driving level: tap a helper and you're in the driver's seat. Any
+    // arrow and you're off (it goes the way to the job by itself, unless you
+    // choose); every press is answered -- at the job you stop till the next.
     await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:progress', JSON.stringify({ unlocked: 6, stars: {} })));
     await page.goto(`http://localhost:${server.address().port}/#/benji/6`);
     await page.reload();
     await page.waitForFunction(() => window.__benji?.town.drive);
+    await page.evaluate(() => {
+      window.__said = [];
+      const p = window.__benji;
+      const say = p.hooks.say;
+      p.hooks.say = (w) => (window.__said.push(w), say?.(w));
+    });
     const pad = (act) => page.evaluate((act) => {
       const p = window.__benji;
       const r = p.canvas.getBoundingClientRect();
@@ -586,34 +592,35 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       return { x: r.left + b.x, y: r.top + b.y };
     }, act);
     let seated = false;
+    let turned = false;
     for (let k = 0; k < 400 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
-        return h && { fp: !!p.fp, at: p.screenOf(h.x, h.y, 0.25), hint: p.fp?.hint, intent: p.fp?.intent };
+        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, at: p.screenOf(h.x, h.y, 0.25) };
       });
       if (!st) {
         await page.waitForTimeout(300);
         continue;
       }
       if (!st.fp) {
-        await page.mouse.up();
         await page.mouse.click(st.at.x, st.at.y);
         await page.waitForTimeout(300);
         continue;
       }
       seated = true;
-      if ((st.hint === 'left' || st.hint === 'right') && st.intent !== st.hint) {
-        await page.mouse.up();
+      if (!st.go) {
+        const go = await pad('go');
+        await page.mouse.click(go.x, go.y);
+      } else if (!turned && (st.hint === 'left' || st.hint === 'right')) {
+        // (Choosing the way: the road shows it, and it's said.)
         const b = await pad(st.hint);
         await page.mouse.click(b.x, b.y);
+        turned = await page.evaluate((w) => window.__benji.fp?.corner?.chosen && window.__said.includes(w), st.hint === 'left' ? 'Left!' : 'Right!');
       }
-      const go = await pad('go');
-      await page.mouse.move(go.x, go.y);
-      await page.mouse.down();
       await page.waitForTimeout(250);
     }
-    await page.mouse.up();
+    assert.ok(turned, 'a turn chosen, shown and said');
     assert.ok(seated, 'drove it from the driver\'s seat');
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
     assert.deepEqual(errors, []);

@@ -48,8 +48,13 @@ export function lanePoint(t, d) {
   return p;
 }
 
-// Which way a car parked in street tile t faces, to begin with.
-export const startDir = (t) => (runsNS(t.x, t.y) ? { x: 0, y: 1 } : { x: 1, y: 0 });
+// Which way a car parked in street tile t faces, to begin with: toward the
+// intersection it's by (into town, not off the edge of it).
+export function startDir(t) {
+  const j = junctionBy(t);
+  if (j) return { x: Math.sign(j.x - t.x), y: Math.sign(j.y - t.y) };
+  return runsNS(t.x, t.y) ? { x: 0, y: 1 } : { x: 1, y: 0 };
+}
 
 export class Traffic {
   constructor(ways) {
@@ -63,7 +68,8 @@ export class Traffic {
 
   // One car along its way for dt seconds: the street tile it has just
   // reached, if any. (m.wait while it's held up: 'light' at a red light,
-  // 'turn' waiting its turn, 'car' behind another.)
+  // 'people' for someone on the crosswalk, 'turn' waiting its turn, 'car'
+  // behind another.)
   drive(m, speed, dt) {
     m.ghost = Math.max(0, (m.ghost || 0) - dt);
     if (!m.path.length) {
@@ -121,6 +127,16 @@ export class Traffic {
   // clear. { room, why }
   lightRoom(m) {
     const go = { room: Infinity, why: null };
+    // In an intersection, and someone's (just) stepped onto the crosswalk
+    // on the way out -- or you've turned toward one they're on: wait for
+    // them, short of it.
+    const out = m.path[0];
+    if (out && isJunction(m.tile.x, m.tile.y) && !same(out, m.tile) && this.peopleOn(m.tile, [armOf(m.tile, out)])) {
+      const j = m.tile;
+      const e = dirOf(j, out);
+      const edge = e.x > 0 ? j.x + 1 - m.x : e.x < 0 ? m.x - j.x : e.y > 0 ? j.y + 1 - m.y : m.y - j.y;
+      return { room: Math.max(0, edge - 0.32), why: 'people' };
+    }
     let prev = m.tile;
     for (let k = 0; k < Math.min(2, m.path.length); k++) {
       const j = m.path[k];
@@ -136,7 +152,8 @@ export class Traffic {
         const arms = [armOf(j, prev), ...(exit ? [armOf(j, exit)] : [])];
         const lit = isLit(j.x, j.y);
         if (lit && !mayDrive(j.x, j.y, axis, this.t)) return { room: Math.max(0, room), why: 'light' };
-        if (this.peopleOn(j, arms) || (!lit && this.cars.some((o) => o !== m && this.through(o, key)))) return { room: Math.max(0, room), why: 'turn' };
+        if (this.peopleOn(j, arms)) return { room: Math.max(0, room), why: 'people' };
+        if (!lit && this.cars.some((o) => o !== m && this.through(o, key))) return { room: Math.max(0, room), why: 'turn' };
         m.pass = key;
         m.passArms = arms;
         return go;

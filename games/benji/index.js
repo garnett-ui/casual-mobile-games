@@ -57,7 +57,7 @@ export function mount(root, ctx, sub) {
       id: 'benji',
       title: 'Benji’s Town',
       intro: 'Tap the garbage truck, the mail van, the dog walker and the cement mixer, and off they go to work!',
-      outro: 'From level 6, tap a helper and you’re the driver: hold ▲ to go, and ◀ ▶ to turn at the corner.',
+      outro: 'From level 6, tap a helper and you’re the driver: tap an arrow to go, and ◀ ▲ ▶ to choose the way at the next corner.',
       progress,
     });
   }
