@@ -44,6 +44,17 @@ function serve(overrides = new Map(), delays = new Map()) {
   return new Promise((resolve) => server.listen(0, () => resolve(server)));
 }
 
+// Waits until an async check in the page comes out true. (Not
+// page.waitForFunction: it doesn't wait for a promise -- one counts as
+// true straight away.)
+async function waitUntil(page, check, arg, timeout = 30000) {
+  const end = Date.now() + timeout;
+  while (!(await page.evaluate(check, arg))) {
+    if (Date.now() > end) throw new Error(`timed out waiting for ${check}`);
+    await page.waitForTimeout(200);
+  }
+}
+
 // Swipe a car with the mouse (pointer events) in the given direction.
 async function swipe(page, car, sign) {
   const pt = await page.evaluate(([i, s]) => {
@@ -148,10 +159,10 @@ test('after the first visit the app works fully offline', { skip: !chromium, tim
     });
     // (Every file the app has.)
     const { files } = new Function('self', `${await readFile(new URL('../sw-manifest.js', import.meta.url), 'utf8')}; return self.PRECACHE;`)({});
-    await page.waitForFunction(async (list) => {
+    await waitUntil(page, async (list) => {
       for (const f of list) if (!(await caches.match(f))) return false;
       return true;
-    }, files, { timeout: 30000, polling: 200 });
+    }, files);
     await context.setOffline(true);
     server.close();
     await page.reload();
@@ -182,7 +193,7 @@ test('a link to one game: it plays, downloads just that game (offline too), and 
         await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
       }
     });
-    await page.waitForFunction(async () => !!(await caches.match('games/water/model.js')), null, { timeout: 30000, polling: 200 });
+    await waitUntil(page, async () => !!(await caches.match('games/water/model.js')));
     await page.waitForTimeout(500);
     const cached = await page.evaluate(async () => ({
       lander: !!(await caches.match('games/lander/audio/eagle-has-landed.mp3')),
@@ -432,7 +443,7 @@ test('an update from the home screen downloads every game -- new ones too -- bef
         await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
       }
     });
-    await page.waitForFunction(async () => !!(await caches.match('__arcade__')), null, { timeout: 30000, polling: 200 });
+    await waitUntil(page, async () => !!(await caches.match('__arcade__')));
     // As if the arcade's download was cut short: a whole game missing.
     await page.evaluate(async () => {
       for (const key of await caches.keys()) {
