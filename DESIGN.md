@@ -535,6 +535,102 @@ any tiles between; every tile moved counts as a move.
 - Hold Peek to see the picture or sequence solved. Solving it fills the gap:
   with the picture's missing corner, or a tile with a star.
 
+## Trial Bike
+
+A side-on trials bike over rough country, in the line of *Trials* and
+*Elastomania*: there's nothing on the course but ground shaped against you,
+and the whole game is in handling the bike. Your right thumb holds **GAS**
+or **BRAKE**, your left drags the rider **back** (nose up) or **forward**
+(nose down); both work at once, as in Night Driver. Arrows or WASD on a
+keyboard.
+
+- **One rigid body, two tyres.** The bike and rider are a single body with
+  two wheels fixed to it; each tyre pushes back where it sinks into the
+  ground (a stiff, damped spring, which is also the suspension) and grips
+  along it up to a friction limit. The rear wheel drives, both brake, and a
+  lean is a torque on the body -- in the air it turns the bike, on the
+  ground it shifts weight between the wheels. The front lifts under hard
+  throttle by itself, because the drive pushes at the ground, below the
+  centre of mass. Nothing is scripted: a wheelie, a loop, an endo and a
+  nose-first landing all fall out of the same few forces.
+- **Crashes.** The rider's helmet touching the ground is a crash, as is
+  falling out of the world, and so is a bad landing: coming down on the
+  front wheel pitched more than 20° nose-down into the ground at over 7 m/s
+  (about a 2.5 m fall), or on either wheel at over 11 m/s (about 6 m) --
+  and a little less nose-down than that, the helmet reaches the ground
+  first anyway. So a drop has to be landed on the back wheel or flat, and a
+  cliff on both. Down in a pit below its lips is a crash too.
+  Anything else -- a stall against a ledge, a nose-wheelie -- is yours to
+  recover from. The bike tumbles for a moment, then the first touch puts
+  you back on the last flag with the clock still running -- and where the
+  wreck slides counts: past a flag, you go again from that one; over the
+  line, you've finished, crash and all. Stuck with nowhere to go, the ↶
+  button does the same at the price of a crash.
+- **Endless courses from a seed**, and every one test-ridden. Course *n* is
+  built from its seed (and re-rolled from the same seed, up to a dozen
+  times, until the computer rider can finish it): a slow rise and fall of
+  the land, with obstacles along it in a random order drawn from the kinds
+  that course allows.
+  Everything the bike can do is met early -- course 1 is hills and one
+  small jump, then a log and a long climb on course 2, a drop-off on 3, a
+  ledge up and down and a cliff on 4 and a gap on 5 -- and from there they
+  grow in size and number and, more and more often, come one straight after
+  another (a drop at the top of a climb, a cliff off the end of a jump).
+  Hills and climbs are never steeper than about 35°, there's a run-up
+  before every gap and the land holds level across it, and where a jump, a
+  drop or a cliff comes down there's open ground -- or the next part of a
+  combination, a further fall or the next kicker, never a log or a ledge.
+  Two of the kinds are jumps with a reason: a **launch** (from course 5) is
+  a kicker straight into a pit, so the speed is the whole question, and a
+  **step-down** (from course 3) is a low roller at the brow of a long bank,
+  where the faster line comes down on the bank and the timid one on the
+  level past the roller. (A landing is measured straight into the ground,
+  so a fast one on a bank is soft.) The far side of every pit is a steep
+  bank, and a bike that comes up short slides down into it -- a fall, not
+  a stall. From course 3, each course has a
+  **set piece** past the middle, with a flag just before it and more
+  course after: three kickers in a row, one long wall of a climb, a climb
+  to a crest and a cliff straight off it, three ledges up and a cliff down
+  the lot, or the big gap -- taken in turn from those the course's
+  obstacles allow, never the same one two courses running, so the course
+  has a moment the rest builds to. The computer rider rides each
+  course at three paces as it is generated; one it can't finish is
+  re-rolled, and its best time, rounded up to the second, is **par**.
+- **Stars** against par and your crashes: three for beating par clean, two
+  for within 1.5× par with at most one crash, one for getting there. The
+  course tile shows your best time.
+- **Flips.** Turn the bike over in the air (lean hard off a jump) and come
+  down on the wheels -- either wheel first, three quarters of a turn or
+  more -- and each turn takes two seconds off your clock: the only way to
+  beat the computer rider's time by much, since it never flips. A turn that
+  ends on the helmet is just a crash. One landed gets
+  the big celebration: a fanfare, the banner swelling (with DOUBLE! or
+  TRIPLE! under it for more), a flare going up from behind the finish for
+  every turn, and the crowd there forty strong, arms up and jumping, for
+  the rest of the ride.
+- Every tenth course, someone grazes on a hilltop who doesn't mind the
+  bikes, so long as they go over.
+- **The computer rider** reads the ground ahead of the rear wheel -- the
+  first wall (a rise too sheer to roll over), the first edge (ground falling
+  away) and, if that edge is a pit, how wide -- and holds the bike's pitch to
+  a target: the slope under it, nose-up for a wheelie sized to the wall,
+  nose-up off an edge, and in the air the slope where it will come down. It
+  carries the speed a gap needs and eases off everywhere else. **SHOW ME**,
+  offered after a crash, runs it on the course, at 1×, 2× or 4×.
+- **GHOST** (on from course 3, until you say otherwise) rides the computer's par run beside you: a
+  faint blue bike and rider, behind yours, at the point the par ride had
+  reached at your time on the clock (so it waits on the start line until
+  you touch the gas, and a flip doesn't move it -- the bonus shows at the
+  finish), with a hollow amber ring for it on the course line in the
+  instruments. With it on, the finish card says who won and by how much,
+  and beating it is the headline.
+- **Landscape plays best** (the course is wide) but it works upright too,
+  with the ground lower to leave room for the jumps. Not locked: the camera
+  keeps the bike a third of the way across so you see what's coming.
+- Sound is the shared motor loop, pitched to the speed, with a bump on a
+  hard landing, the checkpoint chime at each flag, a fanfare and the
+  flares' whoosh and crackle for a flip, and one other, from the hilltop.
+
 ## Jigsaw
 
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo

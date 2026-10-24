@@ -146,12 +146,18 @@ test('after the first visit the app works fully offline', { skip: !chromium, tim
         await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
       }
     });
-    // (Every file the app has.)
+    // (Every file the app has. Polled from here: waitForFunction doesn't
+    // await an async predicate -- a promise is truthy -- so it would pass
+    // at once, caching done or not.)
     const { files } = new Function('self', `${await readFile(new URL('../sw-manifest.js', import.meta.url), 'utf8')}; return self.PRECACHE;`)({});
-    await page.waitForFunction(async (list) => {
+    const allCached = (list) => page.evaluate(async (list) => {
       for (const f of list) if (!(await caches.match(f))) return false;
       return true;
-    }, files, { timeout: 30000, polling: 200 });
+    }, list);
+    for (const deadline = Date.now() + 30000; !(await allCached(files));) {
+      assert.ok(Date.now() < deadline, 'every file is cached within 30 s');
+      await page.waitForTimeout(200);
+    }
     await context.setOffline(true);
     server.close();
     await page.reload();
@@ -1599,6 +1605,112 @@ test('elevator operator: tap a shaft to send a lift, deliver everyone, scored ag
     assert.deepEqual(twin.types, ['residential', 'office']);
     await page.touchscreen.tap(box.x + twin.x, box.y + twin.y);
     assert.equal(await page.evaluate(() => window.__elevator.day.sims[1].cars[0].target), 4, 'the office tower\'s lift A');
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('trial bike: gas and lean with two thumbs, a crash and the tap that goes again, the finish scored against par', { skip: !chromium, timeout: 120000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=trial-bike]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    // (The course is test-ridden in a worker first.)
+    await page.waitForFunction(() => window.__trialBike, null, { timeout: 30000 });
+    const level = await page.evaluate(() => ({ par: window.__trialBike.level.par, checked: window.__trialBike.level.checked, flags: window.__trialBike.level.flags.length }));
+    assert.ok(level.checked && level.par > 5, `course 1 was ridden by the computer (par ${level.par})`);
+
+    // Right thumb holds GAS while the left thumb drags back: the bike moves
+    // off, nose up. Real multi-touch, through the browser's touch input.
+    const gas = await page.locator('.tb-gas').boundingBox();
+    const lean = await page.locator('.tb-lean').boundingBox();
+    const cdp = await page.context().newCDPSession(page);
+    const g = { x: gas.x + gas.width / 2, y: gas.y + gas.height / 2, id: 1 };
+    const l = { x: lean.x + lean.width / 2, y: lean.y + lean.height / 2, id: 2 };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [g] });
+    await page.waitForFunction(() => window.__trialBike.B.vx > 2);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [g, l] });
+    for (let i = 1; i <= 6; i++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [g, { ...l, x: l.x - i * 14 }] });
+    }
+    const held = await page.evaluate(() => ({ ...window.__trialBike.input }));
+    assert.equal(held.gas, true);
+    assert.ok(held.lean > 0.5, `leaning back (${held.lean})`);
+    await page.waitForFunction(() => window.__trialBike.B.angle > 0.2 && window.__trialBike.B.front === null, null, { timeout: 5000 });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForFunction(() => !window.__trialBike.input.gas && window.__trialBike.input.lean === 0);
+
+    // Pause: the bike holds still until you tap to carry on.
+    await page.locator('[data-act=pause]').click();
+    const x0 = await page.evaluate(() => window.__trialBike.B.x);
+    await page.waitForTimeout(400);
+    assert.equal(await page.evaluate(() => window.__trialBike.B.x), x0, 'frozen while paused');
+    assert.ok(await page.locator('.tb-paused:not([hidden])').count());
+    await page.locator('.tb-paused').click();
+    assert.equal(await page.evaluate(() => window.__trialBike.paused), false);
+
+    // Tip it onto its helmet: a crash. The clock keeps running, the first
+    // touch on the stage goes again from the start (no flag passed yet).
+    await page.evaluate(() => {
+      const p = window.__trialBike;
+      p.B.angle = Math.PI;
+      p.B.y += 2;
+    });
+    await page.waitForFunction(() => window.__trialBike.waiting, null, { timeout: 10000 });
+    const crashed = await page.evaluate(() => ({ crashes: window.__trialBike.crashes, msg: window.__trialBike.message?.text, time: window.__trialBike.time }));
+    assert.equal(crashed.crashes, 1);
+    assert.match(crashed.msg, /HANDLEBARS/);
+    assert.ok(await page.locator('.tb-showme:not([hidden])').count(), 'offered a demo');
+    await page.locator('.stage').dispatchEvent('pointerdown');
+    const again = await page.evaluate(() => ({ waiting: window.__trialBike.waiting, x: window.__trialBike.B.x, time: window.__trialBike.time, crashed: window.__trialBike.B.crashed }));
+    assert.ok(!again.waiting && !again.crashed && again.x < 6 && again.time >= crashed.time, JSON.stringify(again));
+
+    // Let the computer rider ride the rest, fast-forwarded: the finish card
+    // scores against par, notes the crash, and saves progress and the time.
+    await page.evaluate(async () => {
+      const m = await import('/games/trial-bike/engine.js');
+      const p = window.__trialBike;
+      p.timeScale = 6;
+      p.pilot = (level, B) => m.rider(level, B, level.pace);
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 60000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /Made it|Over the line|Clean ride/);
+    assert.match(await page.locator('.dialog p').textContent(), /par .*1 crash/s);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:trial-bike:progress')));
+    assert.equal(saved.unlocked, 2);
+    assert.ok(saved.stars['1'] >= 1 && saved.stars['1'] <= 2, 'one crash caps it at two stars');
+    assert.ok(saved.times['1'] > 5, 'best time saved');
+
+    // Ride again, crash, and ask to be shown: the computer rider does the
+    // course (fast-forwarded here), and that doesn't count toward progress.
+    await page.evaluate(() => (window.__trialBike.pilot = null));
+    await page.locator('[data-act=replay]').click();
+    await page.evaluate(() => {
+      const p = window.__trialBike;
+      p.B.angle = Math.PI;
+      p.B.y += 2;
+    });
+    await page.waitForFunction(() => window.__trialBike.waiting, null, { timeout: 10000 });
+    await page.locator('.tb-showme').dispatchEvent('pointerdown');
+    assert.ok(await page.evaluate(() => window.__trialBike.demo));
+    assert.ok(await page.locator('.tb-demo:not([hidden])').count());
+    await page.evaluate(() => (window.__trialBike.timeScale = 6));
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 60000 });
+    assert.match(await page.locator('.dialog h3').textContent(), /how it/);
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:trial-bike:progress')));
+    assert.deepEqual(after, saved);
+    await page.locator('[data-act=retry]').click();
+    assert.equal(await page.evaluate(() => window.__trialBike.demo), false);
+    // The course grid shows the best time under course 1.
+    await page.locator('[data-act=levels]').click();
+    assert.match(await page.locator('.lvl[data-n="1"] .lvl-note').textContent(), /\d+\.\d s/);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
