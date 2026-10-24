@@ -144,3 +144,12 @@ cut from NASA's *Apollo 11 Audio Highlights* reel, also public domain
 ([Internet Archive](https://archive.org/details/Apollo11AudioHighlights)),
 by way of [seankd3/orbital-mechanics](https://github.com/seankd3/orbital-mechanics).
 Using them implies no endorsement by NASA.
+
+Benji's Town's spoken lines (`games/benji/voice/*.mp3`) were recorded once,
+at build time, by `tools/benji-voice.py` in Microsoft Edge's read-aloud child
+voice (en-US-AnaNeural), through the community `edge-tts` wrapper -- as in
+[mckoss/letter-tracer](https://github.com/mckoss/letter-tracer); the game
+never calls a service. Microsoft publishes no grant of redistribution rights
+for that output; the clips are committed at the project owner's direction,
+knowing that. If that needs undoing: a paid voice service whose terms allow
+redistribution, or recordings of a real child.

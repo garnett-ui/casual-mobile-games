@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.78.0
+- Benji's Town talks in a child's voice: "Tap a truck!", "Red light.
+  Stop!", "A package for you!", "Yay! Great job!" and the rest are now
+  recordings, the same voice as Letter Tracer's, and work offline.
+
 ## 1.77.0
 - Benji's Town in 3D: the town is now seen from above at an angle
   (isometric), with houses, trucks and people you can see the sides of --

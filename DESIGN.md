@@ -89,6 +89,10 @@ pictures and a sound for every touch.
   it once, an animated finger show the way.
 - Every finished level is three stars, a shower of confetti and "Yay!
   Great job!" said out loud (with the sound on).
+- Everything it says is in a child's voice: short clips recorded once (by
+  `tools/benji-voice.py`, from the list in `voice.js`) and precached, so
+  they play offline. A line without a clip -- or one that won't play -- is
+  spoken by the phone's own voice instead.
 - `town.js` (the town, routes along the streets, levels and jobs),
   `streets.js` (the sidewalks and crosswalks, and the lights' timing) and
   `traffic.js` (lanes, stopping, queueing, waiting to cross) are all tested
