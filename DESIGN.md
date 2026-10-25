@@ -193,15 +193,25 @@ pictures and a sound for every touch.
   light. Stop!" (press anything and it says "Wait for green!"), and when
   it turns green you go on by yourself ("Green light go!"); someone on the
   crosswalk -- even one you've just turned toward -- and it's "Wait!
-  Someone's crossing."; on foot, "Wait for the walking man!" ... "Walk!".
+  Someone's crossing."; on foot, "Wait for the walking man!" ... "Walk!"
+  -- and while you wait at the curb you look across the crosswalk at the
+  walk signal on the far side, zoomed in a little.
   Jobs happen as you get there; at a house the mail van stops and the
   camera floats out of the cab to watch from the street just behind the
   van -- the postal worker taking it out of the back and up to the door
   -- and floats back in after.
   When the helper's jobs are done (or with the map button, top left)
   you're back over the town. Helpers start facing into town.
-- Every part of the day done is a shower of confetti and "Yay! Great
-  job!" said out loud (with the sound on). No stars, no score.
+- Every part of the day done is a shower of confetti and a cheer -- the
+  "yay" from the letter tracer (`sounds/yay.mp3`, the project owner's own)
+  -- then what you did ("You built a house! Great job!"). No stars, no
+  score.
+- A step of a job done and more to do, it says what's next straight away
+  (and, from above, that helper's button bounces): "Time to deliver the
+  next package!", "Time to pick up the next garbage!", the mixer loaded
+  -- "Time to drive to the construction site!" -- or the next kind of
+  job ("Time to take the garbage to the dump!"). You're never left
+  wondering what to do.
 - Everything it says is in a child's voice: short clips recorded once (by
   `tools/benji-voice.py`, from the list in `voice.js`) and precached, so
   they play offline. A line without a clip -- or one that won't play -- is

@@ -40,7 +40,7 @@ export function mount(root, ctx, sub) {
     while (queue.length && performance.now() - queue[0].at > STALE) queue.shift();
     if (speaking || !queue.length) return;
     speaking = true;
-    const { text } = queue.shift();
+    const { text, clip: own } = queue.shift();
     let over = false;
     const done = () => {
       if (over) return;
@@ -49,7 +49,7 @@ export function mount(root, ctx, sub) {
       speaking = false;
       setTimeout(next, 150);
     };
-    const url = clipFor(text);
+    const url = own || clipFor(text);
     if (!url || !ctx.loadClip) {
       speak(text, done);
       return;
@@ -67,6 +67,13 @@ export function mount(root, ctx, sub) {
     queue.push({ text, at: performance.now() });
     next();
   };
+  // Hooray: a cheer (the "yay" from the letter tracer), first in line.
+  const YAY = new URL('./sounds/yay.mp3', import.meta.url).href;
+  const cheer = () => {
+    if (!ctx.getSetting('sound')) return;
+    queue.unshift({ text: 'Yay!', clip: YAY, at: performance.now() });
+    next();
+  };
   const quiet = () => {
     queue.length = 0;
     hush?.();
@@ -74,6 +81,7 @@ export function mount(root, ctx, sub) {
   };
   // (Loaded ahead, so the first line isn't late.)
   for (const text of RECORDED) ctx.loadClip?.(clipFor(text));
+  ctx.loadClip?.(YAY);
 
   function teardown() {
     quiet();
@@ -120,6 +128,7 @@ export function mount(root, ctx, sub) {
       sfx: ctx.sfx,
       haptic: ctx.haptic,
       say,
+      cheer,
       // A part of the day begins (or night falls): the picture in the title.
       onPart: (part) => {
         title.innerHTML = `Day ${day} <span class="bt-part">${pic(PART[part])}</span>`;

@@ -6,6 +6,16 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.91.0
+- Benji's Town: a "yay!" with the confetti (the one from the letter
+  tracer), instead of the bang.
+- Benji's Town: after each step of a job it says what's next, straight
+  away -- "Time to deliver the next package!", "Time to pick up the next
+  garbage!", "Time to drive to the construction site!" -- and that
+  helper's button bounces.
+- Benji's Town: walking the dog, waiting to cross, you look across the
+  crosswalk at the walk signal (zoomed in a little), not off to the side.
+
 ## 1.90.0
 - Benji's Town: the switch top right shows what it does -- a steering
   wheel to be the driver, the town from above to go back to watching.

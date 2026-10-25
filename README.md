@@ -158,3 +158,6 @@ Benji's Town's pictures of emoji (`games/benji/emoji/*.svg`) are Google's
 [Noto Emoji](https://github.com/googlefonts/noto-emoji), Apache License
 2.0, fetched by `tools/benji-emoji.py`: the town draws those rather than
 relying on the device's emoji font, which some browsers (a car's) lack.
+Its cheer (`games/benji/sounds/yay.mp3`) is the one from
+[mckoss/letter-tracer](https://github.com/mckoss/letter-tracer), supplied by
+the project owner.

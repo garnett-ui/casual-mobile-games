@@ -181,7 +181,7 @@ export class Play {
       { act: 'right', x: this.W * 0.82, y: py, r: 34 },
       { act: 'exit', x: 34, y: 34, r: 24 },
     ];
-    this.eye.F = this.W / 2 / Math.tan((40 * Math.PI) / 180);
+    this.eye.F = this.baseF = this.W / 2 / Math.tan((40 * Math.PI) / 180);
     this.eye.ox = this.W / 2;
     this.eye.oy = this.seatH * 0.36;
     this.camera(0);
@@ -296,6 +296,8 @@ export class Play {
       if (this.place('yard').doors.some((d) => d.x === tile.x && d.y === tile.y)) {
         h.loaded = true;
         h.pause = 0.6;
+        h.last = 'load';
+        h.next = true;
         this.stopHere(h);
         this.pop('🪣', tile);
         this.hooks.sfx?.('pour', 0.5);
@@ -312,6 +314,9 @@ export class Play {
     // (Tipped out with bins still to get: back for them, and here again.)
     if (!(job.kind === 'dump' && left)) this.done.add(job.i);
     if (h.chosen === job.i) h.chosen = null;
+    // (When this is done: say what's next.)
+    h.last = job.kind;
+    h.next = true;
     this.stopHere(h);
     h.path = [];
     const p = this.place(job.place);
@@ -496,7 +501,10 @@ export class Play {
   win() {
     if (this.won) return;
     this.won = true;
-    this.hooks.sfx?.('win');
+    // (Yay! -- a cheer, as in the letter tracer; the synthesised fanfare
+    // without one.)
+    if (this.hooks.cheer) this.hooks.cheer();
+    else this.hooks.sfx?.('win');
     for (let k = 0; k < 120; k++) {
       this.confetti.push({
         x: this.rand() * this.W, y: -this.rand() * this.H * 0.5, vx: (this.rand() - 0.5) * 60, vy: 80 + this.rand() * 120,
@@ -559,10 +567,33 @@ export class Play {
 
   // Says what a helper's next job is.
   tellJob(h) {
+    this.hooks.say?.(this.jobLine(h));
+  }
+
+  // A step of a job done, and more to do: say what's next -- straight away,
+  // so you're never left wondering (the next of the same: "the next
+  // package"; the mixer loaded: off to the building site) -- and, watching
+  // from above, its button bounces.
+  tellNext(h) {
     const j = this.nextOf(h);
     if (!j) return;
+    const same = j.kind === h.last || ((j.kind === 'letter' || j.kind === 'parcel') && (h.last === 'letter' || h.last === 'parcel'));
+    const line = j.kind === 'build' && h.loaded ? 'Time to drive to the construction site!'
+      : same ? { letter: 'Time to deliver the next letter!', parcel: 'Time to deliver the next package!', bin: 'Time to pick up the next garbage!', recycle: 'Time to pick up the next recycling!' }[j.kind]
+      : null;
+    this.hooks.say?.(line || this.jobLine(h));
+    if (!this.fp) {
+      this.hint = { h, t: this.t };
+      this.idle = 0;
+    }
+  }
+
+  // What a helper's next job is, in words.
+  jobLine(h) {
+    const j = this.nextOf(h);
+    if (!j) return null;
     const kind = j.kind === 'build' ? `${h.loaded ? 'build' : 'load'}${j.stage}` : j.kind;
-    this.hooks.say?.({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get more concrete for the roof!', build3: 'Now put the roof on!' }[kind]);
+    return ({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get more concrete for the roof!', build3: 'Now put the roof on!' }[kind]);
   }
 
   // Night falls: everyone home to bed.
@@ -931,8 +962,17 @@ export class Play {
       f.lookT += dt;
       if (f.lookT > 1) f.look = Math.abs(f.look) < 0.01 ? 0 : f.look * (1 - Math.min(1, dt * 3));
     }
-    // Which way you're looking, and the wheel, turning with you.
-    const d = h.head - f.head;
+    // Which way you're looking, and the wheel, turning with you. (On foot,
+    // waiting to cross: looking across the crosswalk, at the walk signal on
+    // the far side, a little zoomed in.)
+    const crossing = h.kind === 'walker' && (h.wait === 'walk' || h.wait === 'car') && h.path.length > 0;
+    let ahead = h.head;
+    if (crossing) {
+      const b = this.walk.nodes[h.path[0]];
+      ahead = Math.atan2(b.y - h.y, b.x - h.x);
+    }
+    f.zoom = (f.zoom || 1) + ((crossing ? 1.4 : 1) - (f.zoom || 1)) * Math.min(1, dt * 3);
+    const d = ahead - f.head;
     const turnRate = Math.atan2(Math.sin(d), Math.cos(d));
     f.head += turnRate * Math.min(1, dt * 6);
     const lean = { left: -0.5, right: 0.5 }[f.intent] || 0;
@@ -1214,6 +1254,11 @@ export class Play {
     };
     for (const h of this.helpers) {
       move(h);
+      // A step done (and the helper free again): what's next, at once.
+      if (h.next && h.pause <= 0 && !h.deliver) {
+        h.next = false;
+        this.tellNext(h);
+      }
       // (A ball thrown for the dog, now and then, while it plays.)
       if (h.atPark && !h.path.length && h.pause <= 0 && this.t - (h.ball || 0) > 3) {
         h.ball = this.t;
@@ -1439,7 +1484,11 @@ export class Play {
     const f = this.fp;
     const h = f.h;
     const d = h.deliver;
-    if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head + f.look, -0.34);
+    // (Zoomed in, and looking up a little, at a walk signal you're waiting
+    // for.)
+    const zoom = f.zoom || 1;
+    eye.F = this.baseF * zoom;
+    if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head + f.look, -0.34 + (zoom - 1) * 0.5);
     else eye.set(h.x + Math.cos(f.head) * 0.2, h.y + Math.sin(f.head) * 0.2, 0.36, f.head + f.look, -0.16);
     // On a delivery, the camera floats out of the cab to watch from across
     // the street (and back in after).
