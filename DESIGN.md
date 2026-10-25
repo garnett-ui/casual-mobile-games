@@ -87,18 +87,23 @@ pictures and a sound for every touch.
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --
   or walking the dog, the dog trotting ahead.
-- Made for a three-year-old: every press does something you can see and
-  hear at once, and nothing is ever stuck. Three big buttons. Any of them
-  and you're off -- no holding; you keep going by yourself. ◀ ▲ ▶ choose
-  the way at the next corner: a big yellow arrow is painted on the road
-  there, the yellow dots re-route, the wheel turns, and it's said ("Left!",
-  "Straight on!", "Right!"). Choose nothing and you go the way to the job
-  (that button glows). You can change your mind right up to the middle of
-  the intersection (after that, it's for the next one). At a dead end (the
-  edge of town) you turn round by yourself, and it's said ("Turn
-  around!") -- no reverse gear to get stuck in. At each job you stop, no
-  arrow left lit, and ▲ glows for the next; a press while the job's going
-  on hurries it along. A finger dragged across the windshield looks round
+- Made for a three-year-old: a button you can press does something you
+  can see and hear at once -- never later on -- and nothing is ever
+  stuck. A button that would do nothing right now is faded, and does
+  nothing: no queued presses. Three big buttons. Stopped, ▲ starts you
+  off (it glows) -- no holding; you keep going by yourself. ◀ ▲ ▶ choose
+  the way at the corner coming up: the big yellow arrow painted on the
+  road there swings round, the yellow dots re-route, the wheel turns, and
+  it's said ("Left!", "Straight on!", "Right!"); the way you're going
+  already is faded. Choose nothing and you go the way to the job (going
+  another way, that button glows). You can change your mind right up to
+  the middle of the intersection; past that, all three fade till you're
+  out of it. Walking the dog, the same, with a smaller arrow on the
+  sidewalk where the way divides. At a dead end (the edge of town) you
+  turn round by yourself, and it's said ("Turn around!") -- no reverse
+  gear to get stuck in; the arrows fade till there's a corner ahead. At
+  each job you stop: the arrows fade while it's done, then ▲ glows for
+  the next. A finger dragged across the windshield looks round
   (the view follows the finger, like a panorama); let go and a moment
   later you look ahead again. A tap on the windshield honks.
 - The rules hold you just the same, but you're told why, every time: at a

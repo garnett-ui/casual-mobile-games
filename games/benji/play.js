@@ -12,7 +12,7 @@
 import { SIZE, isRoad, route, nearestRoad, jobAt, nextJob } from './town.js';
 import { walkways, walkDoor, nearestWalk, junctions, crossings, isJunction, isLit, lights, walkSignal, armOf } from './streets.js';
 import { Traffic, lanePoint, startDir, streetTiles } from './traffic.js';
-import { ahead, driveTurn, walkAhead, walkTurn } from './steer.js';
+import { ahead, driveTurn, onFrom, walkAhead, walkTurn } from './steer.js';
 import * as D from './draw.js';
 import * as I from './iso.js';
 
@@ -297,7 +297,6 @@ export class Play {
     if (this.fp?.h !== h) return;
     this.fp.go = false;
     this.fp.intent = null;
-    this.fp.keep = false;
   }
 
   // The postal worker at the door: here's your letter (or package)!
@@ -391,14 +390,14 @@ export class Play {
   }
 
   // In the driver's seat (or walking the dog), made for a three-year-old:
-  // every button does something you can see and hear, at once. Any arrow
-  // and you're off (no holding); ◀ ▲ ▶ choose the way at the next corner --
-  // left, straight on, right -- shown on the road and said out loud; with
-  // no choice made you go the way to the job. Held up (a red light, someone
-  // crossing), a press is told why. The map button: back out to the town.
-  // A tap anywhere else: honk!
-  // In the driver's seat: the buttons; and a finger dragged across the
-  // windshield looks round (a tap on it honks).
+  // a button you can press does something you can see and hear, at once --
+  // never later on. Stopped, ▲ starts you off; ◀ ▲ ▶ choose the way at the
+  // corner coming up -- the arrow on the road swings round, and it's said
+  // out loud; with no choice made you go the way to the job. A button that
+  // would do nothing (that way already, no corner to choose at yet, busy
+  // with a job) is faded, and does nothing. The map button: back out to the
+  // town. A finger dragged across the windshield looks round; a tap on it
+  // honks.
   seat(e, type, sx, sy) {
     const f = this.fp;
     const drag = f.drag;
@@ -418,27 +417,41 @@ export class Play {
     e.preventDefault();
     const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
     if (b?.act === 'exit') this.leave();
-    else if (b) this.choose(b.act === 'go' ? 'straight' : b.act);
+    else if (b) this.choose(b.act);
     else {
       this.canvas.setPointerCapture?.(e.pointerId);
       f.drag = { id: e.pointerId, sx, look: f.look, moved: false };
     }
   }
 
-  choose(way) {
+  // What a button would do now -- at once -- if anything: start you off,
+  // or change the way you go at the corner coming up.
+  can(act) {
     const f = this.fp;
     const h = f.h;
-    if (h.kind === 'walker' && f.hint === 'back' && way !== 'straight') way = 'back';
-    f.intent = way;
+    if (act === 'exit') return true;
+    if (h.pause > 0 || h.deliver) return false;
+    if (act === 'go' && !f.go) return true;
+    const o = f.options;
+    if (!o) return false;
+    const way = act === 'go' ? 'straight' : act;
+    return o[way] !== (f.go ? o.now : o.straight);
+  }
+
+  // A button pressed (act: 'go', 'left' or 'right'): if it does anything
+  // (see can), do it now.
+  choose(act) {
+    const f = this.fp;
+    this.plan(f);
+    if (!this.can(act)) return false;
+    const start = !f.go;
     f.go = true;
-    // (Too late to turn at this corner: it's for the next one.)
-    f.keep = !!f.locked;
-    // (Busy with a job -- a delivery, playing in the park: hurry it up, and
-    // off you go.)
-    if (h.pause > 0 || h.deliver) h.hurry = true;
+    if (act !== 'go' || !start) f.intent = act === 'go' ? 'straight' : act;
+    this.plan(f);
+    f.flash = { act, t: this.t };
     this.hooks.sfx?.('tap');
-    const why = { light: 'Wait for green!', walk: 'Wait for the walking man!', people: 'Wait! Someone’s crossing.', car: 'Wait for the car!', turn: 'Wait for the car!' }[h.wait];
-    this.tell(why || { left: 'Left!', right: 'Right!', straight: 'Straight on!', back: 'Turn around!' }[way]);
+    this.tell(act === 'go' && start ? 'Let’s go!' : { left: 'Left!', right: 'Right!', go: 'Straight on!' }[act]);
+    return true;
   }
 
   // Says something (but not the same thing again straight away).
@@ -486,8 +499,7 @@ export class Play {
     // to turn.)
     const want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
     f.v += clamp(want - f.v, -6 * dt, 3 * dt);
-    if (h.kind === 'walker') this.planWalk(f, h);
-    else this.planDrive(f, h);
+    this.plan(f);
     // Turning round (at a dead end): say so.
     const n = h.path[0];
     const round = h.kind !== 'walker' && !!n && n.x - h.tile.x === -h.dir.x && n.y - h.tile.y === -h.dir.y;
@@ -522,22 +534,28 @@ export class Play {
     } else f.done = 0;
   }
 
+  // The way on ahead, as it is right now.
+  plan(f) {
+    if (f.h.kind === 'walker') this.planWalk(f, f.h);
+    else this.planDrive(f, f.h);
+  }
+
   // Driving: the street on ahead from where you are (or the tile you're
   // heading into), turning at the next intersection the way you chose (or,
   // not choosing, the way to the job). You can change your mind right up to
   // the middle of the intersection (choosing after that is for the next
   // one); turned toward someone on a crosswalk, you wait for them.
   planDrive(f, h) {
-    if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) {
-      if (!f.keep) f.intent = null;
-      f.keep = false;
-    }
+    if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) f.intent = null;
     f.last = h.tile;
     const at = lanePoint(h.tile, h.dir);
     const off = Math.hypot(h.x - at.x, h.y - at.y);
     const inside = isJunction(h.tile.x, h.tile.y);
-    f.locked = inside && h.path.length > 0 && off > 0.3;
-    if (f.locked) return; // (on the way out: too late to turn now)
+    if (inside && h.path.length && off > 0.3) {
+      // (On the way out: too late to turn now.)
+      f.options = null;
+      return;
+    }
     const moving = !inside && h.path.length > 0 && off > 0.02;
     const base = moving ? h.path[0] : h.tile;
     const dir = moving && (base.x !== h.tile.x || base.y !== h.tile.y) ? { x: base.x - h.tile.x, y: base.y - h.tile.y } : h.dir;
@@ -552,7 +570,23 @@ export class Play {
     const exit = k >= 0 ? plan[k + 1] : plan[0];
     const prev = k > 0 ? plan[k - 1] : moving ? h.tile : base;
     const into = inside ? h.dir : j && { x: j.x - prev.x, y: j.y - prev.y };
-    f.corner = j && exit ? { j, exit, into, chosen: !!f.intent } : null;
+    f.corner = j && exit ? { at: { x: j.x + 0.5, y: j.y + 0.5 }, into, out: { x: exit.x - j.x, y: exit.y - j.y } } : null;
+    // Where each way out of it goes -- if it's the next thing (not round a
+    // dead end first: a choice there would be for later on).
+    let from = moving ? h.tile : base;
+    let next = !!f.corner;
+    for (const t of plan) {
+      if (isJunction(t.x, t.y)) break;
+      if (t.x - from.x === -dir.x && t.y - from.y === -dir.y) next = false;
+      from = t;
+    }
+    const exitOf = (turn) => {
+      const pl = [...(moving ? [base] : []), ...ahead(base, dir, turn)];
+      const i = pl.findIndex((t) => isJunction(t.x, t.y));
+      const e = i >= 0 ? pl[i + 1] : pl[0];
+      return e ? `${e.x},${e.y}` : '';
+    };
+    f.options = next ? { straight: exitOf('straight'), left: exitOf('left'), right: exitOf('right'), now: `${exit.x},${exit.y}` } : null;
     // Let through the intersection already, and turning another way now:
     // that crosswalk's yours too (and anyone on it, you wait for).
     if (j && exit && h.pass === `${j.x},${j.y}`) {
@@ -605,8 +639,22 @@ export class Play {
     }
     f.hint = hint;
     f.route = to !== null ? w.route(b, to).map((n) => w.nodes[n]) : [];
-    f.corner = null;
     h.path = [b, ...walkAhead(w, a, b, f.intent || (hint === 'back' ? null : hint) || 'straight')];
+    // Where the way divides next, and where each way from there goes.
+    const seq = [a, ...h.path];
+    const [p, q, r] = seq.slice(-3);
+    if (seq.length >= 3 && w.adj[q].length > 2) {
+      const unit = (u, v) => {
+        const [dx, dy] = [w.nodes[v].x - w.nodes[u].x, w.nodes[v].y - w.nodes[u].y];
+        const d = Math.hypot(dx, dy) || 1;
+        return { x: dx / d, y: dy / d };
+      };
+      f.corner = { at: w.nodes[q], into: unit(p, q), out: unit(q, r), s: 0.5 };
+      f.options = { straight: onFrom(w, p, q), left: onFrom(w, p, q, 'left'), right: onFrom(w, p, q, 'right'), now: r };
+    } else {
+      f.corner = null;
+      f.options = null;
+    }
   }
 
 
@@ -692,7 +740,7 @@ export class Play {
     if (this.fp) this.fpSteer(dt);
     const move = (m) => {
       if (m.pause > 0) {
-        m.pause -= dt * (m.hurry ? 3 : 1);
+        m.pause -= dt;
         if (m.pause <= 0 && m.then) {
           m.then = false;
           this.send(m);
@@ -715,11 +763,10 @@ export class Play {
       h.hop = Math.max(0, h.hop - dt * 2.5);
       if (h.deliver) {
         const was = h.deliver.t;
-        h.deliver.t += dt * (h.hurry ? 3 : 1);
+        h.deliver.t += dt;
         if (was < DELIVER / 2 && h.deliver.t >= DELIVER / 2) this.handOver(h);
         if (h.deliver.t >= DELIVER) h.deliver = null;
       }
-      if (h.pause <= 0 && !h.deliver) h.hurry = false;
       // A helper held up at a red light: say so (now and then), and say go.
       // (Yours, from the driver's seat: fpSteer says, every time.)
       if (this.fp?.h === h) continue;
@@ -741,6 +788,8 @@ export class Play {
       move(a);
       a.hop = Math.max(0, a.hop - dt * 2.5);
     }
+    // (Where you are now: the way on, and what the buttons would do.)
+    if (this.fp) this.plan(this.fp);
     // Everyone turns smoothly to face the way they're going.
     for (const m of [...this.helpers, ...this.ambient]) {
       const dx = m.x - m.px;
@@ -877,21 +926,19 @@ export class Play {
 
   // An arrow painted on the road through an intersection: in, and out the
   // way you'll go.
-  roadArrow(view, { j, exit, into, chosen }) {
-    const out = { x: exit.x - j.x, y: exit.y - j.y };
-    const cx = j.x + 0.5;
-    const cy = j.y + 0.5;
-    const fill = chosen ? '#ffd166' : 'rgba(255,255,255,0.8)';
+  roadArrow(view, { at, into, out, s = 1 }) {
+    const { x: cx, y: cy } = at;
+    const fill = '#ffd166';
     const bar = (ax, ay, bx, by) => {
       const len = Math.hypot(bx - ax, by - ay) || 1;
-      const [nx, ny] = [(-(by - ay) / len) * 0.08, ((bx - ax) / len) * 0.08];
+      const [nx, ny] = [(-(by - ay) / len) * 0.08 * s, ((bx - ax) / len) * 0.08 * s];
       I.flat(this.g, view, [[ax + nx, ay + ny], [bx + nx, by + ny], [bx - nx, by - ny], [ax - nx, ay - ny]], fill, 0.012);
     };
-    bar(cx - into.x * 0.45, cy - into.y * 0.45, cx + into.x * 0.08, cy + into.y * 0.08);
-    bar(cx - out.x * 0.08, cy - out.y * 0.08, cx + out.x * 0.3, cy + out.y * 0.3);
-    const [tx, ty] = [cx + out.x * 0.58, cy + out.y * 0.58];
-    const [bx, by] = [cx + out.x * 0.28, cy + out.y * 0.28];
-    I.flat(this.g, view, [[tx, ty], [bx - out.y * 0.2, by + out.x * 0.2], [bx + out.y * 0.2, by - out.x * 0.2]], fill, 0.012);
+    bar(cx - into.x * 0.45 * s, cy - into.y * 0.45 * s, cx + into.x * 0.08 * s, cy + into.y * 0.08 * s);
+    bar(cx - out.x * 0.08 * s, cy - out.y * 0.08 * s, cx + out.x * 0.3 * s, cy + out.y * 0.3 * s);
+    const [tx, ty] = [cx + out.x * 0.58 * s, cy + out.y * 0.58 * s];
+    const [bx, by] = [cx + out.x * 0.28 * s, cy + out.y * 0.28 * s];
+    I.flat(this.g, view, [[tx, ty], [bx - out.y * 0.2 * s, by + out.x * 0.2 * s], [bx + out.y * 0.2 * s, by - out.x * 0.2 * s]], fill, 0.012);
   }
 
   // Why you're waiting, as a big picture at the top of the view.
@@ -998,17 +1045,21 @@ export class Play {
     g.fillRect(0, this.seatH, this.W, this.H - this.seatH);
     const glow = 0.5 + 0.5 * Math.sin(this.t * 8);
     for (const b of this.pads) {
-      // (Glowing: ▲ while you're stopped, waiting for you; an arrow, the
-      // way to the job at the next corner, till you choose.)
-      const lit = (b.act === 'go' && !f.go && f.hint !== null) || ((b.act === 'left' || b.act === 'right') && f.hint === b.act && !f.intent);
-      if (lit) {
-        g.fillStyle = `rgba(255,200,0,${0.35 + 0.4 * glow})`;
+      // (Faded: it would do nothing now, so it does nothing. Glowing: ▲
+      // while you're stopped, waiting for you; or the way to the job, when
+      // you're going another way. Just pressed: a flash.)
+      const live = this.can(b.act);
+      g.globalAlpha = live ? 1 : 0.25;
+      const way = b.act === 'go' ? 'straight' : b.act;
+      const lit = live && ((b.act === 'go' && !f.go) || (f.go && f.hint === way));
+      const flash = f.flash?.act === b.act ? Math.max(0, 1 - (this.t - f.flash.t) / 0.4) : 0;
+      if (lit || flash) {
+        g.fillStyle = `rgba(255,200,0,${Math.max(lit ? 0.35 + 0.4 * glow : 0, flash)})`;
         g.beginPath();
-        g.arc(b.x, b.y, b.r + 9, 0, Math.PI * 2);
+        g.arc(b.x, b.y, b.r + 9 + flash * 6, 0, Math.PI * 2);
         g.fill();
       }
-      const on = f.intent === b.act || (b.act === 'go' && f.intent === 'straight');
-      g.fillStyle = b.act === 'go' ? (on ? '#1b9e4b' : '#2ecc71') : b.act === 'exit' ? '#ffffff' : on ? '#ffd166' : '#ffffff';
+      g.fillStyle = b.act === 'go' ? '#2ecc71' : '#ffffff';
       g.strokeStyle = '#1d3557';
       g.lineWidth = 3;
       g.beginPath();
@@ -1033,6 +1084,7 @@ export class Play {
       g.closePath();
       g.fill();
     }
+    g.globalAlpha = 1;
   }
 
   // Could anything at (x, y) show, from this camera?

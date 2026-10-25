@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.81.1
+- Benji's Town, driving: a button only works when it does something right
+  away -- otherwise it's faded and does nothing. ◀ ▲ ▶ swing the arrow
+  painted at the corner coming up (the way you're already going is
+  faded); past the middle of an intersection, while a job is being done,
+  or heading into a dead end, the arrows fade. No more presses saved up
+  for later. Walking the dog, an arrow on the sidewalk shows the way at
+  the next corner too.
+
 ## 1.81.0
 - Benji's Town, driving: drag your finger across the windshield to look
   around -- left, right, out the side window. Let go and you look ahead
