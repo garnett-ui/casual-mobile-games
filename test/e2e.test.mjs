@@ -620,6 +620,15 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
         await page.waitForTimeout(300);
         continue;
       }
+      if (!seated) {
+        // (A finger across the windshield looks round.)
+        const r = await page.evaluate(() => { const c = window.__benji.canvas.getBoundingClientRect(); return { x: c.left + 300, y: c.top + 300 }; });
+        await page.mouse.move(r.x, r.y);
+        await page.mouse.down();
+        for (let i = 1; i <= 6; i++) await page.mouse.move(r.x - i * 25, r.y);
+        assert.ok(await page.evaluate(() => window.__benji.fp.look > 0.3), 'looked round');
+        await page.mouse.up();
+      }
       seated = true;
       // (Stopped, nothing shows as chosen; and a press while busy with a
       // job hurries it along.)

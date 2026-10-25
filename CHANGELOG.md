@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.81.0
+- Benji's Town, driving: drag your finger across the windshield to look
+  around -- left, right, out the side window. Let go and you look ahead
+  again. (A tap on the windshield still honks.)
+- Driving to the edge of town, the truck turns round by itself and says
+  "Turn around!"
+
 ## 1.80.1
 - Benji's Town, driving: every arrow always does something. Pressing one
   while the postie is at the door (or the truck is at a bin, or the dog's

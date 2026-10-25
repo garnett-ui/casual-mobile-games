@@ -94,8 +94,13 @@ pictures and a sound for every touch.
   there, the yellow dots re-route, the wheel turns, and it's said ("Left!",
   "Straight on!", "Right!"). Choose nothing and you go the way to the job
   (that button glows). You can change your mind right up to the middle of
-  the intersection (after that, it's for the next one). At a dead end you
-  turn round by yourself. At each job you stop, and ▲ glows for the next.
+  the intersection (after that, it's for the next one). At a dead end (the
+  edge of town) you turn round by yourself, and it's said ("Turn
+  around!") -- no reverse gear to get stuck in. At each job you stop, no
+  arrow left lit, and ▲ glows for the next; a press while the job's going
+  on hurries it along. A finger dragged across the windshield looks round
+  (the view follows the finger, like a panorama); let go and a moment
+  later you look ahead again. A tap on the windshield honks.
 - The rules hold you just the same, but you're told why, every time: at a
   red light a big traffic light shows up top and the town says "Red
   light. Stop!" (press anything and it says "Wait for green!"), and when

@@ -27,6 +27,7 @@ const SIGNS = { post: '✉️', shop: '🍎', cafe: '🍦', dump: '♻️', yard
 const BUILDINGS = { post: ['#e63946', '#8d1b26'], shop: ['#ffd166', '#e09f3e'], cafe: ['#f4a261', '#9c6644'] };
 const BTN = 28; // the turn buttons' radius
 const BOX = 40; // the tray's pictures (and the gap between them: 5)
+const LOOK = 1.75; // how far round you can look (radians, either way)
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Play {
@@ -396,13 +397,32 @@ export class Play {
   // no choice made you go the way to the job. Held up (a red light, someone
   // crossing), a press is told why. The map button: back out to the town.
   // A tap anywhere else: honk!
+  // In the driver's seat: the buttons; and a finger dragged across the
+  // windshield looks round (a tap on it honks).
   seat(e, type, sx, sy) {
-    if (type !== 'down') return;
+    const f = this.fp;
+    const drag = f.drag;
+    if (type === 'move') {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (Math.abs(sx - drag.sx) > 8) drag.moved = true;
+      if (drag.moved) f.look = clamp(drag.look - (sx - drag.sx) / this.eye.F, -LOOK, LOOK);
+      return;
+    }
+    if (type === 'up') {
+      if (!drag || e.pointerId !== drag.id) return;
+      f.drag = null;
+      f.lookT = 0;
+      if (!drag.moved) this.hooks.sfx?.(f.h.kind === 'walker' ? 'pop' : 'honk');
+      return;
+    }
     e.preventDefault();
     const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
-    if (!b) this.hooks.sfx?.(this.fp.h.kind === 'walker' ? 'pop' : 'honk');
-    else if (b.act === 'exit') this.leave();
-    else this.choose(b.act === 'go' ? 'straight' : b.act);
+    if (b?.act === 'exit') this.leave();
+    else if (b) this.choose(b.act === 'go' ? 'straight' : b.act);
+    else {
+      this.canvas.setPointerCapture?.(e.pointerId);
+      f.drag = { id: e.pointerId, sx, look: f.look, moved: false };
+    }
   }
 
   choose(way) {
@@ -432,7 +452,7 @@ export class Play {
   // Into the driver's seat of a helper (or the dog walker's shoes).
   enter(h) {
     h.path = [];
-    this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
+    this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
     this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk');
     this.hooks.say?.('Let’s go!');
@@ -468,6 +488,16 @@ export class Play {
     f.v += clamp(want - f.v, -6 * dt, 3 * dt);
     if (h.kind === 'walker') this.planWalk(f, h);
     else this.planDrive(f, h);
+    // Turning round (at a dead end): say so.
+    const n = h.path[0];
+    const round = h.kind !== 'walker' && !!n && n.x - h.tile.x === -h.dir.x && n.y - h.tile.y === -h.dir.y;
+    if (round && !f.round && f.v > 0.1) this.tell('Turn around!');
+    f.round = round && f.v > 0.1;
+    // Looked round: back to looking ahead, a moment after letting go.
+    if (!f.drag && f.look) {
+      f.lookT += dt;
+      if (f.lookT > 1) f.look = Math.abs(f.look) < 0.01 ? 0 : f.look * (1 - Math.min(1, dt * 3));
+    }
     // Which way you're looking, and the wheel, turning with you.
     const d = h.head - f.head;
     const turnRate = Math.atan2(Math.sin(d), Math.cos(d));
@@ -796,9 +826,9 @@ export class Play {
     const d = h.deliver;
     if (d) {
       const p = this.postie(d);
-      eye.set(p.x, p.y, 0.42, p.head, -0.28);
-    } else if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head, -0.34);
-    else eye.set(h.x + Math.cos(f.head) * 0.2, h.y + Math.sin(f.head) * 0.2, 0.36, f.head, -0.16);
+      eye.set(p.x, p.y, 0.42, p.head + f.look, -0.28);
+    } else if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head + f.look, -0.34);
+    else eye.set(h.x + Math.cos(f.head) * 0.2, h.y + Math.sin(f.head) * 0.2, 0.36, f.head + f.look, -0.16);
     this.sky(this.seatH);
     g.save();
     g.beginPath();
