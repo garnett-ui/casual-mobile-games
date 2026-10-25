@@ -60,7 +60,11 @@ pictures and a sound for every touch.
   and people (the dog walker too) keep to them, crossing only at the zebra
   crossings by the intersections. Three intersections, corner to corner
   across town, have traffic lights: east-west and north-south take turns
-  (green, yellow, then a moment of all red); cars stop at the line on red,
+  (green, yellow, then a moment of all red). Each light stands on the far
+  right-hand corner for the traffic it's for, facing it, as in a real
+  (drive-on-the-right) town: its lamps show only from in front -- from the
+  driver's seat, the one lit up ahead on the right is yours, and the cross
+  street's show their backs. Cars stop at the line on red,
   and people wait at the curb for the little walking man -- the red hand
   blinks when it's about to change, and nobody starts out then. At the
   other intersections cars go through one at a time. Everywhere, a car

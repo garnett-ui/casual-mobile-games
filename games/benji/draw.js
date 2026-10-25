@@ -8,7 +8,7 @@ const rr = (g, x, y, w, h, r) => {
 };
 
 // A traffic light: red, yellow and green, one of them lit.
-export function signal(g, x, y, s, colour) {
+export function signal(g, x, y, s, colour, back = false) {
   const w = s * 0.17;
   const h = s * 0.42;
   g.fillStyle = '#555';
@@ -16,6 +16,7 @@ export function signal(g, x, y, s, colour) {
   g.fillStyle = '#222';
   rr(g, x - w / 2, y - h / 2, w, h, w * 0.3);
   g.fill();
+  if (back) return; // (from behind, or the side: no lamps to see)
   const lamps = [['red', '#ff3b30', '#5a1e1b'], ['yellow', '#ffcc00', '#5a4a12'], ['green', '#34e05c', '#1d4a27']];
   lamps.forEach(([name, on, off], k) => {
     g.fillStyle = name === colour ? on : off;

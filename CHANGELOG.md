@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.82.2
+- Benji's Town: the traffic lights stand where they should -- on the far
+  right-hand corner for the cars they're for, facing them -- and from the
+  driver's seat you see only your own light's colours (the cross street's
+  lights show their backs).
+
 ## 1.82.1
 - Benji's Town, driving: a press never takes you further than the next
   corner. The buttons work only while you're stopped (pressing them as you

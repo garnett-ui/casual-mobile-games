@@ -1245,14 +1245,27 @@ export class Play {
       const at = view.at(x, y, z);
       if (at) draw(at, Math.min(220, view.scale(x, y, z)));
     };
+    // Each light is on the far right-hand corner for the traffic it's for,
+    // facing it (n: the way it faces): its lamps only show from in front.
+    const front = (nx, ny, px, py) => {
+      const [dx, dy] = view === this.eye ? [view.x - px, view.y - py] : [view.eye[0], view.eye[1]];
+      return nx * dx + ny * dy > 0.6 * Math.hypot(dx, dy);
+    };
+    const POLES = [
+      [-0.1, -0.34, 'ew', 1, 0], // going west
+      [1.1, -0.34, 'ns', 0, 1], // going north
+      [-0.1, 1.24, 'ns', 0, -1], // going south
+      [1.1, 1.24, 'ew', -1, 0], // going east
+    ];
     for (const { x, y } of this.junctions) {
       if (!isLit(x, y)) continue;
       const l = lights(x, y, t);
-      for (const [cx, cy, axis] of [[-0.1, -0.34, 'ns'], [1.1, -0.34, 'ew'], [-0.1, 1.24, 'ew'], [1.1, 1.24, 'ns']]) {
+      for (const [cx, cy, axis, nx, ny] of POLES) {
         const m = I.pole(x + cx, y + cy, 0.42);
         add(x + cx, y + cy, () => {
           I.paint(g, view, m.parts);
-          flatOn(x + cx, y + cy, 0.62, ([sx, sy], s) => D.signal(g, sx, sy, s * 0.8, l[axis]));
+          const back = !front(nx, ny, x + cx, y + cy);
+          flatOn(x + cx, y + cy, 0.62, ([sx, sy], s) => D.signal(g, sx, sy, s * 0.8, l[axis], back));
         });
       }
     }
