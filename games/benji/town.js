@@ -35,17 +35,21 @@ const PLACES = [
 ];
 export const LOTS = PLACES.filter((p) => p.kind === 'lot').map((p) => p.id);
 
-// The street tile beside a place (its door).
-function doorOf(p) {
+// The street tiles beside a place (along any side of it): pull up at any
+// of them and you're there. The first is its door (where its path and the
+// bin are, and where helpers head for).
+function doorsOf(p) {
   const w = p.w || 1;
   const h = p.h || 1;
+  const out = [];
   for (let x = p.x - 1; x <= p.x + w; x++) {
     for (let y = p.y - 1; y <= p.y + h; y++) {
       const side = (x === p.x - 1 || x === p.x + w) !== (y === p.y - 1 || y === p.y + h);
-      if (side && isRoad(x, y)) return { x, y };
+      if (side && isRoad(x, y)) out.push({ x, y });
     }
   }
-  throw new Error(`no street beside ${p.id}`);
+  if (!out.length) throw new Error(`no street beside ${p.id}`);
+  return out;
 }
 
 // The shortest way along the streets from one street tile to another: the
@@ -132,7 +136,8 @@ export function makeTown(n) {
   const r = rng(n * 7919 + 17);
   const built = builtBefore(n);
   const places = PLACES.map((p) => {
-    const q = { ...p, door: doorOf(p) };
+    const doors = doorsOf(p);
+    const q = { ...p, door: doors[0], doors };
     if (p.kind === 'lot' && LOTS.indexOf(p.id) < built) q.kind = 'home';
     return q;
   });
@@ -192,8 +197,8 @@ export function jobAt(town, helper, tile, done) {
     if (j.last && rest.length) continue;
     if (j.kind === 'build' && mine.some((o) => o.kind === 'build' && o.place === j.place && o.stage < j.stage)) continue;
     if (j.kind === 'home' && mine.some((o) => o.kind === 'walk')) continue;
-    const door = town.places.find((p) => p.id === j.place).door;
-    if (door.x === tile.x && door.y === tile.y) return j;
+    const { doors } = town.places.find((p) => p.id === j.place);
+    if (doors.some((d) => d.x === tile.x && d.y === tile.y)) return j;
   }
   return null;
 }

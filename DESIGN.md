@@ -42,8 +42,12 @@ pictures and a sound for every touch.
 
 - A little town on a 9 x 9 grid: three streets each way, and between them
   houses, the post office, the dump, the builders' yard, the park, a shop,
-  a café and empty lots. Cars and people potter about; tap one and it
-  honks or hops.
+  a café and empty lots (the post office's sign a red postbox 📮, so it
+  isn't mistaken for a house waiting for a letter ✉️). Cars and people
+  potter about; tap one and it honks or hops. A job at a place is done
+  by pulling up on any street beside it (a corner house has two), and a
+  helper's jobs come in any order -- except the trip to the dump, and
+  home from the park, which come last.
 - In 3D, seen from above at an angle (isometric), like a toy town on a
   block of earth: houses with walls, doors, windows and pitched roofs,
   trucks with cabs and wheels (the mixer's drum turning), people with legs

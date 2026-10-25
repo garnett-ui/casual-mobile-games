@@ -63,6 +63,22 @@ test('every level can be finished, just by tapping each helper in turn', () => {
   }
 });
 
+test('deliveries in any order, pulling up on any side of the house', () => {
+  const town = makeTown(7);
+  const mail = { id: 'mail' };
+  const letters = town.jobs.filter((j) => j.helper === 'mail');
+  assert.ok(letters.length >= 2);
+  for (const j of [...letters].reverse()) {
+    const p = town.places.find((q) => q.id === j.place);
+    for (const d of p.doors) {
+      assert.ok(Math.abs(d.x - p.x) + Math.abs(d.y - p.y) >= 1 && isRoad(d.x, d.y), 'a street beside it');
+      assert.equal(jobAt(town, mail, d, new Set())?.i, j.i, `${j.place} from ${d.x},${d.y}`);
+    }
+  }
+  // (A corner house: two streets beside it, either will do.)
+  assert.ok(town.places.find((p) => p.id === 'h6').doors.length >= 2);
+});
+
 test('the levels: tapping first, then driving; the town grows as houses are built', () => {
   assert.ok(!makeTown(1).drive && !makeTown(5).drive);
   assert.ok(makeTown(6).drive);

@@ -21,7 +21,7 @@ export const COLORS = { garbage: '#2a9d8f', mail: '#e63946', mixer: '#ff9f1c', w
 // The jobs, as pictures in the tray.
 const ICONS = { bin: '🗑️', dump: '♻️', letter: '✉️', parcel: '📦', walk: '🐕', home: '🏠', build: '🧱' };
 const PEOPLE = ['#ef476f', '#118ab2', '#ffd166', '#06d6a0'];
-const SIGNS = { post: '✉️', shop: '🍎', cafe: '🍦', dump: '♻️', yard: '🚧' };
+const SIGNS = { post: '📮', shop: '🍎', cafe: '🍦', dump: '♻️', yard: '🚧' };
 const BUILDINGS = { post: ['#e63946', '#8d1b26'], shop: ['#ffd166', '#e09f3e'], cafe: ['#f4a261', '#9c6644'] };
 const BTN = 28; // the turn buttons' radius
 const BOX = 40; // the tray's pictures (and the gap between them: 5)
@@ -181,7 +181,7 @@ export class Play {
     if (h.kind === 'garbage') {
       const bins = left.filter((j) => j.kind === 'bin');
       if (bins.length) {
-        const dist = (j) => route(h.tile, this.place(j.place).door).length;
+        const dist = (j) => route(h.tile, this.near(h, this.place(j.place))).length;
         return this.place(bins.reduce((a, b) => (dist(b) < dist(a) ? b : a)).place);
       }
     }
@@ -190,7 +190,15 @@ export class Play {
   }
 
   target(h) {
-    return this.targetPlace(h)?.door || null;
+    const p = this.targetPlace(h);
+    return p ? this.near(h, p) : null;
+  }
+
+  // The nearest street tile beside a place (any of them will do).
+  near(h, p) {
+    if (h.kind === 'walker' || p.doors.length < 2) return p.door;
+    const dist = (d) => route(h.tile, d).length;
+    return p.doors.reduce((a, b) => (dist(b) < dist(a) ? b : a));
   }
 
   // Tap mode: off it goes to its next job.
@@ -206,7 +214,7 @@ export class Play {
       if (!h.path.length) this.reached(h, h.node);
       return;
     }
-    h.path = route(h.tile, p.door).slice(1);
+    h.path = route(h.tile, this.near(h, p)).slice(1);
     if (!h.path.length) this.arrive(h, h.tile);
   }
 
@@ -220,12 +228,11 @@ export class Play {
   arrive(h, tile) {
     h.tile = tile;
     if (h.kind === 'mixer' && !h.loaded) {
-      const yard = this.place('yard').door;
-      if (tile.x === yard.x && tile.y === yard.y) {
+      if (this.place('yard').doors.some((d) => d.x === tile.x && d.y === tile.y)) {
         h.loaded = true;
         h.pause = 0.6;
         this.stopHere(h);
-        this.pop('🪣', yard);
+        this.pop('🪣', tile);
         this.hooks.sfx?.('pour', 0.5);
       }
       return;

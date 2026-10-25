@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.83.1
+- Benji's Town: pull up on any street beside a house to deliver its
+  letter (a corner house has two) -- in any order, as before. The post
+  office's sign is now a red postbox 📮, so it doesn't look like a house
+  waiting for a letter.
+
 ## 1.83.0
 - Benji's Town: mail deliveries you can follow. The postal worker hops
   out, walks round to the back of the van, the back doors swing open and
