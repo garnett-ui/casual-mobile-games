@@ -107,7 +107,7 @@ pictures and a sound for every touch.
   it if that's where it was going, or waits -- and a helper with nothing
   to do that's in the way drives off home, to the end of its street, so
   nothing ever gridlocks. When a helper is held up at a red light,
-  the town says so: "Red light. Stop!" ... "Green light. Go!" (or "Wait
+  the town says so: "Red light stop!" ... "Green light go!" (or "Wait
   for the walking man!" ... "Walk!").
 - Helpers with jobs, shown in a tray of pictures that tick off: the
   **garbage truck** empties the bins put out by houses, then takes the load
@@ -118,7 +118,9 @@ pictures and a sound for every touch.
   the house with it ("Here's your letter!", "A package for you!"), and
   back to hop in again (about seven seconds); the **dog walker** takes the dog to the park to play, and
   home again; the **cement mixer** builds a house on an empty lot in three
-  trips (slab, walls, roof), going back to the yard to load up in between.
+  trips (slab, walls, roof), going back to the yard to load up in between
+  -- and at each, a spell of hammering (synthesised, like every sound:
+  for each hit, a crack, the knock of the wood and the ring of the nail).
   Houses built stay built: the town grows from day to day.
 - Each helper that can be sent on a job has a big round button over it,
   in its colour, with a picture of its next job (a bin, a letter, the dog,
@@ -157,8 +159,9 @@ pictures and a sound for every touch.
   couple of seconds after each part of the day begins, then every ten
   seconds or so while nobody's busy, each helper in turn; never while
   one's out at work).
-- With the car button (top right, lit) you're the driver -- your
-  choice, kept. Tap a helper's button ("Let's go!") and the view
+- The switch top right (your choice, kept) shows what a tap on it does:
+  a steering wheel -- be the driver -- or the town from above -- back to
+  watching them go. As the driver, tap a helper's button ("Let's go!") and the view
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --
@@ -188,7 +191,7 @@ pictures and a sound for every touch.
 - The rules hold you just the same, but you're told why, every time: at a
   red light a big traffic light shows up top and the town says "Red
   light. Stop!" (press anything and it says "Wait for green!"), and when
-  it turns green you go on by yourself ("Green light. Go!"); someone on the
+  it turns green you go on by yourself ("Green light go!"); someone on the
   crosswalk -- even one you've just turned toward -- and it's "Wait!
   Someone's crossing."; on foot, "Wait for the walking man!" ... "Walk!".
   Jobs happen as you get there; at a house the mail van stops and the

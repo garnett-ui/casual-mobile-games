@@ -46,6 +46,26 @@ function tone(type, f0, f1, dur, vol, at = 0, filter = 0) {
   o.stop(t + dur + 0.05);
 }
 
+// A burst of noise through a band-pass filter: a knock, a crack.
+function knock(vol, dur, freq, q, at = 0) {
+  const t = ac.currentTime + at;
+  const src = ac.createBufferSource();
+  src.buffer = noise;
+  const f = ac.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = freq;
+  f.Q.value = q;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f);
+  f.connect(g);
+  g.connect(master);
+  // (Somewhere along the two seconds of noise, so no two sound the same.)
+  src.start(t, Math.random() * 1.5);
+  src.stop(t + dur);
+}
+
 function thump(vol, dur, cutoff, at = 0) {
   const t = ac.currentTime + at;
   const src = ac.createBufferSource();
@@ -222,6 +242,18 @@ const SFX = {
   // Morse Rain: a tile landing on the board (a soft wooden knock), and one
   // cleared.
   tile: () => thump(0.18, 0.06, 900),
+  // Hammering: hits (n of them, a steady beat with a little give), each a
+  // sharp crack, the knock of the wood and the ring of the nail.
+  hammer: (n = 4) => {
+    for (let k = 0; k < n; k++) {
+      const at = k * 0.34 + Math.random() * 0.04;
+      const v = 0.8 + Math.random() * 0.25;
+      knock(0.9 * v, 0.035, 3200, 1.1, at);
+      knock(0.75 * v, 0.09, 650 + Math.random() * 120, 2.5, at);
+      tone('triangle', 2350, 2250, 0.16, 0.05 * v, at);
+      tone('sine', 3900, 3800, 0.08, 0.025 * v, at);
+    }
+  },
   pop: () => tone('triangle', 1200, 1800, 0.07, 0.07),
   checkpoint: () => [784, 988, 1175].forEach((f, k) => tone('square', f, f, 0.12, 0.06, k * 0.09, 4000)),
 };

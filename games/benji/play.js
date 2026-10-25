@@ -355,9 +355,11 @@ export class Play {
       case 'build':
         this.stage[job.place] = job.stage;
         h.loaded = false;
-        h.pause = 1;
+        // (A spell of hammering, and with the roof on, hooray.)
+        h.pause = 2;
         this.pop(job.stage === 3 ? '🎉' : '🔨', at);
-        this.hooks.sfx?.(job.stage === 3 ? 'checkpoint' : 'tile');
+        this.hooks.sfx?.('hammer', 5);
+        if (job.stage === 3) this.hooks.sfx?.('checkpoint');
         break;
       default:
         break;
@@ -942,8 +944,8 @@ export class Play {
     f.held = now;
     const wait = now && (now === 'light' || now === 'walk' || f.waited > 0.5) ? now : null;
     if (wait && wait !== 'car' && wait !== f.wait) {
-      this.tell({ light: 'Red light. Stop!', walk: 'Wait for the walking man!', people: 'Wait! Someone’s crossing.', turn: 'Wait for the car!' }[wait]);
-    } else if (!wait && f.wait === 'light') this.tell('Green light. Go!');
+      this.tell({ light: 'Red light stop!', walk: 'Wait for the walking man!', people: 'Wait! Someone’s crossing.', turn: 'Wait for the car!' }[wait]);
+    } else if (!wait && f.wait === 'light') this.tell('Green light go!');
     else if (!wait && f.wait === 'walk') this.tell('Walk!');
     f.wait = wait;
     // Back out to the town a moment after its jobs are all done.
@@ -1257,10 +1259,10 @@ export class Play {
       if ((h.wait === 'light' || h.wait === 'walk') && !h.held && this.t - this.said > 15) {
         h.held = true;
         this.said = this.t;
-        this.hooks.say?.(h.wait === 'walk' ? 'Wait for the walking man!' : 'Red light. Stop!');
+        this.hooks.say?.(h.wait === 'walk' ? 'Wait for the walking man!' : 'Red light stop!');
       } else if (h.held && !h.wait) {
         h.held = false;
-        if (h.path.length) this.hooks.say?.(h.kind === 'walker' ? 'Walk!' : 'Green light. Go!');
+        if (h.path.length) this.hooks.say?.(h.kind === 'walker' ? 'Walk!' : 'Green light go!');
       }
     }
     for (const a of this.ambient) {

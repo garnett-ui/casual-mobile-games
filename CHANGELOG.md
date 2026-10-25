@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.90.0
+- Benji's Town: the switch top right shows what it does -- a steering
+  wheel to be the driver, the town from above to go back to watching.
+- Benji's Town: hammering while the cement mixer builds a house.
+- Benji's Town: "Red light stop!" and "Green light go!" said all in one
+  go, without the long pause in the middle.
+- Benji's Town: the buttons in "A new town?" show in every browser.
+
 ## 1.89.1
 - Benji's Town: its pictures (the jobs in the tray and on the helpers'
   buttons, the shop signs, the time of day) now show in browsers with no

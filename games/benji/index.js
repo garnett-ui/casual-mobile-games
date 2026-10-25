@@ -90,6 +90,14 @@ export function mount(root, ctx, sub) {
   const PART = { dawn: '🌅', morning: '🌤️', midday: '☀️', evening: '🌇', night: '🌙' };
   // An emoji as its picture (some browsers have no emoji font).
   const pic = (ch) => `<img class="bt-emoji" src="${emojiURL(ch)}" alt="${ch}">`;
+  // The switch shows what a tap does: a steering wheel (drive them
+  // yourself), or the town from above (back to watching them go).
+  const WHEEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M3.3 10.6c3 1.2 5.6 1.4 6.3 1.4M20.7 10.6c-3 1.2-5.6 1.4-6.3 1.4M12 14.6V21"/></svg>';
+  const TOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 13.5l9-4.5-9-4.5-9 4.5z"/><path d="M3 9v3.5l9 4.5 9-4.5V9"/><path d="M8.5 8.4V5.6l2.6-1.3 2.6 1.3v2.8" fill="currentColor" stroke-width="1.2"/><path d="M12 17v2.5"/></svg>';
+  const switchIcon = () => (drive ? TOWN : WHEEL);
+  // (No: a cross -- drawn, not the ✕ character, which some fonts lack.)
+  const NO = '<svg class="bt-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const switchLabel = () => (drive ? 'Watch them go' : 'Drive them yourself');
   // Driving them yourself, or watching them go: yours to choose, and kept.
   let drive = ctx.load('drive', false);
 
@@ -100,7 +108,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="home" aria-label="Back">${ICON.back}</button>
           <h2>Day ${day} <span class="bt-part">${pic(PART.dawn)}</span></h2>
-          <button class="icon-btn bt-drive" data-act="drive" aria-label="Drive them yourself" aria-pressed="${drive}">${pic('🚗')}</button>
+          <button class="icon-btn bt-drive" data-act="drive" aria-label="${switchLabel()}" aria-pressed="${drive}">${switchIcon()}</button>
           <button class="icon-btn" data-act="restart" aria-label="A new town">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas></div>
@@ -133,6 +141,8 @@ export function mount(root, ctx, sub) {
       drive = !drive;
       ctx.save('drive', drive);
       car.setAttribute('aria-pressed', String(drive));
+      car.setAttribute('aria-label', switchLabel());
+      car.innerHTML = switchIcon();
       play.drive = drive;
       if (!drive && play.fp) play.leave();
     };
@@ -146,8 +156,8 @@ export function mount(root, ctx, sub) {
         title: 'A new town?',
         text: 'Back to day 1, with no houses built yet.',
         buttons: [
-          { label: '✕', act: 'keep', run: () => (root.querySelector('.dialog').hidden = true) },
-          { label: '↻', act: 'new', primary: true, run: () => {
+          { label: NO, act: 'keep', run: () => (root.querySelector('.dialog').hidden = true) },
+          { label: ICON.restart.replace('<svg ', '<svg class="bt-btn-icon" '), act: 'new', primary: true, run: () => {
             day = 1;
             ctx.save('day', day);
             showTown();
