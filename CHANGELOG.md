@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.84.1
+- Water Lab: the Map button's icon is a little patch of the lattice -- a
+  state, its six neighbours and the pours between them.
+
 ## 1.84.0
 - Water Lab: a **Map** button (beside Hint, and on the end-of-level card)
   shows the whole solution space -- every state the water can be in, every

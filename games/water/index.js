@@ -11,8 +11,9 @@ const TIPS = {
   7: 'See my gold lines? Every marked beaker must hold exactly that much, all at once.',
 };
 const CHEERS = ['Precisely!', 'Well measured!', 'Eureka!', 'Lab genius!', 'Spot on!'];
-// The solution-space map button: a hexagon with spokes.
-const MAP = '<svg viewBox="0 0 24 24"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 12V3M12 12l7.8 4.5M12 12l-7.8 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.2"/></svg>';
+// The solution-space map button: a little patch of the lattice -- a state,
+// its six neighbours and the pours between them.
+const MAP = '<svg viewBox="0 0 24 24"><path d="M20.2 12L16.1 19.1L7.9 19.1L3.8 12L7.9 4.9L16.1 4.9Z M12 12L20.2 12 M12 12L16.1 19.1 M12 12L7.9 19.1 M12 12L3.8 12 M12 12L7.9 4.9 M12 12L16.1 4.9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" opacity=".8"/><g fill="currentColor"><circle cx="20.2" cy="12" r="1.9"/><circle cx="16.1" cy="19.1" r="1.9"/><circle cx="7.9" cy="19.1" r="1.9"/><circle cx="3.8" cy="12" r="1.9"/><circle cx="7.9" cy="4.9" r="1.9"/><circle cx="16.1" cy="4.9" r="1.9"/><circle cx="12" cy="12" r="2.4"/></g></svg>';
 
 export function mount(root, ctx, sub) {
   const progress = loadProgress(ctx);
