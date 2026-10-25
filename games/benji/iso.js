@@ -418,7 +418,7 @@ const CABS = { garbage: '#e9c46a', mail: '#e63946', mixer: '#ffd166' };
 
 // A vehicle at (x, y), heading h: the garbage truck, the mail van, the
 // cement mixer (its drum turning with t), or a little car (in color).
-export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0) {
+export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false) {
   const m = new Model(x, y, h, z);
   const L = kind === 'car' ? 0.29 : 0.38;
   for (const wx of [-L + 0.11, L - 0.11]) for (const wy of [-0.15, 0.13]) m.box(wx - 0.065, wy, 0, wx + 0.065, wy + 0.02, 0.13, '#222222');
@@ -450,6 +450,13 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0) {
       const at = f === body.s ? 0.152 : -0.152;
       m.decal(f, onY(at, -0.36, 0.1, 0.2, 0.25), '#e63946');
       m.decal(f, onY(at, -0.36, 0.1, 0.27, 0.31), '#1d4e89');
+    }
+    // The back doors open (for the letters and parcels inside).
+    if (open) {
+      m.decal(body.w, onX(-0.382, -0.12, 0.12, 0.13, 0.43), '#3d405b');
+      m.decal(body.w, onX(-0.384, -0.06, 0.04, 0.14, 0.24), '#c68642');
+      m.box(-0.62, -0.165, 0.12, -0.38, -0.15, 0.44, '#f1faee');
+      m.box(-0.62, 0.15, 0.12, -0.38, 0.165, 0.44, '#f1faee');
     }
   }
   return m;

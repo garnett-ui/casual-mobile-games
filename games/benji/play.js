@@ -20,8 +20,6 @@ const SPEED = { garbage: 2.2, mail: 2.6, mixer: 2, walker: 1.3, car: 1.6, person
 export const COLORS = { garbage: '#2a9d8f', mail: '#e63946', mixer: '#ff9f1c', walker: '#7b2cbf' };
 // The jobs, as pictures in the tray.
 const ICONS = { bin: '🗑️', dump: '♻️', letter: '✉️', parcel: '📦', walk: '🐕', home: '🏠', build: '🧱' };
-// How long the postal worker takes to hop out, go up to the door and back.
-const DELIVER = 2;
 const PEOPLE = ['#ef476f', '#118ab2', '#ffd166', '#06d6a0'];
 const SIGNS = { post: '✉️', shop: '🍎', cafe: '🍦', dump: '♻️', yard: '🚧' };
 const BUILDINGS = { post: ['#e63946', '#8d1b26'], shop: ['#ffd166', '#e09f3e'], cafe: ['#f4a261', '#9c6644'] };
@@ -254,13 +252,11 @@ export class Play {
         break;
       case 'letter':
       case 'parcel':
-        // The postal worker hops out, takes it up to the house (the front
-        // door, when the street's in front) and hops back in.
-        h.pause = DELIVER;
-        h.deliver = {
-          t: 0, from: { x: h.x, y: h.y }, at, kind: job.kind,
-          to: { x: Math.max(p.x + 0.2, Math.min(p.x + 0.8, h.x)), y: Math.max(p.y + 0.2, Math.min(p.y + 0.86, h.y)) },
-        };
+        // The postal worker hops out, takes it out of the back of the van,
+        // carries it up to the house (the front door, when the street's in
+        // front), hands it over, and walks back and hops in.
+        h.deliver = this.delivery(h, job.kind, at, { x: Math.max(p.x + 0.2, Math.min(p.x + 0.8, h.x)), y: Math.max(p.y + 0.2, Math.min(p.y + 0.86, h.y)) });
+        h.pause = h.deliver.total;
         this.hooks.sfx?.('pop');
         return;
       case 'walk':
@@ -299,6 +295,45 @@ export class Play {
     this.fp.intent = null;
   }
 
+  // A delivery, step by step (slowly enough to follow): out of the van's
+  // side door, round to the back, take the letter or parcel out, carry it
+  // up to the door, hand it over, walk back and hop in. Each step: { do,
+  // a, b (where, from and to), head, t (when it starts), dur }.
+  delivery(h, kind, at, door) {
+    const fx = Math.cos(h.head);
+    const fy = Math.sin(h.head);
+    // (Which side of the van the house is.)
+    let [sx, sy] = [-fy, fx];
+    if (sx * (door.x - h.x) + sy * (door.y - h.y) < 0) [sx, sy] = [-sx, -sy];
+    const side = { x: h.x + sx * 0.24 + fx * 0.12, y: h.y + sy * 0.24 + fy * 0.12 };
+    const rear = { x: h.x - fx * 0.52 + sx * 0.08, y: h.y - fy * 0.52 + sy * 0.08 };
+    const face = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
+    const walk = (a, b) => ({ do: 'walk', a, b, head: face(a, b), dur: Math.max(0.5, Math.hypot(b.x - a.x, b.y - a.y) / 0.55) });
+    const steps = [
+      { do: 'out', a: side, b: side, head: face(side, rear), dur: 0.6 },
+      walk(side, rear),
+      { do: 'take', a: rear, b: rear, head: face(rear, h), dur: 1.1 },
+      { ...walk(rear, door), carry: true },
+      { do: 'give', a: door, b: door, head: face(rear, door), dur: 1.3 },
+      walk(door, side),
+      { do: 'in', a: side, b: side, head: face(door, side), dur: 0.4 },
+    ];
+    let t = 0;
+    for (const st of steps) {
+      st.t = t;
+      t += st.dur;
+    }
+    // (The camera, out of the cab: down in the street behind the van,
+    // looking past its back doors to the house.)
+    // (Tipped down a little less than straight at it, so it's in the
+    // middle of the picture, not up by the horizon.)
+    const mid = { x: rear.x * 0.45 + door.x * 0.55, y: rear.y * 0.45 + door.y * 0.55 };
+    const cam = { x: rear.x - fx * 0.75 - sx * 0.3, y: rear.y - fy * 0.75 - sy * 0.3, z: 0.75 };
+    cam.h = face(cam, mid);
+    cam.pitch = -Math.atan2(cam.z - 0.2, Math.hypot(mid.x - cam.x, mid.y - cam.y)) + 0.2;
+    return { t: 0, kind, at, steps, total: t, cam };
+  }
+
   // The postal worker at the door: here's your letter (or package)!
   handOver(h) {
     const d = h.deliver;
@@ -323,8 +358,8 @@ export class Play {
     setTimeout(() => this.hooks.onWin?.(), 2600);
   }
 
-  pop(icon, tile) {
-    this.fx.push({ icon, x: tile.x + 0.5, y: tile.y + 0.5, t: 0 });
+  pop(icon, tile, k = 1) {
+    this.fx.push({ icon, x: tile.x + 0.5, y: tile.y + 0.5, t: 0, k });
   }
 
   // ------------------------------------------------------------- touches
@@ -476,7 +511,7 @@ export class Play {
   // Into the driver's seat of a helper (or the dog walker's shoes).
   enter(h) {
     h.path = [];
-    this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
+    this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, away: 0, out: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
     this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk');
     this.hooks.say?.('Let’s go!');
@@ -508,6 +543,9 @@ export class Play {
     const busy = h.pause > 0 || !!h.deliver;
     // (A little slower than they go by themselves: time to look about, and
     // to turn.)
+    // (The camera out of the cab for a delivery -- and back in.)
+    if (h.deliver) f.out = h.deliver.cam;
+    f.away = clamp(f.away + (h.deliver ? dt : -dt) / 0.8, 0, 1);
     let want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
     // (Coming up to a corner with no way chosen: slowing down, to stop at
     // the line.)
@@ -690,16 +728,24 @@ export class Play {
 
   // Where the postal worker is, out of the van on a delivery.
   postie(d) {
-    const f = d.t / DELIVER;
-    const out = f < 0.5;
-    const q = out ? Math.min(1, f / 0.4) : Math.max(0, 1 - (f - 0.6) / 0.4);
-    const e = q * q * (3 - 2 * q);
+    const st = d.steps.findLast((q) => q.t <= d.t) || d.steps[0];
+    const u = Math.min(1, (d.t - st.t) / st.dur);
+    const e = u * u * (3 - 2 * u);
+    // (Carrying it: from halfway through taking it out, to halfway through
+    // handing it over.)
+    const carry = st.carry || (st.do === 'take' && u > 0.5) || (st.do === 'give' && u < 0.5);
     return {
-      x: d.from.x + (d.to.x - d.from.x) * e,
-      y: d.from.y + (d.to.y - d.from.y) * e,
-      head: Math.atan2(d.to.y - d.from.y, d.to.x - d.from.x) + (out ? 0 : Math.PI),
-      out,
-      walking: q > 0 && q < 1,
+      x: st.a.x + (st.b.x - st.a.x) * e,
+      y: st.a.y + (st.b.y - st.a.y) * e,
+      head: st.head,
+      carry: carry ? d.kind : null,
+      walking: st.do === 'walk',
+      // (Hopping out and in: up out of the cab and back.)
+      z: st.do === 'out' ? (1 - u) * 0.12 : st.do === 'in' ? u * 0.12 : 0,
+      step: st.do,
+      u,
+      // (The van's back doors: open while it's taken out.)
+      open: st.do === 'take' || (st.do === 'walk' && st.carry && u < 0.35) || (st.do === 'walk' && !st.carry && st.b === d.steps[2].a && u > 0.7),
     };
   }
 
@@ -792,10 +838,21 @@ export class Play {
       move(h);
       h.hop = Math.max(0, h.hop - dt * 2.5);
       if (h.deliver) {
-        const was = h.deliver.t;
-        h.deliver.t += dt;
-        if (was < DELIVER / 2 && h.deliver.t >= DELIVER / 2) this.handOver(h);
-        if (h.deliver.t >= DELIVER) h.deliver = null;
+        const d = h.deliver;
+        const was = d.t;
+        d.t += dt;
+        const at = (step, u) => {
+          const st = d.steps.find((q) => q.do === step);
+          return st.t + st.dur * u;
+        };
+        // (Out of the back of the van; then at the door, over it goes.)
+        if (was < at('take', 0.5) && d.t >= at('take', 0.5)) {
+          const p = this.postie(d);
+          this.pop('✨', { x: p.x - 0.5, y: p.y - 0.5 }, 0.4);
+          this.hooks.sfx?.('pop');
+        }
+        if (was < at('give', 0.5) && d.t >= at('give', 0.5)) this.handOver(h);
+        if (d.t >= d.total) h.deliver = null;
       }
       // A helper held up at a red light: say so (now and then), and say go.
       // (Yours, from the driver's seat: fpSteer says, every time.)
@@ -903,11 +960,17 @@ export class Play {
     const f = this.fp;
     const h = f.h;
     const d = h.deliver;
-    if (d) {
-      const p = this.postie(d);
-      eye.set(p.x, p.y, 0.42, p.head + f.look, -0.28);
-    } else if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head + f.look, -0.34);
+    if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head + f.look, -0.34);
     else eye.set(h.x + Math.cos(f.head) * 0.2, h.y + Math.sin(f.head) * 0.2, 0.36, f.head + f.look, -0.16);
+    // On a delivery, the camera floats out of the cab to watch from across
+    // the street (and back in after).
+    const c = f.out;
+    if (f.away > 0 && c) {
+      const k = f.away * f.away * (3 - 2 * f.away);
+      const mix = (a, b) => a + (b - a) * k;
+      const turn = Math.atan2(Math.sin(c.h + f.look - eye.h), Math.cos(c.h + f.look - eye.h));
+      eye.set(mix(eye.x, c.x), mix(eye.y, c.y), mix(eye.z, c.z), eye.h + turn * k, mix(eye.pitch, c.pitch));
+    }
     this.sky(this.seatH);
     g.save();
     g.beginPath();
@@ -937,15 +1000,9 @@ export class Play {
     if (f.corner && !d) this.roadArrow(eye, f.corner);
     for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
     this.overlays(eye, d ? [] : [h]);
-    // In the cab: the dashboard and the wheel, turning as you turn.
-    if (h.kind !== 'walker' && !d) this.dashboard(h, f.wheel);
-    // Out with the letter or parcel, held out in front.
-    if (d && this.postie(d).out) {
-      g.font = `${Math.round(this.W * 0.22)}px system-ui, sans-serif`;
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText(ICONS[d.kind], this.W / 2, this.seatH - this.W * 0.13);
-    }
+    // In the cab: the dashboard and the wheel, turning as you turn (going
+    // as the camera floats out).
+    if (h.kind !== 'walker' && f.away < 0.3) this.dashboard(h, f.wheel);
     // Held up: why, big, up top -- a red light, the red hand, someone
     // crossing, a car.
     if (f.wait) this.waitSign(f.wait);
@@ -1060,7 +1117,7 @@ export class Play {
       const at = view.at(f.x, f.y, 0.7 + f.t * 0.8);
       if (!at) continue;
       g.globalAlpha = Math.max(0, 1 - f.t / 1.4);
-      g.font = `${Math.round(size(f.x, f.y, 0.7) * (0.5 + f.t * 0.3))}px system-ui, sans-serif`;
+      g.font = `${Math.round(size(f.x, f.y, 0.7) * (0.5 + f.t * 0.3) * f.k)}px system-ui, sans-serif`;
       g.fillText(f.icon, at[0], at[1]);
     }
     g.globalAlpha = 1;
@@ -1169,7 +1226,7 @@ export class Play {
     }
     // Shadows under everyone.
     for (const m of [...this.helpers, ...this.ambient]) {
-      if (this.fp?.h === m && !m.deliver) continue;
+      if (this.fp?.h === m && !(this.fp.away > 0.25)) continue; // (you, in the cab)
       const r = m.kind === 'person' || m.kind === 'walker' ? 0.12 : 0.3;
       if (view instanceof I.Eye && Math.hypot(m.x - view.x, m.y - view.y) < 0.45) continue;
       if (this.seen(view, m.x, m.y)) I.disc(g, view, m.x, m.y, r, r, 'rgba(0,0,0,0.16)');
@@ -1293,18 +1350,18 @@ export class Play {
         const dog = m.kind === 'walker';
         if (me) model(I.dog(m.x, m.y, m.head, t, going), 0, 0);
         else model(I.person(m.x, m.y, m.head, t, dog ? COLORS.walker : m.color, { walking: going || m.playing > 0, dog, z: lift }), 0, 0.45);
-      } else if (!me || m.deliver) {
-        const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift);
+      } else if (!me || this.fp.away > 0.25) {
+        const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift, !!m.deliver && this.postie(m.deliver).open);
         add(m.x, m.y, (a) => {
           I.paint(g, view, v.parts, a);
           if (m.kind === 'garbage' && m.load) sign(m.x, m.y, 0.75 + lift, '🗑️'.repeat(Math.min(3, m.load)));
         });
       }
-      // The postal worker out of the van, up to the door with the letter
-      // or parcel, and back without it. (Unless it's you.)
-      if (m.deliver && !me) {
+      // The postal worker out of the van, round the back for the letter or
+      // parcel, up to the door with it, and back without it.
+      if (m.deliver) {
         const p = this.postie(m.deliver);
-        model(I.person(p.x, p.y, p.head, t, '#1d4e89', { walking: p.walking, postie: true, carry: p.out ? m.deliver.kind : null }));
+        model(I.person(p.x, p.y, p.head, t, '#1d4e89', { walking: p.walking, postie: true, carry: p.carry, z: p.z }));
       }
     }
     return list;

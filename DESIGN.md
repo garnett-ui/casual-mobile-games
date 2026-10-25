@@ -79,8 +79,10 @@ pictures and a sound for every touch.
   **garbage truck** empties the bins put out by houses, then takes the load
   to the dump; the **mail van** takes letters and packages to the houses
   with a letter or package bubble, and at each the **postal worker** hops
-  out, carries it up to the house ("Here's your letter!", "A package for
-  you!") and hops back in; the **dog walker** takes the dog to the park to play, and
+  out, step by step and slowly enough to follow: round to the back of the
+  van, the back doors swing open and out comes the letter or parcel, up to
+  the house with it ("Here's your letter!", "A package for you!"), and
+  back to hop in again (about seven seconds); the **dog walker** takes the dog to the park to play, and
   home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between.
   Houses built stay built: the town grows from level to level.
@@ -119,8 +121,10 @@ pictures and a sound for every touch.
   it turns green you go on by yourself ("Green light. Go!"); someone on the
   crosswalk -- even one you've just turned toward -- and it's "Wait!
   Someone's crossing."; on foot, "Wait for the walking man!" ... "Walk!".
-  Jobs happen as you get there; at a house the mail van stops and you are
-  the postal worker, walking the letter or parcel up to the door and back.
+  Jobs happen as you get there; at a house the mail van stops and the
+  camera floats out of the cab to watch from the street just behind the
+  van -- the postal worker taking it out of the back and up to the door
+  -- and floats back in after.
   When the helper's jobs are done (or with the map button, top left)
   you're back over the town. Helpers start facing into town.
 - Every finished level is three stars, a shower of confetti and "Yay!

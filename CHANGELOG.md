@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.83.0
+- Benji's Town: mail deliveries you can follow. The postal worker hops
+  out, walks round to the back of the van, the back doors swing open and
+  out comes the letter or package, then up to the house with it ("A
+  package for you!") and back to hop in -- slower, about seven seconds.
+  Driving the van, the camera floats out of the cab to watch it all from
+  the street behind the van, then floats back in.
+
 ## 1.82.2
 - Benji's Town: the traffic lights stand where they should -- on the far
   right-hand corner for the cars they're for, facing them -- and from the
