@@ -91,15 +91,15 @@ pictures and a sound for every touch.
   can see and hear at once -- never later on -- and nothing is ever
   stuck. A button that would do nothing right now is faded, and does
   nothing: no queued presses. Three big buttons. Driving goes one block
-  at a time: each press of ◀ ▲ ▶ is the way through the corner coming up
+  at a time, and the buttons work only while you're stopped -- mashing
+  them as you go does nothing, and one press never takes you past the
+  next corner. Stopped at the line, ◀ ▲ ▶ are the way through the corner
   -- the big yellow arrow painted on the road there, the yellow dots
   re-route, the wheel turns, and it's said ("Left!", "Straight on!",
-  "Right!") -- and off you go (no holding), through it and on to the
-  next. Choose nothing and, coming up to the corner, you slow down and
-  stop at the line ("Which way?"), the way to the job glowing. Pressed
-  before you get there, you go straight through. The way you're going
-  already is faded; you can change your mind right up to the middle of
-  the intersection; past that, all three fade till you're out of it.
+  "Right!") -- and off you go (no holding), through it and up the next
+  block, slowing down to stop at the line at the next corner ("Which
+  way?"), the way to the job glowing. Stopped anywhere else (to begin
+  with, after a job), ▲ takes you on to the corner.
   Walking the dog, you keep going (round the bends, the way to the job)
   and ◀ ▲ ▶ choose where the way next divides, a smaller arrow on the
   sidewalk there. At a dead end (the edge of town) you

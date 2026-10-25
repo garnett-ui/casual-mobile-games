@@ -609,7 +609,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
-        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
+        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, walker: h.kind === 'walker', live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
       });
       if (!st) {
         await page.waitForTimeout(300);
@@ -638,24 +638,23 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
         const b = await pad('left');
         await page.mouse.click(b.x, b.y);
         faded = await page.evaluate(() => !window.__benji.fp || window.__benji.fp.intent === null);
+      } else if (st.go && !st.walker) {
+        // (Driving along: nothing to press till you stop.)
+        assert.deepEqual(st.live, [], 'no buttons while driving along');
       } else if (!st.go) {
-        // (Stopped -- at a corner, one block at a time: the way to the job.)
+        // (Stopped -- at a corner, one block at a time: the way to the job;
+        // the way through it shows on the road at once, and it's said.)
         const way = st.hint === 'left' || st.hint === 'right' ? st.hint : 'go';
-        const go = await pad(st.live.includes(way) ? way : 'go');
-        await page.mouse.click(go.x, go.y);
-      } else if (!turned && (st.live.includes('left') || st.live.includes('right'))) {
-        // (Choosing the way: at once the arrow on the road swings round,
-        // and it's said; that button then fades -- it's the way already.)
-        const act = st.live.includes('left') ? 'left' : 'right';
+        const act = st.live.includes(way) ? way : 'go';
         const was = await page.evaluate(() => JSON.stringify(window.__benji.fp?.corner?.out));
-        const b = await pad(act);
-        await page.mouse.click(b.x, b.y);
-        turned = await page.evaluate(([w, was, act]) => {
-          const p = window.__benji;
-          if (!p.fp?.corner) return false;
-          p.update(0); // (the next frame)
-          return JSON.stringify(p.fp.corner.out) !== was && window.__said.includes(w) && !p.can(act);
-        }, [act === 'left' ? 'Left!' : 'Right!', was, act]);
+        const go = await pad(act);
+        await page.mouse.click(go.x, go.y);
+        if (!turned && act !== 'go' && !st.walker) {
+          turned = await page.evaluate(([w, was]) => {
+            const p = window.__benji;
+            return !!p.fp?.corner && JSON.stringify(p.fp.corner.out) !== was && window.__said.includes(w);
+          }, [act === 'left' ? 'Left!' : 'Right!', was]);
+        }
       }
       await page.waitForTimeout(250);
     }

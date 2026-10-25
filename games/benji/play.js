@@ -391,11 +391,12 @@ export class Play {
 
   // In the driver's seat (or walking the dog), made for a three-year-old:
   // a button you can press does something you can see and hear, at once --
-  // never later on. Stopped, ▲ starts you off; ◀ ▲ ▶ choose the way at the
-  // corner coming up -- the arrow on the road swings round, and it's said
-  // out loud; with no choice made you go the way to the job. A button that
-  // would do nothing (that way already, no corner to choose at yet, busy
-  // with a job) is faded, and does nothing. The map button: back out to the
+  // never later on. Driving, they work only while you're stopped, and take
+  // you no further than the next corner: stopped at the line, ◀ ▲ ▶ are the
+  // way through it (the arrow on the road, said out loud) and on to the
+  // line at the next one; stopped anywhere else, ▲ on to the corner.
+  // Walking, ◀ ▲ ▶ choose the way where it next divides, as you go. A
+  // button that would do nothing is faded, and does nothing. The map button: back out to the
   // town. A finger dragged across the windshield looks round; a tap on it
   // honks.
   seat(e, type, sx, sy) {
@@ -433,9 +434,19 @@ export class Play {
     if (h.pause > 0 || h.deliver) return false;
     const o = f.options;
     const way = act === 'go' ? 'straight' : act;
+    // Driving: only stopped -- at the line, which way through the corner;
+    // anywhere else, ▲ on to the corner.
+    if (h.kind !== 'walker') return !f.go && (f.atCorner && o ? way === 'straight' || o[way] !== o.straight : act === 'go');
     if (!o) return act === 'go' && !f.go;
     if (f.go) return o[way] !== o.now;
     return way === 'straight' || o[way] !== o.straight;
+  }
+
+  // Is a press now the way at the corner coming up? (Not, driving, till
+  // you're stopped at it.)
+  choosing() {
+    const f = this.fp;
+    return !!f.options && (f.h.kind === 'walker' || f.atCorner);
   }
 
   // A button pressed (act: 'go', 'left' or 'right'): if it does anything
@@ -444,7 +455,7 @@ export class Play {
     const f = this.fp;
     this.plan(f);
     if (!this.can(act)) return false;
-    const way = f.options ? { go: 'straight', left: 'left', right: 'right' }[act] : null;
+    const way = this.choosing() ? { go: 'straight', left: 'left', right: 'right' }[act] : null;
     f.go = true;
     if (way) f.intent = way;
     this.plan(f);
@@ -598,8 +609,10 @@ export class Play {
     // One block at a time: with no way chosen yet, only as far as the line
     // before the corner (no arrow on the road).
     f.stopIn = null;
+    f.atCorner = false;
     if (next && !f.intent && !inside) {
       plan.length = k;
+      f.atCorner = k === 0;
       f.corner = null;
       const end = plan.length ? lanePoint(plan[plan.length - 1], dir) : { x: h.x, y: h.y };
       f.stopIn = Math.hypot(end.x - h.x, end.y - h.y);
@@ -1068,7 +1081,7 @@ export class Play {
       const live = this.can(b.act);
       g.globalAlpha = live ? 1 : 0.25;
       const way = b.act === 'go' ? 'straight' : b.act;
-      const lit = live && way === (f.options ? f.hint || 'straight' : 'straight');
+      const lit = live && way === (this.choosing() ? f.hint || 'straight' : 'straight');
       const flash = f.flash?.act === b.act ? Math.max(0, 1 - (this.t - f.flash.t) / 0.4) : 0;
       if (lit || flash) {
         g.fillStyle = `rgba(255,200,0,${Math.max(lit ? 0.35 + 0.4 * glow : 0, flash)})`;
