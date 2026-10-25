@@ -9,12 +9,15 @@ export const G = 1.62; // lunar gravity, m/s^2
 export const FEET = 2.4; // half-span of the footpads, m
 export const HEIGHT = 5.2; // lander height, m
 export const MAIN_THRUST = 3.5; // m/s^2 when nearly empty (heavier when full)
-// rad/s^2 from the side thrusters: gentle, so a quick tap (a tenth of a
-// second) is a touch of 0.5°/s.
-export const ROT_ACCEL = (5 * Math.PI) / 180;
+// rad/s^2 from the side thrusters: half the original 26°/s², so a quick tap
+// (a tenth of a second) is a touch of 1.3°/s, and a second's hold 13°/s.
+export const ROT_ACCEL = (13 * Math.PI) / 180;
 export const ROT_MAX = (90 * Math.PI) / 180;
-// Assist off: a spin, with no turn button held, ebbs away at SPIN_FADE
-// (rad/s^2) -- a small one soon, a fast one hardly at all.
+// Assist off: a slow spin -- under FADE_BELOW, with no turn button held --
+// ebbs away to a stop at SPIN_FADE (rad/s^2), since nulling one that small
+// by hand is next to impossible. Faster spins are all yours: they keep
+// going till you counter them.
+export const FADE_BELOW = (2 * Math.PI) / 180;
 export const SPIN_FADE = (0.5 * Math.PI) / 180;
 export const RCS_FUEL = 0.06; // fuel per second of side thruster (main = 1/s)
 // Touchdown limits, as for the Apollo LM: 3 m/s down, 1.2 m/s sideways.
@@ -487,9 +490,10 @@ export function step(level, L, input, dt) {
     L.landed = null;
   }
 
-  // Rotation: side thrusters change the spin rate (assist off); a spin, left
-  // alone, ebbs gently away -- so a small tap is a nudge the way it points,
-  // coasting to a stop. With assist on,
+  // Rotation: side thrusters change the spin rate (assist off); a slow spin
+  // (under 2°/s), left alone, ebbs gently away -- so a small tap is a nudge
+  // the way it points, coasting to a stop -- and a faster one keeps going
+  // till you counter it. With assist on,
   // rotation is a spring: a held turn button pushes against it (settling at
   // 20°), and on release it springs back to level.
   if (input.hold && L.fuel > 0) {
@@ -505,7 +509,7 @@ export function step(level, L, input, dt) {
   } else if (rotating) {
     L.omega += L.rcs * ROT_ACCEL * dt;
     L.fuel = Math.max(0, L.fuel - RCS_FUEL * dt);
-  } else {
+  } else if (Math.abs(L.omega) < FADE_BELOW) {
     L.omega = Math.sign(L.omega) * Math.max(0, Math.abs(L.omega) - SPIN_FADE * dt);
   }
   L.omega = Math.max(-ROT_MAX, Math.min(ROT_MAX, L.omega));

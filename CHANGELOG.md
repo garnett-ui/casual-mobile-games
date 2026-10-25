@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.83.2
+- Lunar Lander: stronger side thrusters -- half the original strength
+  rather than a fifth: a quick tap is about 1.3°/s, a one-second hold
+  13°/s. With assist off, only a slow spin (under 2°/s) ebbs away when you
+  let go; anything faster keeps spinning until you counter it.
+
 ## 1.83.1
 - Benji's Town: pull up on any street beside a house to deliver its
   letter (a corner house has two) -- in any order, as before. The post

@@ -214,16 +214,18 @@ two rotate buttons for the side thrusters (arrow keys / WASD / space work too).
 
 - Realistic momentum and rotational inertia under lunar gravity (1.62 m/s²):
   the side thrusters change the spin rate, so you counter-fire to stop.
-  Equal bursts left and right cancel exactly. The side thrusters are
-  gentle -- 5°/s², the same for you and every autopilot -- so a quick
-  tenth-of-a-second tap is a touch of 0.5°/s; big turns take a while. With
-  assist off, a spin left alone ebbs away at 0.5°/s²: a tap's nudge coasts
-  to a stop in about a second, a fast spin hardly notices. (Earlier the
-  thrusters were five times stronger, with a fade that halved slow spins;
-  even the quickest tap gave nearly 2°/s, and you were forever chasing
-  drift. A progressive button for you alone was tried, and dropped: same
-  controls for everyone.) The autopilots steer gently to match (they lean
-  less and turn ahead of time). The spin rate shows in tenths when it's
+  Equal bursts left and right cancel exactly. The side thrusters push at
+  13°/s² -- the same for you and every autopilot -- so a quick
+  tenth-of-a-second tap is a touch of about 1.3°/s, and a second's hold
+  13°/s. With assist off, only a slow spin (under 2°/s) left alone ebbs
+  away, at 0.5°/s², to a stop: a tap's nudge coasts to rest, since nulling
+  a spin that small by hand is next to impossible. A spin of 2°/s or more
+  is all yours -- it keeps going till you counter it. (History: at first
+  26°/s², with slow spins under 1.5°/s halving every second; then a
+  progressive button for you alone, dropped -- same controls for
+  everyone; then 5°/s² with every spin ebbing, which felt sluggish and
+  made fast spins die away by themselves.) The autopilots steer gently
+  (they lean less and turn ahead of time). The spin rate shows in tenths when it's
   slow. The main engine gets punchier as fuel burns off.
 - The camera follows the lander and zooms in as it gets close to anything
   -- the ground below, or the walls of a shaft, a cave or a tunnel, or rock

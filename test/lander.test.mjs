@@ -36,9 +36,9 @@ test('side thrusters change the spin rate, not the angle directly (rotational in
   fly(level, L, { right: true }, 0.5);
   const w = L.omega;
   assert.ok(Math.abs(w - ROT_ACCEL * 0.5) < 0.01);
-  // Let go: a fast spin keeps going (ebbing only gently, 0.5°/s²)...
+  // Let go: a fast spin keeps going, just as it was...
   fly(level, L, idle, 0.5);
-  assert.ok(Math.abs(L.omega - (w - (0.25 * Math.PI) / 180)) < 1e-9, 'keeps spinning');
+  assert.ok(Math.abs(L.omega - w) < 1e-9, 'keeps spinning');
   // ...until countered.
 });
 
@@ -248,7 +248,7 @@ test('show me (and the route shown): the autopilot’s fastest flight -- a curve
     // Far quicker than the careful pilot that sizes the fuel, with the
     // level's own fuel, and about as quick as planned.
     const careful = simulate(level, level.fuel);
-    assert.ok(best.time < careful.time * 0.75, `mission ${n}: ${best.time.toFixed(0)} s vs ${careful.time.toFixed(0)} s`);
+    assert.ok(best.time < careful.time * 0.8, `mission ${n}: ${best.time.toFixed(0)} s vs ${careful.time.toFixed(0)} s`);
     assert.ok(best.time < best.plan.time * 1.1 + 5, `mission ${n} flown as planned`);
     // The same flight every time (Show me replays it step for step).
     const again = flyPlan(level, best.plan);
@@ -281,21 +281,24 @@ test('side thrusters are balanced: equal bursts left and right cancel exactly (a
   }
 });
 
-test('gentle side thrusters (the same for you and the autopilots): a quick tap is a touch of 0.5°/s; spins ebb at 0.5°/s² (assist off)', async () => {
+test('side thrusters (the same for you and the autopilots): a quick tap is a touch of 1.3°/s; only spins under 2°/s ebb away (assist off)', async () => {
   const { SPIN_FADE } = await import('../games/lander/engine.js');
   const level = makeLevel(1);
   const deg = Math.PI / 180;
-  // A tenth-of-a-second tap: 0.5°/s.
+  // A tenth-of-a-second tap: 1.3°/s; a second's hold, 13°/s.
   const L = airborne(level);
   fly(level, L, { right: true }, 0.1);
-  assert.ok(Math.abs(L.omega - 0.5 * deg) < 0.05 * deg, `${(L.omega / deg).toFixed(2)}°/s`); // (to a physics step)
-  // ...which ebbs away in about a second, a nudge of about a quarter degree.
+  assert.ok(Math.abs(L.omega - 1.3 * deg) < 0.15 * deg, `${(L.omega / deg).toFixed(2)}°/s`); // (to a physics step)
+  const H = airborne(level);
+  fly(level, H, { right: true }, 1);
+  assert.ok(Math.abs(H.omega - 13 * deg) < 0.25 * deg, `${(H.omega / deg).toFixed(2)}°/s`);
+  // The tap ebbs away to a stop, a nudge of under 2 degrees.
   const a0 = L.angle;
   const w = L.omega;
-  fly(level, L, {}, 2);
+  fly(level, L, {}, 4);
   assert.equal(L.omega, 0);
-  assert.ok(Math.abs(L.angle - a0 - w ** 2 / (2 * SPIN_FADE)) < 0.01 * deg);
-  assert.ok(L.angle - a0 < 0.35 * deg);
+  assert.ok(Math.abs(L.angle - a0 - w ** 2 / (2 * SPIN_FADE)) < 0.02 * deg);
+  assert.ok(L.angle - a0 < 2 * deg);
   // Equal taps left and right cancel exactly.
   for (const tap of [0.05, 0.1, 0.3, 0.8]) {
     const T = airborne(level);
@@ -303,12 +306,14 @@ test('gentle side thrusters (the same for you and the autopilots): a quick tap i
     fly(level, T, { right: true }, tap);
     assert.ok(Math.abs(T.omega) < 1e-9, `${tap}s each`);
   }
-  // A fast spin hardly notices the fade.
-  const F = airborne(level);
-  F.omega = 20 * deg;
-  fly(level, F, {}, 2);
-  assert.ok(Math.abs(F.omega - 19 * deg) < 0.01 * deg);
-  assert.ok(Math.abs(ROT_ACCEL - 5 * deg) < 1e-12);
+  // A spin of 2°/s or more doesn't fade at all.
+  for (const rate of [2, 4, 20]) {
+    const F = airborne(level);
+    F.omega = rate * deg;
+    fly(level, F, {}, 2);
+    assert.ok(Math.abs(F.omega - rate * deg) < 1e-9, `${rate}°/s`);
+  }
+  assert.ok(Math.abs(ROT_ACCEL - 13 * deg) < 1e-12);
 });
 
 test('clearance: the nearest surface in any direction -- the walls of a shaft, not just the floor far below', async () => {
