@@ -631,7 +631,18 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     // arrow and you're off (it goes the way to the job by itself, unless you
     // choose); every press is answered -- at the job you stop till the next.
     // (Driving's yours to choose: the car button, top right -- kept.)
+    // (The steering wheel: on, and you're straight into a driver's seat;
+    // off and on again, back into the same one.)
+    const work = await page.evaluate(() => window.__benji.helpers.some((h) => window.__benji.targetPlace(h)));
     await page.locator('.bt-screen [data-act=drive]').click();
+    const seat = await page.evaluate(() => window.__benji.fp?.h.id);
+    if (work) {
+      assert.ok(seat, 'into a driver\'s seat at once');
+      await page.locator('.bt-screen [data-act=drive]').click();
+      assert.equal(await page.evaluate(() => window.__benji.fp), null, 'out again');
+      await page.locator('.bt-screen [data-act=drive]').click();
+      assert.equal(await page.evaluate(() => window.__benji.fp?.h.id), seat, 'back in the same one');
+    }
     assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:drive')), 'true');
     await page.reload();
     await page.waitForFunction(() => window.__benji?.drive && window.__benji.part);

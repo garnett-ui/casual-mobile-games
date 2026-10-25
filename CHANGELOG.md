@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.91.1
+- Benji's Town: the steering wheel works at once, even in the middle of a
+  job: on, and you're in the driver's seat (the one you got out of last,
+  or the helper it's suggesting); off, and you're back over the town --
+  on again, and you're back in the same seat.
+
 ## 1.91.0
 - Benji's Town: a "yay!" with the confetti (the one from the letter
   tracer), instead of the bang.

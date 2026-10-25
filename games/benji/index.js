@@ -152,8 +152,8 @@ export function mount(root, ctx, sub) {
       car.setAttribute('aria-pressed', String(drive));
       car.setAttribute('aria-label', switchLabel());
       car.innerHTML = switchIcon();
-      play.drive = drive;
-      if (!drive && play.fp) play.leave();
+      // (On: into a driver's seat at once. Off: back out over the town.)
+      play.setDrive(drive);
     };
     onResize = () => play?.resize();
     window.addEventListener('resize', onResize);

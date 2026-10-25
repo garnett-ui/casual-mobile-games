@@ -912,9 +912,29 @@ export class Play {
     this.hooks.say?.('Let’s go!');
   }
 
+  // The steering wheel. On: straight into a driver's seat -- the one you
+  // last got out of, if it's still got work to do; or the helper the town's
+  // suggesting (its button bouncing), the one being watched, or any with a
+  // job. Off: back out to the town (and it's remembered which).
+  setDrive(on) {
+    this.drive = on;
+    if (!on) {
+      if (this.fp) this.leave();
+      return;
+    }
+    if (this.fp || this.won || this.night) return;
+    const works = (h) => !!h && this.helpers.includes(h) && !!this.targetPlace(h);
+    const h = [this.lastFp, this.hint?.h, this.focus, ...this.helpers.filter((x) => this.ready(x)), ...this.helpers].find(works);
+    if (!h) return;
+    if (this.hint?.h === h) this.hint = null;
+    this.idle = 0;
+    this.enter(h);
+  }
+
   // Back out to the town (the helper stops at the next street tile).
   leave() {
     const h = this.fp.h;
+    this.lastFp = h;
     this.fp = null;
     if (h.kind === 'walker') h.path = h.path.slice(0, 1);
     else h.path = isJunction(h.path[0]?.x, h.path[0]?.y) ? h.path.slice(0, 2) : h.path.slice(0, 1);
