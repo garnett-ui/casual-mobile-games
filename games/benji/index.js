@@ -1,6 +1,7 @@
 // Benji's Town: the town, going on from day to day (no levels).
 import { makeTown } from './town.js';
 import { Play } from './play.js';
+import { emojiURL } from './emoji.js';
 import { RECORDED, clipFor } from './voice.js';
 import { ICON, showDialog } from '../../js/lib/campaign.js';
 
@@ -87,6 +88,8 @@ export function mount(root, ctx, sub) {
   const old = ctx.load('progress', null);
   let day = ctx.load('day', old?.unlocked > 1 ? Math.ceil((old.unlocked - 1) / 2) : 1);
   const PART = { dawn: '🌅', morning: '🌤️', midday: '☀️', evening: '🌇', night: '🌙' };
+  // An emoji as its picture (some browsers have no emoji font).
+  const pic = (ch) => `<img class="bt-emoji" src="${emojiURL(ch)}" alt="${ch}">`;
   // Driving them yourself, or watching them go: yours to choose, and kept.
   let drive = ctx.load('drive', false);
 
@@ -96,8 +99,8 @@ export function mount(root, ctx, sub) {
       <div class="screen play-screen bt-screen">
         <header class="bar">
           <button class="icon-btn" data-act="home" aria-label="Back">${ICON.back}</button>
-          <h2>Day ${day} <span class="bt-part">🌅</span></h2>
-          <button class="icon-btn bt-drive" data-act="drive" aria-label="Drive them yourself" aria-pressed="${drive}">🚗</button>
+          <h2>Day ${day} <span class="bt-part">${pic(PART.dawn)}</span></h2>
+          <button class="icon-btn bt-drive" data-act="drive" aria-label="Drive them yourself" aria-pressed="${drive}">${pic('🚗')}</button>
           <button class="icon-btn" data-act="restart" aria-label="A new town">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas></div>
@@ -111,7 +114,7 @@ export function mount(root, ctx, sub) {
       say,
       // A part of the day begins (or night falls): the picture in the title.
       onPart: (part) => {
-        title.innerHTML = `Day ${day} <span class="bt-part">${PART[part]}</span>`;
+        title.innerHTML = `Day ${day} <span class="bt-part">${pic(PART[part])}</span>`;
       },
       // A new morning: the next day, kept.
       onDay: (n) => {

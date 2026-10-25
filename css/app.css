@@ -470,6 +470,8 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .bt-screen .bar { gap: 8px; }
 .bt-screen h2 { flex: 1; }
 .bt-drive { font-size: 24px; opacity: .4; filter: grayscale(1); }
+.bt-emoji { width: 1.15em; height: 1.15em; vertical-align: -0.2em; display: inline-block; }
+.bt-drive .bt-emoji { width: 26px; height: 26px; vertical-align: 0; }
 .bt-drive[aria-pressed="true"] { opacity: 1; filter: none; background: rgba(255, 209, 102, .55); }
 .el-screen .el-music.off { opacity: .4; }
 .el-hist { display: block; width: 100%; height: auto; margin: 4px 0 6px; }

@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.89.1
+- Benji's Town: its pictures (the jobs in the tray and on the helpers'
+  buttons, the shop signs, the time of day) now show in browsers with no
+  emoji font -- a car's, say -- where they were blank: they come with the
+  game now, and work offline.
+
 ## 1.89.0
 - Benji's Town: a treat on the way -- tap the shop's apple or the café's
   ice cream cone, and the helper you're driving (or watching) goes in for

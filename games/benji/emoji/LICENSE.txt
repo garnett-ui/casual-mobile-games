@@ -1,0 +1,7 @@
+The pictures in this folder are from Noto Emoji by Google
+(https://github.com/googlefonts/noto-emoji, release v2.047, svg/),
+licensed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+Renamed to their code points (e.g. 1f5d1.svg); otherwise unchanged.
+Fetched by tools/benji-emoji.py.

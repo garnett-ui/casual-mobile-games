@@ -406,3 +406,17 @@ test('walking the dog yourself: following the turn shown gets you to the park an
   const [x, y] = w.adj[bendAt].map((e) => e.to);
   assert.equal(onFrom(w, x, bendAt), y);
 });
+
+test('the pictures: every emoji the town draws has its picture with the game (some browsers have no emoji font)', async () => {
+  const { readFileSync, existsSync, readdirSync } = await import('node:fs');
+  const { emojiURL } = await import('../games/benji/emoji.js');
+  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}\u{2B55}][\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]*/gu;
+  const plain = new Set(['✓', '✕', '↻']);
+  const dir = new URL('../games/benji/', import.meta.url);
+  const used = new Set();
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.js'))) {
+    for (const m of readFileSync(new URL(f, dir), 'utf8').match(EMOJI) || []) if (!plain.has(m)) used.add(m);
+  }
+  assert.ok(used.size >= 20, `${used.size} emoji`);
+  for (const ch of used) assert.ok(existsSync(new URL(emojiURL(ch))), `${ch}: run tools/benji-emoji.py`);
+});

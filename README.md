@@ -153,3 +153,8 @@ never calls a service. Microsoft publishes no grant of redistribution rights
 for that output; the clips are committed at the project owner's direction,
 knowing that. If that needs undoing: a paid voice service whose terms allow
 redistribution, or recordings of a real child.
+
+Benji's Town's pictures of emoji (`games/benji/emoji/*.svg`) are Google's
+[Noto Emoji](https://github.com/googlefonts/noto-emoji), Apache License
+2.0, fetched by `tools/benji-emoji.py`: the town draws those rather than
+relying on the device's emoji font, which some browsers (a car's) lack.

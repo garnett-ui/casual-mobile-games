@@ -15,6 +15,7 @@ import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, wa
 import { Traffic, lanePoint, startDir, streetTiles } from './traffic.js';
 import { ahead, driveTurn, onFrom, walkAhead, walkTurn } from './steer.js';
 import * as D from './draw.js';
+import { emoji, preload } from './emoji.js';
 import * as I from './iso.js';
 
 const SPEED = { garbage: 2.2, mail: 2.6, mixer: 2, walker: 1.3, car: 1.6, person: 0.9 };
@@ -31,6 +32,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Play {
   constructor(canvas, town, hooks = {}) {
+    preload([...Object.values(ICONS), ...Object.values(SIGNS), '🌅', '🌤️', '☀️', '🌇', '🌙', '🗺️', '🚗', '🚶']);
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.town = town;
@@ -1510,7 +1512,7 @@ export class Play {
       g.font = '50px system-ui, sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(why === 'people' ? '🚶' : '🚗', x, y + 2);
+      emoji(g, why === 'people' ? '🚶' : '🚗', x, y + 2);
     }
   }
 
@@ -1593,7 +1595,7 @@ export class Play {
       g.font = `${Math.round(r * 0.95)}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(b.icon, b.x, b.y + 1);
+      emoji(g, b.icon, b.x, b.y + 1);
       const [gx, gy, gr] = [b.x + r * 0.72, b.y - r * 0.72, r * 0.42];
       g.fillStyle = '#2ecc71';
       g.strokeStyle = '#ffffff';
@@ -1642,7 +1644,7 @@ export class Play {
       if (!at) continue;
       g.globalAlpha = Math.max(0, 1 - f.t / 1.4);
       g.font = `${Math.round(size(f.x, f.y, 0.7) * (0.5 + f.t * 0.3) * f.k)}px system-ui, sans-serif`;
-      g.fillText(f.icon, at[0], at[1]);
+      emoji(g, f.icon, at[0], at[1]);
     }
     g.globalAlpha = 1;
   }
@@ -1681,7 +1683,7 @@ export class Play {
         g.font = `${Math.round(b.r * 1.1)}px system-ui, sans-serif`;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        g.fillText('🗺️', b.x, b.y + 1);
+        emoji(g, '🗺️', b.x, b.y + 1);
         continue;
       }
       // An arrow: up, left or right.
@@ -1829,7 +1831,7 @@ export class Play {
       g.font = `${Math.round(Math.min(120, view.scale(x, y, z) * 0.34))}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(icon, at[0], at[1]);
+      emoji(g, icon, at[0], at[1]);
     };
     const taken = new Set();
     for (const p of this.town.places) {
@@ -1976,7 +1978,7 @@ export class Play {
       g.font = `${Math.round(BOX * 0.9)}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText({ dawn: '🌅', morning: '🌤️', midday: '☀️', evening: '🌇', night: '🌙' }[partAt(this.clock)], this.W / 2, this.viewH + this.trayH / 2);
+      emoji(g, { dawn: '🌅', morning: '🌤️', midday: '☀️', evening: '🌇', night: '🌙' }[partAt(this.clock)], this.W / 2, this.viewH + this.trayH / 2);
     }
     const x0 = seat ? 70 + (this.W - 70 - cols * (box + gap)) / 2 : (this.W - cols * (box + gap) + gap) / 2;
     if (!seat) this.trayBoxes = [];
@@ -2003,7 +2005,7 @@ export class Play {
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.globalAlpha = done ? 0.45 : 1;
-      g.fillText(j.kind === 'build' && j.stage === 3 ? '🏠' : ICONS[j.kind], x + box / 2, y + box / 2 + 1);
+      emoji(g, j.kind === 'build' && j.stage === 3 ? '🏠' : ICONS[j.kind], x + box / 2, y + box / 2 + 1);
       g.globalAlpha = 1;
       if (done) {
         g.font = `900 ${Math.round(box * 0.55)}px system-ui, sans-serif`;

@@ -1,6 +1,7 @@
 // Benji's Town: the flat pictures that stand up facing you in the 3D town
 // -- traffic lights, walk signals, speech bubbles and arrows. Each draws at
 // (x, y) in pixels with s its size.
+import { emoji } from './emoji.js';
 
 const rr = (g, x, y, w, h, r) => {
   g.beginPath();
@@ -76,7 +77,7 @@ export function bubble(g, x, y, s, icon, bob = 0) {
   g.font = `${Math.round(s * 0.32)}px system-ui, sans-serif`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(icon, x, by + 1);
+  emoji(g, icon, x, by + 1);
 }
 
 // A bouncing arrow pointing down at a place: go here!

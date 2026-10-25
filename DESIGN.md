@@ -203,6 +203,11 @@ pictures and a sound for every touch.
   `tools/benji-voice.py`, from the list in `voice.js`) and precached, so
   they play offline. A line without a clip -- or one that won't play -- is
   spoken by the phone's own voice instead.
+- Its pictures -- the jobs in the tray and on the helpers' buttons, the
+  shop signs, the time of day -- are emoji, but drawn from pictures that
+  come with the game (Noto Emoji, the Android look; `emoji/`, fetched by
+  `tools/benji-emoji.py`, precached), not the device's emoji font: some
+  browsers have none (a Tesla's), and every picture came out blank.
 - `town.js` (the town, routes along the streets, the days and their jobs),
   `clock.js` (the time of day, and the light and the sky with it),
   `streets.js` (the sidewalks and crosswalks, and the lights' timing) and
