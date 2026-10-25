@@ -1910,11 +1910,11 @@ export class Play {
         const u = left / len;
         const [px, py] = [a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u];
         if (Math.hypot(px - from.x, py - from.y) <= near || !this.seen(view, px, py)) continue;
+        // (An arrow: a short shaft, and the head in front.)
+        const at = (along, side) => [px + ux * along - uy * side, py + uy * along + ux * side];
         I.flat(this.g, view, [
-          [px + ux * 0.09, py + uy * 0.09],
-          [px - ux * 0.06 - uy * 0.075, py - uy * 0.06 + ux * 0.075],
-          [px - ux * 0.02, py - uy * 0.02],
-          [px - ux * 0.06 + uy * 0.075, py - uy * 0.06 - ux * 0.075],
+          at(-0.11, 0.024), at(0.01, 0.024), at(0.01, 0.068), at(0.11, 0),
+          at(0.01, -0.068), at(0.01, -0.024), at(-0.11, -0.024),
         ], '#ffd166', 0.01);
       }
       left -= len;

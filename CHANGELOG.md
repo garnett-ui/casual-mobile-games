@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.92.2
+- Benji's Town: the little yellow arrows along the way are proper arrows
+  now, with a tail, not just a triangle.
+
 ## 1.92.1
 - Benji's Town, driving: just the little yellow arrows -- the big arrow
   painted at the corner, which only said the same thing, is gone. Walking
