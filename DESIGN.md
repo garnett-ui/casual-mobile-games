@@ -341,6 +341,28 @@ tells you what he needs and reacts as you go.
   solvable and finds the fewest pours possible; harder levels have longer
   shortest solutions, or more beakers. Hint shows the next pour of a
   shortest solution from wherever you are.
+- **Map** (beside Hint, and on the end-of-level card): the whole solution
+  space in a pop-up -- every state the water can reach from the start, and
+  every pour between them. With three beakers the total never changes, so
+  a state (a, b, c) is a point in a plane, a·U₀ + b·U₁ + c·U₂ (unit
+  vectors 120° apart), and a pour of t ml from beaker i to j moves it
+  t·(Uⱼ − Uᵢ): one of just six directions, those of a hexagonal lattice.
+  So every pour is a straight line along a lattice axis, as long as the
+  amount poured (a compass shows which direction is which pour), and the
+  states lie round the edge of the parallelogram the beakers allow (after
+  any pour a beaker is empty or full); faint dots fill in the lattice
+  points you can't reach. Every pour between reachable states is drawn,
+  so the lattice is cross-connected all through, not just a tree out from
+  the start. With four beakers the same idea, with unit vectors to a
+  tetrahedron's corners, puts the states in a 3D lattice (stacked
+  tetrahedra and octahedra), each pour along one of 12 directions --
+  drawn in perspective-free 3D that you turn round with a finger (nearer
+  states bigger and brighter); with five, the 4D lattice is shown through
+  five vectors in 3D. Marked: the start, where you are now, the states that solve it
+  (gold), your pours so far (blue) and the shortest way on (dashed gold).
+  Drag to look round (or, in 3D, to turn it), pinch or the wheel to zoom,
+  tap a state to see its volumes and how far it is from the start and
+  from solving.
 
 ## Elevator Operator
 

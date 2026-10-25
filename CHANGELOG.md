@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.84.0
+- Water Lab: a **Map** button (beside Hint, and on the end-of-level card)
+  shows the whole solution space -- every state the water can be in, every
+  pour between them, the states that solve it, your pours so far and the
+  shortest way on, every state cross-connected by every pour. With three
+  beakers it's a hexagonal lattice: each pour is a straight line along one
+  of six directions, as long as the amount poured. With four, a 3D
+  lattice you turn round with your finger. Pinch to zoom, tap a state.
+
 ## 1.83.2
 - Lunar Lander: stronger side thrusters -- half the original strength
   rather than a fifth: a quick tap is about 1.3°/s, a one-second hold

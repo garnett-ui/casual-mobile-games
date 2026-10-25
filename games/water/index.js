@@ -1,6 +1,7 @@
 // Water Lab: level select, the bench, and the end-of-level card.
 import { makeLevel, goalText } from './model.js';
 import { Play } from './play.js';
+import { SpaceView } from './space.js';
 import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
 
 // How to play, in Professor Fizz's words (said in his speech bubble).
@@ -10,6 +11,8 @@ const TIPS = {
   7: 'See my gold lines? Every marked beaker must hold exactly that much, all at once.',
 };
 const CHEERS = ['Precisely!', 'Well measured!', 'Eureka!', 'Lab genius!', 'Spot on!'];
+// The solution-space map button: a hexagon with spokes.
+const MAP = '<svg viewBox="0 0 24 24"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 12V3M12 12l7.8 4.5M12 12l-7.8 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.2"/></svg>';
 
 export function mount(root, ctx, sub) {
   const progress = loadProgress(ctx);
@@ -56,6 +59,7 @@ export function mount(root, ctx, sub) {
           <button class="ctl" data-act="undo">${ICON.undo}<span>Undo</span></button>
           <button class="ctl" data-act="restart">${ICON.restart}<span>Restart</span></button>
           <button class="ctl" data-act="hint">${ICON.hint}<span>Hint</span></button>
+          <button class="ctl" data-act="map">${MAP}<span>Map</span></button>
         </footer>
         <div class="dialog" hidden></div>
       </div>`;
@@ -87,6 +91,19 @@ export function mount(root, ctx, sub) {
       ctx.sfx('tap');
       play.showHint();
     };
+    root.querySelector('[data-act=map]').onclick = () => {
+      ctx.sfx('tap');
+      openMap();
+    };
+  }
+
+  // The solution space: every state the water can be in, and every pour.
+  function openMap() {
+    if (!play || root.querySelector('.wl-map')) return;
+    const view = new SpaceView(root.querySelector('.wl-screen'), play.level, { state: play.state, history: play.history });
+    // Handle for the end-to-end tests.
+    window.__waterMap = view;
+    ctx.track('water_map', { level: play.level.n });
   }
 
   function win(n, { moves, par, stars }) {
@@ -103,6 +120,7 @@ export function mount(root, ctx, sub) {
       stars,
       text: `<b>${moves}</b> pour${moves === 1 ? '' : 's'}. ${note}`,
       buttons: [
+        { label: 'Map', act: 'map', run: () => openMap() },
         { label: 'Replay', act: 'replay', run: () => {
           root.querySelector('.dialog').hidden = true;
           play.reset();

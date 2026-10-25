@@ -86,3 +86,48 @@ test('early levels know where the amount should end up (shown as a gold line)', 
     assert.equal(endsIn(l.caps, l.start, l.goal), l.target);
   }
 });
+
+test('the solution-space map: every state reachable and every pour between them, on a lattice -- each pour a straight line, as long as the amount, along one of six directions (three beakers, flat) or twelve (four, in 3D)', async () => {
+  const { spaceGraph, layout } = await import('../games/water/space.js');
+  const { explore, makeLevel, solve } = await import('../games/water/model.js');
+  const seen = { hex: 0, '3d': 0 };
+  for (let n = 1; n <= 40; n++) {
+    const level = makeLevel(n);
+    const g = spaceGraph(level.caps, level.start, level.goal);
+    // The same states the generator explores; the goal among them, as far
+    // as par; and every pour from every one of them.
+    const { dist } = explore(level.caps, level.start);
+    assert.equal(g.nodes.length, dist.size, `level ${n}: all reachable`);
+    const nearest = Math.min(...g.nodes.filter((s) => s.goal).map((s) => s.d));
+    assert.equal(nearest, level.par, `level ${n}: goal ${level.par} pours away`);
+    assert.equal(solve(level.caps, level.start, level.goal).length, nearest);
+    const k = level.caps.length;
+    let pours = 0;
+    for (const { s } of g.nodes) for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) if (i !== j && s[i] > 0 && s[j] < level.caps[j]) pours++;
+    assert.equal(g.edges.length, pours, `level ${n}: every pour, cross-connected`);
+    const { kind, pts } = layout(level.caps, g);
+    seen[kind]++;
+    assert.deepEqual(pts[0], [0, 0, 0], 'the start at the origin');
+    // Each pour i -> j: always the same direction, t times as far.
+    const dirs = new Map();
+    for (const e of g.edges) {
+      const d = [0, 1, 2].map((c) => (pts[e.b][c] - pts[e.a][c]) / e.t);
+      const was = dirs.get(`${e.i}${e.j}`);
+      if (was) assert.ok(d.every((v, c) => Math.abs(v - was[c]) < 1e-9), 'a straight line along its direction');
+      else dirs.set(`${e.i}${e.j}`, d);
+    }
+    if (kind === 'hex') {
+      for (const d of dirs.values()) {
+        assert.ok(Math.abs(Math.hypot(...d) - Math.sqrt(3)) < 1e-9 && d[2] === 0);
+        const ang = (Math.atan2(d[1], d[0]) * 180) / Math.PI;
+        assert.ok(Math.abs(Math.round(ang / 60) * 60 - ang) < 1e-6, `one of six directions (${ang})`);
+      }
+    }
+    if (k === 4) {
+      assert.equal(kind, '3d');
+      const at = new Set(pts.map((p) => p.map((v) => v.toFixed(6)).join()));
+      assert.equal(at.size, pts.length, 'no two states in the same place');
+    }
+  }
+  assert.ok(seen.hex >= 10 && seen['3d'] >= 3, JSON.stringify(seen));
+});

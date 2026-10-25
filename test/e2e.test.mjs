@@ -1169,6 +1169,19 @@ test('water lab: drag a beaker onto another to pour, and measure the amount aske
     await page.mouse.move(...to, { steps: 10 });
     await page.mouse.up();
     await page.waitForFunction(() => window.__water.moves === 1 && !window.__water.anim);
+    // The map of every way the water can go: you're one pour from the start,
+    // and the shortest way on is drawn.
+    await page.locator('[data-act=map]').click();
+    await page.locator('.wl-map').waitFor();
+    const map = await page.evaluate(() => {
+      const v = window.__waterMap;
+      return { states: v.graph.nodes.length, mine: v.mine.length, ahead: v.ahead.length, par: window.__water.level.par, drawn: v.canvas.width > 0 };
+    });
+    assert.ok(map.states > 2 && map.drawn);
+    assert.equal(map.mine, 2, 'start, then here');
+    assert.equal(map.ahead, map.par, 'here, and the rest of a shortest way');
+    await page.locator('.wl-map [data-act=close]').click();
+    assert.equal(await page.locator('.wl-map').count(), 0);
     // The rest of it, one pour at a time.
     const par = await page.evaluate(() => window.__water.level.par);
     for (let k = 1; k < par; k++) {
