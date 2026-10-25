@@ -604,11 +604,12 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     }, act);
     let seated = false;
     let turned = false;
+    let hurried = false;
     for (let k = 0; k < 400 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
-        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, at: p.screenOf(h.x, h.y, 0.25) };
+        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
       });
       if (!st) {
         await page.waitForTimeout(300);
@@ -620,7 +621,14 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
         continue;
       }
       seated = true;
-      if (!st.go) {
+      // (Stopped, nothing shows as chosen; and a press while busy with a
+      // job hurries it along.)
+      assert.ok(!st.stale, 'no arrow left lit while stopped');
+      if (st.busy && !hurried) {
+        const b = await pad('left');
+        await page.mouse.click(b.x, b.y);
+        hurried = await page.evaluate(() => window.__benji.fp?.h.hurry && window.__benji.fp.go);
+      } else if (!st.go) {
         const go = await pad('go');
         await page.mouse.click(go.x, go.y);
       } else if (!turned && (st.hint === 'left' || st.hint === 'right')) {
@@ -632,6 +640,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       await page.waitForTimeout(250);
     }
     assert.ok(turned, 'a turn chosen, shown and said');
+    assert.ok(hurried, 'a press during a job hurries it');
     assert.ok(seated, 'drove it from the driver\'s seat');
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
     assert.deepEqual(errors, []);

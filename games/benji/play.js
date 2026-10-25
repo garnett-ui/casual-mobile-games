@@ -225,7 +225,7 @@ export class Play {
       if (tile.x === yard.x && tile.y === yard.y) {
         h.loaded = true;
         h.pause = 0.6;
-        if (this.fp?.h === h) this.fp.go = false;
+        this.stopHere(h);
         this.pop('🪣', yard);
         this.hooks.sfx?.('pour', 0.5);
       }
@@ -234,7 +234,7 @@ export class Play {
     const job = jobAt(this.town, h, tile, this.done);
     if (!job) return;
     this.done.add(job.i);
-    if (this.fp?.h === h) this.fp.go = false; // (there: wait for a press to go on)
+    this.stopHere(h);
     h.path = [];
     const p = this.place(job.place);
     const at = { x: p.x + (p.w || 1) / 2 - 0.5, y: p.y + (p.h || 1) / 2 - 0.5 };
@@ -288,6 +288,15 @@ export class Play {
     }
     this.hooks.haptic?.(20);
     if (this.done.size === this.town.jobs.length) this.win();
+  }
+
+  // Driving it yourself, and there: stop (till you press to go on), with
+  // nothing chosen -- an arrow you pressed on the way is done with.
+  stopHere(h) {
+    if (this.fp?.h !== h) return;
+    this.fp.go = false;
+    this.fp.intent = null;
+    this.fp.keep = false;
   }
 
   // The postal worker at the door: here's your letter (or package)!
@@ -402,6 +411,11 @@ export class Play {
     if (h.kind === 'walker' && f.hint === 'back' && way !== 'straight') way = 'back';
     f.intent = way;
     f.go = true;
+    // (Too late to turn at this corner: it's for the next one.)
+    f.keep = !!f.locked;
+    // (Busy with a job -- a delivery, playing in the park: hurry it up, and
+    // off you go.)
+    if (h.pause > 0 || h.deliver) h.hurry = true;
     this.hooks.sfx?.('tap');
     const why = { light: 'Wait for green!', walk: 'Wait for the walking man!', people: 'Wait! Someone’s crossing.', car: 'Wait for the car!', turn: 'Wait for the car!' }[h.wait];
     this.tell(why || { left: 'Left!', right: 'Right!', straight: 'Straight on!', back: 'Turn around!' }[way]);
@@ -484,12 +498,16 @@ export class Play {
   // the middle of the intersection (choosing after that is for the next
   // one); turned toward someone on a crosswalk, you wait for them.
   planDrive(f, h) {
-    if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) f.intent = null;
+    if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) {
+      if (!f.keep) f.intent = null;
+      f.keep = false;
+    }
     f.last = h.tile;
     const at = lanePoint(h.tile, h.dir);
     const off = Math.hypot(h.x - at.x, h.y - at.y);
     const inside = isJunction(h.tile.x, h.tile.y);
-    if (inside && h.path.length && off > 0.3) return; // (on the way out: too late to turn now)
+    f.locked = inside && h.path.length > 0 && off > 0.3;
+    if (f.locked) return; // (on the way out: too late to turn now)
     const moving = !inside && h.path.length > 0 && off > 0.02;
     const base = moving ? h.path[0] : h.tile;
     const dir = moving && (base.x !== h.tile.x || base.y !== h.tile.y) ? { x: base.x - h.tile.x, y: base.y - h.tile.y } : h.dir;
@@ -644,7 +662,7 @@ export class Play {
     if (this.fp) this.fpSteer(dt);
     const move = (m) => {
       if (m.pause > 0) {
-        m.pause -= dt;
+        m.pause -= dt * (m.hurry ? 3 : 1);
         if (m.pause <= 0 && m.then) {
           m.then = false;
           this.send(m);
@@ -667,10 +685,11 @@ export class Play {
       h.hop = Math.max(0, h.hop - dt * 2.5);
       if (h.deliver) {
         const was = h.deliver.t;
-        h.deliver.t += dt;
+        h.deliver.t += dt * (h.hurry ? 3 : 1);
         if (was < DELIVER / 2 && h.deliver.t >= DELIVER / 2) this.handOver(h);
         if (h.deliver.t >= DELIVER) h.deliver = null;
       }
+      if (h.pause <= 0 && !h.deliver) h.hurry = false;
       // A helper held up at a red light: say so (now and then), and say go.
       // (Yours, from the driver's seat: fpSteer says, every time.)
       if (this.fp?.h === h) continue;

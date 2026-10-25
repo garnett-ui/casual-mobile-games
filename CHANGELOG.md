@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.80.1
+- Benji's Town, driving: every arrow always does something. Pressing one
+  while the postie is at the door (or the truck is at a bin, or the dog's
+  playing) hurries the job along and drives straight off after it. When
+  you stop at a job, no arrow stays lit up. An arrow pressed too late for
+  this corner turns you at the next one.
+
 ## 1.80.0
 - Benji's Town, driving, made for little hands: tap any arrow and you're
   off (no holding), and you keep going by yourself the way to the job.
