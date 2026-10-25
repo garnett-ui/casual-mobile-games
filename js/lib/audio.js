@@ -242,6 +242,43 @@ const SFX = {
   // Morse Rain: a tile landing on the board (a soft wooden knock), and one
   // cleared.
   tile: () => thump(0.18, 0.06, 900),
+  // A fire engine's siren: two tones, high and low, round a few times.
+  siren: (n = 3) => {
+    for (let k = 0; k < n * 2; k++) {
+      const f = k % 2 ? 740 : 960;
+      tone('square', f, f, 0.4, 0.045, k * 0.42, 2600);
+      tone('sine', f, f, 0.4, 0.06, k * 0.42);
+    }
+  },
+  // The hose: a rush of water, swelling and dying away.
+  spray: (dur = 3) => {
+    const t = ac.currentTime;
+    const src = ac.createBufferSource();
+    src.buffer = noise;
+    src.loop = true;
+    const f = ac.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 2400;
+    f.Q.value = 0.6;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.32, t + 0.25);
+    g.gain.setValueAtTime(0.32, t + dur - 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f);
+    f.connect(g);
+    g.connect(master);
+    src.start(t);
+    src.stop(t + dur + 0.05);
+  },
+  // Flames: crackles and pops, here and there.
+  crackle: (dur = 1.6) => {
+    for (let k = 0; k < dur * 14; k++) {
+      const at = Math.random() * dur;
+      knock(0.35 + Math.random() * 0.5, 0.02 + Math.random() * 0.03, 1200 + Math.random() * 3000, 1.5, at);
+    }
+    thump(0.25, 0.5, 500);
+  },
   // Hammering: hits (n of them, a steady beat with a little give), each a
   // sharp crack, the knock of the wood and the ring of the nail.
   hammer: (n = 4) => {

@@ -420,3 +420,23 @@ test('the pictures: every emoji the town draws has its picture with the game (so
   assert.ok(used.size >= 20, `${used.size} emoji`);
   for (const ch of used) assert.ok(existsSync(new URL(emojiURL(ch))), `${ch}: run tools/benji-emoji.py`);
 });
+
+test('fire! a firehouse with its fire engine, and once a day a fire at a house, a while into one part of the day', () => {
+  for (let day = 1; day <= 12; day++) {
+    const town = makeTown(day);
+    const station = town.places.find((p) => p.kind === 'firehouse');
+    assert.ok(station && station.doors.every((d) => isRoad(d.x, d.y)), 'a firehouse by the street');
+    const engine = town.helpers.find((h) => h.kind === 'fire');
+    assert.ok(engine && engine.home === station.id && station.doors.includes(engine.at), 'its fire engine, parked outside');
+    const fires = town.phases.filter((p) => p.fire);
+    assert.equal(fires.length, 1, `day ${day}: one fire`);
+    const { place, after } = fires[0].fire;
+    assert.equal(town.places.find((p) => p.id === place)?.kind, 'home', 'at a house');
+    assert.ok(after >= 8 && after <= 16);
+    // (A fire job, as play.js adds it: the engine can do it, at the house.)
+    const job = { helper: 'fire', kind: 'fire', place, i: town.jobs.length };
+    const t2 = { ...town, jobs: [...town.jobs, job] };
+    const door = town.places.find((p) => p.id === place).door;
+    assert.equal(jobAt(t2, engine, door, new Set()), job);
+  }
+});

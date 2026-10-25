@@ -414,10 +414,26 @@ export function pole(x, y, height) {
   return m;
 }
 
-const CABS = { garbage: '#e9c46a', mail: '#e63946', mixer: '#ffd166' };
+const CABS = { garbage: '#e9c46a', mail: '#e63946', mixer: '#ffd166', fire: '#d62828' };
+
+// The firehouse at (x, y), its front toward h: red brick, a flat roof, and
+// a big white garage door for the fire engine.
+export function firehouse(x, y, h) {
+  const m = new Model(x, y, h);
+  const b = m.box(-0.4, -0.42, 0, 0.4, 0.42, 0.62, '#b5261e');
+  m.box(-0.43, -0.45, 0.62, 0.43, 0.45, 0.68, '#5c0a0a');
+  m.decal(b.e, onX(0.402, -0.3, 0.3, 0, 0.44), '#f1f3f5');
+  for (const z0 of [0.11, 0.22, 0.33]) m.decal(b.e, onX(0.404, -0.3, 0.3, z0, z0 + 0.012), '#ced4da');
+  m.decal(b.e, onX(0.402, -0.12, 0.12, 0.49, 0.58), GLASS);
+  for (const y0 of [-0.3, 0.06]) m.decal(b.w, onX(-0.402, y0, y0 + 0.24, 0.3, 0.48), GLASS);
+  m.decal(b.s, onY(0.422, -0.12, 0.12, 0.3, 0.48), GLASS);
+  m.decal(b.n, onY(-0.422, -0.12, 0.12, 0.3, 0.48), GLASS);
+  return m;
+}
 
 // A vehicle at (x, y), heading h: the garbage truck, the mail van, the
-// cement mixer (its drum turning with t), or a little car (in color).
+// cement mixer (its drum turning with t), the fire engine, or a little car
+// (in color).
 export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false) {
   const m = new Model(x, y, h, z);
   const L = kind === 'car' ? 0.29 : 0.38;
@@ -434,6 +450,19 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
   m.decal(cab.e, onX(0.382, -0.11, 0.11, 0.24, 0.36), GLASS);
   m.decal(cab.s, onY(0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
   m.decal(cab.n, onY(-0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
+  if (kind === 'fire') {
+    // The fire engine: red, a ladder along the top, a light on the cab.
+    const body = m.box(-0.38, -0.15, 0.11, 0.12, 0.15, 0.36, '#d62828');
+    for (const f of [body.s, body.n]) {
+      const at = f === body.s ? 0.152 : -0.152;
+      m.decal(f, onY(at, -0.36, 0.1, 0.22, 0.26), '#f1faee');
+      for (const x0 of [-0.3, -0.12]) m.decal(f, onY(at, x0, x0 + 0.1, 0.13, 0.2), '#9a1b1b');
+    }
+    for (const y0 of [-0.1, 0.07]) m.box(-0.42, y0, 0.37, 0.3, y0 + 0.03, 0.4, '#dee2e6');
+    for (let x0 = -0.38; x0 < 0.28; x0 += 0.1) m.box(x0, -0.07, 0.37, x0 + 0.025, 0.07, 0.39, '#dee2e6');
+    m.box(0.2, -0.06, 0.4, 0.28, 0.06, 0.44, Math.floor(t * 4) % 2 ? '#ff1f1f' : '#ffb3b3');
+    return m;
+  }
   if (kind === 'mixer') {
     m.box(-0.38, -0.12, 0.11, 0.12, 0.12, 0.15, '#6c757d');
     m.drum(-0.36, 0.1, 0.3, 0.14, ['#ff9f1c', '#ff9f1c', '#ffffff'], Math.floor(t * 8) % 3);

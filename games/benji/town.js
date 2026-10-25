@@ -4,9 +4,10 @@
 // apart (room to queue between the corners), each running on two tiles past
 // its last corner to a turning circle at the edge of town; and between them
 // blocks of places -- houses, the post office, the dump, the builders'
-// yard, the park and lots to build on. Every place has a door on a street.
-// Helpers (the garbage truck, the postal worker's van, a dog walker, the cement mixer)
-// drive or walk along the streets to do the level's jobs.
+// yard, the firehouse, the park and lots to build on. Every place has a
+// door on a street. Helpers (the garbage truck, the postal worker's van, a
+// dog walker, the cement mixer, the fire engine) drive or walk along the
+// streets to do the day's jobs.
 
 export const SIZE = 13;
 export const ROADS = [2, 6, 10]; // the rows and columns that are streets
@@ -29,6 +30,7 @@ const PLACES = [
   { id: 'dump', kind: 'dump', x: 11, y: 11 },
   { id: 'yard', kind: 'yard', x: 1, y: 11 },
   { id: 'park', kind: 'park', x: 7, y: 7, w: 2, h: 2 },
+  { id: 'fire', kind: 'firehouse', x: 5, y: 1 },
   { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
   { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
   { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
@@ -148,7 +150,10 @@ export function nearestRoad(px, py) {
 //            package)
 //   dog:     a walk to the park and home
 //   build:   a house to build on the next lot (three trips)
-// (Whether you drive them yourself or watch them go is yours to choose.)
+// And once a day, a little while into one part of it, a fire breaks out at
+// a house: the fire engine to the rescue (play.js lights it, and adds the
+// job). (Whether you drive them yourself or watch them go is yours to
+// choose.)
 export const PARTS = ['morning', 'midday', 'evening'];
 const DAYS = [
   { morning: { garbage: 2 }, evening: { dog: 1 } },
@@ -236,6 +241,13 @@ export function makeTown(n) {
     jobs.forEach((j, i) => (j.i = i));
     phases.push({ part, jobs });
   }
+  // (The fire engine's always at the firehouse, ready -- parked down the
+  // end of the street beside it, like the other trucks, out of the way.)
+  const station = by('fire');
+  helper({ id: 'fire', kind: 'fire', at: station.doors.find((d) => stubOf(d.x, d.y)) || station.door, home: 'fire' });
+  // The day's fire: in which part, at which house, how many seconds in.
+  const fire = phases[Math.floor(r() * phases.length)];
+  fire.fire = { place: pick(homes, 1)[0].id, after: 8 + r() * 8 };
   return { n, day: n, plan, places, helpers, phases, jobs: phases[0].jobs };
 }
 

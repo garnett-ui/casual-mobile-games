@@ -18,21 +18,22 @@ import * as D from './draw.js';
 import { emoji, preload } from './emoji.js';
 import * as I from './iso.js';
 
-const SPEED = { garbage: 2.2, mail: 2.6, mixer: 2, walker: 1.3, car: 1.6, person: 0.9 };
-export const COLORS = { garbage: '#2a9d8f', mail: '#e63946', mixer: '#ff9f1c', walker: '#7b2cbf' };
+const SPEED = { garbage: 2.2, mail: 2.6, mixer: 2, fire: 2.8, walker: 1.3, car: 1.6, person: 0.9 };
+export const COLORS = { garbage: '#2a9d8f', mail: '#e63946', mixer: '#ff9f1c', fire: '#d62828', walker: '#7b2cbf' };
 // The jobs, as pictures in the tray.
-const ICONS = { bin: '🗑️', recycle: '♻️', dump: '🚮', letter: '✉️', parcel: '📦', walk: '🐕', home: '🏠', build: '🧱' };
+const ICONS = { bin: '🗑️', recycle: '♻️', dump: '🚮', letter: '✉️', parcel: '📦', walk: '🐕', home: '🏠', build: '🧱', fire: '🔥' };
 const PEOPLE = ['#ef476f', '#118ab2', '#ffd166', '#06d6a0'];
-const SIGNS = { post: '📮', shop: '🍎', cafe: '🍦', dump: '🚮', yard: '🚧' };
+const SIGNS = { post: '📮', shop: '🍎', cafe: '🍦', dump: '🚮', yard: '🚧', firehouse: '🚒' };
 const BUILDINGS = { post: ['#e63946', '#8d1b26'], shop: ['#ffd166', '#e09f3e'], cafe: ['#f4a261', '#9c6644'] };
 const BTN = 28; // the turn buttons' radius
 const BOX = 40; // the tray's pictures (and the gap between them: 5)
 const LOOK = 1.75; // how far round you can look (radians, either way)
+const HOSE = 3.2; // seconds of the fire engine's hose to put a fire out
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Play {
   constructor(canvas, town, hooks = {}) {
-    preload([...Object.values(ICONS), ...Object.values(SIGNS), '🌅', '🌤️', '☀️', '🌇', '🌙', '🚗', '🚶']);
+    preload([...Object.values(ICONS), ...Object.values(SIGNS), '🌅', '🌤️', '☀️', '🌇', '🌙', '🚗', '🚶', '💦']);
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.town = town;
@@ -343,6 +344,17 @@ export class Play {
         h.pause = h.deliver.total;
         this.hooks.sfx?.('pop');
         return;
+      case 'fire': {
+        // The hose, on the fire: the camera out of the cab to watch (as for
+        // a delivery), the water arcing up onto the roof.
+        h.pause = HOSE;
+        const house = { x: p.x + (p.w || 1) / 2, y: p.y + (p.h || 1) / 2 };
+        h.spray = { at: house, cam: this.delivery(h, 'fire', at, house).cam };
+        if (this.fire) this.fire.douse = this.t;
+        this.pop('💦', at);
+        this.hooks.sfx?.('spray', HOSE);
+        break;
+      }
       case 'walk':
         // Play in the park a while (then, a tap, home again).
         h.pause = 2.4;
@@ -376,8 +388,40 @@ export class Play {
   // last of them for this part of the day, hooray!
   finished(h) {
     if (this.town.jobs.some((j) => j.helper === h.id && !this.done.has(j.i))) return;
-    this.later = { t: this.t + (h.kind === 'mail' ? 1.6 : 0.9), line: { garbage: 'You picked up all the garbage! Great job!', mail: 'You delivered all the mail! Great job!', walker: 'You took the dog for a walk! Great job!', mixer: 'You built a house! Great job!' }[h.kind] };
-    if (this.done.size === this.town.jobs.length) this.win();
+    // (The fire engine: once the fire's out.)
+    const out = h.kind === 'fire' ? HOSE : 0;
+    this.later = { t: this.t + (h.kind === 'mail' ? 1.6 : 0.9) + out, line: { garbage: 'You picked up all the garbage! Great job!', mail: 'You delivered all the mail! Great job!', walker: 'You took the dog for a walk! Great job!', mixer: 'You built a house! Great job!', fire: 'You put out the fire, great job!' }[h.kind] };
+    if (this.done.size === this.town.jobs.length) {
+      if (out) this.winAt = this.t + out;
+      else this.win();
+    }
+  }
+
+  // ------------------------------------------------------------- fire!
+
+  // A fire breaks out at a house: flames and smoke from the roof, a job for
+  // the fire engine (in the tray, and its button bouncing), and the town
+  // calls for it.
+  ignite(place) {
+    this.town.jobs.push({ helper: 'fire', kind: 'fire', place, i: this.town.jobs.length });
+    this.fire = { place, douse: null };
+    this.resize();
+    this.hooks.sfx?.('crackle');
+    this.hooks.say?.('Fire! Call the fire engine!');
+    const h = this.helpers.find((m) => m.kind === 'fire');
+    if (h && !this.fp) {
+      this.hint = { h, t: this.t };
+      this.idle = 0;
+      // (A look at the fire, first.)
+      const p = this.place(place);
+      this.peek = { h: { x: p.x + (p.w || 1) / 2, y: p.y + (p.h || 1) / 2 }, t: 3.5 };
+    }
+  }
+
+  // How much fire there is (1, all ablaze; to 0 as the hose puts it out).
+  blaze() {
+    if (!this.fire) return 0;
+    return this.fire.douse === null ? 1 : Math.max(0, 1 - (this.t - this.fire.douse) / (HOSE * 0.85));
   }
 
   // Driving it yourself, and there: stop (till you press to go on), with
@@ -532,6 +576,8 @@ export class Play {
     this.part = phase;
     this.next++;
     this.town.jobs = phase.jobs;
+    // (The day's fire, if it's in this part: in a little while.)
+    this.fireAt = phase.fire ? this.t + phase.fire.after : null;
     this.done = new Set();
     this.won = false;
     this.confetti = [];
@@ -592,13 +638,15 @@ export class Play {
     const j = this.nextOf(h);
     if (!j) return null;
     const kind = j.kind === 'build' ? `${h.loaded ? 'build' : 'load'}${j.stage}` : j.kind;
-    return ({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get more concrete for the roof!', build3: 'Now put the roof on!' }[kind]);
+    return ({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get more concrete for the roof!', build3: 'Now put the roof on!', fire: 'Time to put out the fire!' }[kind]);
   }
 
   // Night falls: everyone home to bed.
   nightfall() {
     this.night = true;
     this.part = null;
+    this.fire = null;
+    this.fireAt = null;
     this.town.jobs = [];
     this.done = new Set();
     if (this.fp) this.leave();
@@ -849,6 +897,7 @@ export class Play {
   // driver.
   start(h) {
     h.hop = 1;
+    if (h.kind === 'fire' && !this.drive) this.hooks.sfx?.('siren');
     if (this.hint?.h === h) this.hint = null;
     this.idle = 0;
     this.prompt = 6;
@@ -905,7 +954,7 @@ export class Play {
     h.atPark = false;
     this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, away: 0, out: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
-    this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk');
+    this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : h.kind === 'fire' ? 'siren' : 'honk');
     this.hooks.say?.('Let’s go!');
     // Already there (the mixer parked at the yard, say): the job's done
     // here and now -- not off round the block and back to do it.
@@ -963,8 +1012,8 @@ export class Play {
     // (A little slower than they go by themselves: time to look about, and
     // to turn.)
     // (The camera out of the cab for a delivery -- and back in.)
-    if (h.deliver) f.out = h.deliver.cam;
-    f.away = clamp(f.away + (h.deliver ? dt : -dt) / 0.8, 0, 1);
+    if (h.deliver || h.spray) f.out = (h.deliver || h.spray).cam;
+    f.away = clamp(f.away + (h.deliver || h.spray ? dt : -dt) / 0.8, 0, 1);
     let want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
     // (Coming up to a corner with no way chosen: slowing down, to stop at
     // the line.)
@@ -1251,6 +1300,16 @@ export class Play {
     this.traffic.t = this.t;
     this.passTime(dt);
     this.suggest(dt);
+    // Fire!
+    if (this.fireAt != null && this.t >= this.fireAt) {
+      this.fireAt = null;
+      if (this.part && !this.won && !this.night) this.ignite(this.part.fire.place);
+    }
+    // (Hooray -- once the fire's out.)
+    if (this.winAt != null && this.t >= this.winAt) {
+      this.winAt = null;
+      this.win();
+    }
     // (What was done, said a moment after.)
     if (this.later && this.t >= this.later.t) {
       this.hooks.say?.(this.later.line);
@@ -1278,6 +1337,11 @@ export class Play {
     };
     for (const h of this.helpers) {
       move(h);
+      // (The hose off, the fire out.)
+      if (h.spray && h.pause <= 0) {
+        h.spray = null;
+        this.fire = null;
+      }
       // A step done (and the helper free again): what's next, at once.
       if (h.next && h.pause <= 0 && !h.deliver) {
         h.next = false;
@@ -1493,6 +1557,7 @@ export class Play {
       }
       o.draw(alpha);
     }
+    this.flames(view);
     this.dusk(view, this.viewH);
     this.overlays(view, this.helpers.filter((h) => h.path.length > 0 && !h.budging));
     this.drawGo();
@@ -1538,6 +1603,7 @@ export class Play {
     // when it's the way you chose).
     if (f.corner && !d) this.roadArrow(eye, f.corner);
     for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
+    this.flames(eye);
     this.dusk(eye, this.seatH);
     this.overlays(eye, d ? [] : [h]);
     // In the cab: the dashboard and the wheel, turning as you turn (going
@@ -1791,6 +1857,62 @@ export class Play {
     return pts;
   }
 
+  // The fire: flames licking up from the roof and smoke rising -- and,
+  // with the fire engine there, the hose's water arcing onto it (and
+  // steam, as it goes out).
+  flames(view) {
+    const { g, t } = this;
+    const k = this.blaze();
+    if (this.fire && k > 0) {
+      const p = this.place(this.fire.place);
+      const [cx, cy] = [p.x + (p.w || 1) / 2, p.y + (p.h || 1) / 2];
+      const base = view.at(cx, cy, 0.7);
+      if (base) {
+        const s = Math.min(260, view.scale(cx, cy, 0.7));
+        // Smoke (or steam, being put out), puffing up.
+        for (let i = 0; i < 6; i++) {
+          const u = (t * 0.35 + i / 6) % 1;
+          g.fillStyle = this.fire.douse === null ? `rgba(70,70,70,${0.35 * (1 - u)})` : `rgba(235,240,245,${0.55 * (1 - u)})`;
+          g.beginPath();
+          g.arc(base[0] + Math.sin(i * 2.1 + t) * s * 0.08 + u * s * 0.15, base[1] - s * (0.35 + u * 0.9), s * (0.07 + u * 0.14), 0, Math.PI * 2);
+          g.fill();
+        }
+        // Flames: tongues of orange round yellow, flickering.
+        for (let i = 0; i < 5; i++) {
+          const x = base[0] + (i - 2) * s * 0.13;
+          const hgt = s * k * (0.45 + 0.16 * Math.sin(t * 11 + i * 1.7) + (i === 2 ? 0.15 : 0));
+          const w = s * k * 0.11;
+          for (const [col, f] of [['#ff6b00', 1], ['#ffd166', 0.55]]) {
+            g.fillStyle = col;
+            g.beginPath();
+            g.moveTo(x - w * f, base[1]);
+            g.quadraticCurveTo(x - w * f, base[1] - hgt * f * 0.6, x + Math.sin(t * 7 + i) * w * 0.4, base[1] - hgt * f);
+            g.quadraticCurveTo(x + w * f, base[1] - hgt * f * 0.6, x + w * f, base[1]);
+            g.closePath();
+            g.fill();
+          }
+        }
+      }
+    }
+    // The hose: drops of water arcing from the fire engine up onto the roof.
+    for (const h of this.helpers) {
+      if (!h.spray) continue;
+      const { at } = h.spray;
+      for (let i = 0; i < 16; i++) {
+        const u = (t * 1.6 + i / 16) % 1;
+        const x = h.x + (at.x - h.x) * u;
+        const y = h.y + (at.y - h.y) * u;
+        const z = 0.45 + 0.25 * u + Math.sin(Math.PI * u) * 0.55;
+        const q = view.at(x, y, z);
+        if (!q) continue;
+        g.fillStyle = 'rgba(76,201,240,0.9)';
+        g.beginPath();
+        g.arc(q[0], q[1], Math.max(1.5, Math.min(9, view.scale(x, y, z) * 0.035)), 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }
+
   // Little yellow arrows along a way on the ground, pointing the way it
   // goes (not within near of from).
   dots(view, pts, from, near) {
@@ -1923,6 +2045,14 @@ export class Play {
           I.paint(g, view, m.parts, a);
           g.globalAlpha = a;
           sign(...this.signOf(p), SIGNS[p.kind]);
+          g.globalAlpha = 1;
+        }, 0.95);
+      } else if (p.kind === 'firehouse') {
+        const m = I.firehouse(cx, cy, h);
+        add(cx, cy, (a) => {
+          I.paint(g, view, m.parts, a);
+          g.globalAlpha = a;
+          sign(cx + Math.cos(h) * 0.42, cy + Math.sin(h) * 0.42, 0.56, SIGNS.firehouse);
           g.globalAlpha = 1;
         }, 0.95);
       } else if (p.kind === 'lot') {

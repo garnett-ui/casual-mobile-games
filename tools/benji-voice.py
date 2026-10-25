@@ -78,11 +78,19 @@ def polish(raw: Path, dest: Path) -> None:
         shutil.move(str(raw), str(dest))
         return
     trim_both = f"{TRIM},areverse,{TRIM},areverse"
-    subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-af", f"{trim_both},{LOUDNORM}",
-         "-ac", "1", "-ar", "24000", "-b:a", "48k", str(dest)],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(raw), "-af", f"{trim_both},{LOUDNORM}",
+             "-ac", "1", "-ar", "24000", "-b:a", "48k", str(dest)],
+            check=True,
+            stdin=subprocess.DEVNULL,
+            # (The silence trimming has been known to hang on a clip: then
+            # it's kept as it came.)
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        print("  (ffmpeg hung: kept as it came)")
+        shutil.copy(str(raw), str(dest))
     raw.unlink(missing_ok=True)
 
 

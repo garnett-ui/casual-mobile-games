@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.92.0
+- Benji's Town: fire! Once a day a fire breaks out at a house -- flames
+  and smoke from the roof, "Fire! Call the fire engine!" -- and the new
+  fire engine waits at the new firehouse by the post office. Send it
+  (or drive it) there, siren going, and it hoses the fire out: "You put
+  out the fire, great job!"
+
 ## 1.91.2
 - Benji's Town: driving the cement mixer from where it's parked at the
   yard, it loads up there and then -- no more driving round the block

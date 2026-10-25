@@ -122,6 +122,18 @@ pictures and a sound for every touch.
   -- and at each, a spell of hammering (synthesised, like every sound:
   for each hit, a crack, the knock of the wood and the ring of the nail).
   Houses built stay built: the town grows from day to day.
+- **Fire!** Once a day, a little while into one part of it (which part,
+  which house and when come from the day's seed), a fire breaks out at a
+  house: flames licking up from the roof and smoke rising, a crackle, and
+  "Fire! Call the fire engine!" -- the camera takes a look, a 🔥 joins the
+  jobs in the tray, and the **fire engine** (red, a ladder on top, its
+  light flashing) waits by the **firehouse** next to the post office
+  (red brick, a big white garage door, a 🚒 sign), its button bouncing.
+  Off it goes with its siren -- driven by you, or by itself -- and at the
+  house the hose arcs water onto the roof for three seconds (a rush of
+  water; driving, the camera floats out of the cab to watch), the flames
+  die down and the smoke turns to steam: "You put out the fire, great
+  job!". That part of the day isn't done till the fire's out.
 - Each helper that can be sent on a job has a big round button over it,
   in its colour, with a picture of its next job (a bin, a letter, the dog,
   a brick) and a little green "go" -- kept in view at the edge of the

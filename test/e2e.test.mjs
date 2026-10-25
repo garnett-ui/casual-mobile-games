@@ -549,6 +549,50 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
   }
 });
 
+test('benji’s town: fire! it breaks out at a house, and the fire engine goes and puts it out', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '2'));
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      const sounds = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = (n) => sounds.push(n);
+      const run = (secs, until) => {
+        for (let i = 0; i < secs * 30 && !until(); i++) p.update(1 / 30);
+      };
+      run(30, () => p.part);
+      p.fireAt = p.t; // (now, not in a little while)
+      run(1, () => p.fire);
+      const engine = p.helpers.find((h) => h.kind === 'fire');
+      const lit = { fire: !!p.fire, job: p.town.jobs.some((j) => j.kind === 'fire'), ready: p.ready(engine) };
+      p.start(engine);
+      run(120, () => p.fire === null);
+      run(3, () => false); // (and then, what was done)
+      const job = p.town.jobs.find((j) => j.kind === 'fire');
+      return { lit, out: p.fire === null && p.done.has(job.i), said, sounds };
+    });
+    assert.deepEqual(r.lit, { fire: true, job: true, ready: true }, 'a fire, its job, and the fire engine ready');
+    assert.ok(r.out, 'put out');
+    assert.ok(r.said.includes('Fire! Call the fire engine!'));
+    assert.ok(r.said.includes('You put out the fire, great job!'));
+    for (const s of ['crackle', 'siren', 'spray']) assert.ok(r.sounds.includes(s), s);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town: tap the helpers and they do their jobs, morning to evening; night falls and it\'s the next day; a treat on the way; later, drive them from the driver\'s seat', { skip: !chromium, timeout: 240000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
