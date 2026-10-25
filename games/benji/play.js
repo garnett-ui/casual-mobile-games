@@ -1183,8 +1183,11 @@ export class Play {
       hint = to !== null ? walkTurn(w, a, b, to) : null;
     }
     f.hint = hint;
-    f.route = to !== null ? w.route(b, to).map((n) => w.nodes[n]) : [];
     h.path = [b, ...walkAhead(w, a, b, f.intent || (hint === 'back' ? null : hint) || 'straight')];
+    // (The arrows on the sidewalk: the way you're going -- where it next
+    // divides, the way you chose -- and on from there to the job.)
+    const on = to !== null ? w.route(h.path[h.path.length - 1], to) : [];
+    f.route = to !== null ? [...h.path.slice(0, -1), ...on].map((n) => w.nodes[n]) : [];
     // Where the way divides next, and where each way from there goes.
     const seq = [a, ...h.path];
     const [p, q, r] = seq.slice(-3);
@@ -1597,11 +1600,9 @@ export class Play {
     I.rect(g, eye, -40, -40, SIZE + 40, SIZE + 40, '#7cc15a');
     I.rect(g, eye, 0, 0, SIZE, SIZE, '#8fd16a');
     this.drawGround(eye);
-    // The way to the job: dots along it.
+    // The way you'll go: little arrows along it (through the corner coming
+    // up the way you chose, and on to the job).
     if (!d) this.dots(eye, f.route || [], eye, 0.6);
-    // The way you'll go at the next corner: a big arrow on the road (bright
-    // when it's the way you chose).
-    if (f.corner && !d) this.roadArrow(eye, f.corner);
     for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
     this.flames(eye);
     this.dusk(eye, this.seatH);
@@ -1615,23 +1616,6 @@ export class Play {
     g.restore();
     this.drawPads();
     this.drawTray(true);
-  }
-
-  // An arrow painted on the road through an intersection: in, and out the
-  // way you'll go.
-  roadArrow(view, { at, into, out, s = 1 }) {
-    const { x: cx, y: cy } = at;
-    const fill = '#ffd166';
-    const bar = (ax, ay, bx, by) => {
-      const len = Math.hypot(bx - ax, by - ay) || 1;
-      const [nx, ny] = [(-(by - ay) / len) * 0.08 * s, ((bx - ax) / len) * 0.08 * s];
-      I.flat(this.g, view, [[ax + nx, ay + ny], [bx + nx, by + ny], [bx - nx, by - ny], [ax - nx, ay - ny]], fill, 0.012);
-    };
-    bar(cx - into.x * 0.45 * s, cy - into.y * 0.45 * s, cx + into.x * 0.08 * s, cy + into.y * 0.08 * s);
-    bar(cx - out.x * 0.08 * s, cy - out.y * 0.08 * s, cx + out.x * 0.3 * s, cy + out.y * 0.3 * s);
-    const [tx, ty] = [cx + out.x * 0.58 * s, cy + out.y * 0.58 * s];
-    const [bx, by] = [cx + out.x * 0.28 * s, cy + out.y * 0.28 * s];
-    I.flat(this.g, view, [[tx, ty], [bx - out.y * 0.2 * s, by + out.x * 0.2 * s], [bx + out.y * 0.2 * s, by - out.x * 0.2 * s]], fill, 0.012);
   }
 
   // Why you're waiting, as a big picture at the top of the view.

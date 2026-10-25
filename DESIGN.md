@@ -189,15 +189,16 @@ pictures and a sound for every touch.
   at a time, and the buttons work only while you're stopped -- mashing
   them as you go does nothing, and one press never takes you past the
   next corner. Stopped at the line, ◀ ▲ ▶ are the way through the corner
-  -- the big yellow arrow painted on the road there, the little yellow
-  arrows re-route, the wheel turns, and it's said ("Left!", "Straight on!",
+  -- the little yellow arrows along the road swing round through it
+  (one set of arrows: a big one painted at the corner as well only said
+  the same again), the wheel turns, and it's said ("Left!", "Straight on!",
   "Right!") -- and off you go (no holding), through it and up the next
   block, slowing down to stop at the line at the next corner ("Which
   way?"), the way to the job glowing. Stopped anywhere else (to begin
   with, after a job), ▲ takes you on to the corner.
   Walking the dog, you keep going (round the bends, the way to the job)
-  and ◀ ▲ ▶ choose where the way next divides, a smaller arrow on the
-  sidewalk there. At the end of a street (the edge of town) you go
+  and ◀ ▲ ▶ choose where the way next divides, the little arrows along
+  the sidewalk going the way you chose. At the end of a street (the edge of town) you go
   round the turning circle by yourself, and it's said ("Turn around!") -- no reverse
   gear to get stuck in; the arrows fade till there's a corner ahead. At
   each job you stop: the arrows fade while it's done, then ▲ glows for

@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.92.1
+- Benji's Town, driving: just the little yellow arrows -- the big arrow
+  painted at the corner, which only said the same thing, is gone. Walking
+  the dog, the little arrows now follow the way you choose.
+
 ## 1.92.0
 - Benji's Town: fire! Once a day a fire breaks out at a house -- flames
   and smoke from the roof, "Fire! Call the fire engine!" -- and the new

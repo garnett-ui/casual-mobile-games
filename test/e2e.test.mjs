@@ -705,7 +705,17 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     let seated = false;
     let turned = false;
     let faded = false;
-    for (let k = 0; k < 400 && !(await page.evaluate(() => window.__benji.won)); k++) {
+    // (Hooray, when it comes -- the next part of the day can follow straight
+    // on, if the clock's already there.)
+    await page.evaluate(() => {
+      const p = window.__benji;
+      const win = p.win.bind(p);
+      p.win = () => {
+        window.__won = true;
+        win();
+      };
+    });
+    for (let k = 0; k < 400 && !(await page.evaluate(() => window.__won)); k++) {
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
@@ -761,7 +771,7 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     assert.ok(turned, 'a turn chosen, shown and said');
     assert.ok(faded, 'a press during a job does nothing');
     assert.ok(seated, 'drove it from the driver\'s seat');
-    assert.ok(await page.evaluate(() => window.__benji.won), 'the morning\'s jobs done');
+    assert.ok(await page.evaluate(() => window.__won), 'the morning\'s jobs done');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
