@@ -306,15 +306,9 @@ export class SpaceView {
       g.lineTo(b[0], b[1]);
     }
     g.stroke();
-    // Which way each goes (when there's room to see).
-    if (edges.length <= 3000) {
-      g.fillStyle = 'rgba(140,200,225,0.45)';
-      for (const e of edges) {
-        const [a, b] = [pts[e.a], pts[e.b]];
-        if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 46) continue;
-        this.arrowhead(a, b, 0.62, 6);
-      }
-    }
+    // (No arrowheads: on the lattice a line's direction says which beaker
+    // poured into which, the compass shows it, and the pour back runs the
+    // other way along the same line.)
     // Your pours, and the shortest way on.
     this.trail(this.mine.map((n) => pts[n]), '#4cc9f0', 4, []);
     this.trail(this.ahead.map((n) => pts[n]), '#ffd23f', 4, [8, 6]);

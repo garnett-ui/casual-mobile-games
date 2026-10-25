@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.84.2
+- Water Lab: a calmer map -- no arrowheads on the pour lines (each line's
+  direction already says which beaker poured into which; the compass
+  shows it). Your pours and the shortest way on keep theirs.
+
 ## 1.84.1
 - Water Lab: the Map button's icon is a little patch of the lattice -- a
   state, its six neighbours and the pours between them.
