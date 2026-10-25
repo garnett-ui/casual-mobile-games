@@ -127,8 +127,8 @@ pictures and a sound for every touch.
   a brick) and a little green "go" -- kept in view at the edge of the
   screen, pointing the way, when the helper's off it. Tap the button (or
   the helper) and it goes to that job; only then does a bouncing arrow in
-  its colour show where, with yellow dots along the road (or sidewalk) on
-  the way (and, once the mail van's out, the houses waiting for a letter
+  its colour show where, with little yellow arrows along the road (or
+  sidewalk) pointing the way (and, once the mail van's out, the houses waiting for a letter
   or parcel show it). Every step is a tap: at the job it stops, and its
   button comes back for the next -- the dog plays in the park till you
   send them home, the mixer waits empty till you send it for concrete.
@@ -177,8 +177,8 @@ pictures and a sound for every touch.
   at a time, and the buttons work only while you're stopped -- mashing
   them as you go does nothing, and one press never takes you past the
   next corner. Stopped at the line, ◀ ▲ ▶ are the way through the corner
-  -- the big yellow arrow painted on the road there, the yellow dots
-  re-route, the wheel turns, and it's said ("Left!", "Straight on!",
+  -- the big yellow arrow painted on the road there, the little yellow
+  arrows re-route, the wheel turns, and it's said ("Left!", "Straight on!",
   "Right!") -- and off you go (no holding), through it and up the next
   block, slowing down to stop at the line at the next corner ("Which
   way?"), the way to the job glowing. Stopped anywhere else (to begin
@@ -204,7 +204,7 @@ pictures and a sound for every touch.
   camera floats out of the cab to watch from the street just behind the
   van -- the postal worker taking it out of the back and up to the door
   -- and floats back in after.
-  When the helper's jobs are done (or with the map button, top left)
+  When the helper's jobs are done (or with the switch, top right)
   you're back over the town. Helpers start facing into town.
 - Every part of the day done is a shower of confetti and a cheer -- the
   "yay" from the letter tracer (`sounds/yay.mp3`, the project owner's own)

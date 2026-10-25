@@ -32,7 +32,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Play {
   constructor(canvas, town, hooks = {}) {
-    preload([...Object.values(ICONS), ...Object.values(SIGNS), '🌅', '🌤️', '☀️', '🌇', '🌙', '🗺️', '🚗', '🚶']);
+    preload([...Object.values(ICONS), ...Object.values(SIGNS), '🌅', '🌤️', '☀️', '🌇', '🌙', '🚗', '🚶']);
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.town = town;
@@ -179,7 +179,6 @@ export class Play {
       { act: 'left', x: this.W * 0.18, y: py, r: 34 },
       { act: 'go', x: this.W / 2, y: py, r: 42 },
       { act: 'right', x: this.W * 0.82, y: py, r: 34 },
-      { act: 'exit', x: 34, y: 34, r: 24 },
     ];
     this.eye.F = this.baseF = this.W / 2 / Math.tan((40 * Math.PI) / 180);
     this.eye.ox = this.W / 2;
@@ -726,9 +725,9 @@ export class Play {
   // way through it (the arrow on the road, said out loud) and on to the
   // line at the next one; stopped anywhere else, ▲ on to the corner.
   // Walking, ◀ ▲ ▶ choose the way where it next divides, as you go. A
-  // button that would do nothing is faded, and does nothing. The map button: back out to the
-  // town. A finger dragged across the windshield looks round; a tap on it
-  // honks.
+  // button that would do nothing is faded, and does nothing. (Back out to
+  // the town: the switch top right.) A finger dragged across the
+  // windshield looks round; a tap on it honks.
   seat(e, type, sx, sy) {
     const f = this.fp;
     const drag = f.drag;
@@ -752,8 +751,7 @@ export class Play {
     }
     e.preventDefault();
     const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
-    if (b?.act === 'exit') this.leave();
-    else if (b) this.choose(b.act);
+    if (b) this.choose(b.act);
     else {
       this.canvas.setPointerCapture?.(e.pointerId);
       f.drag = { id: e.pointerId, sx, look: f.look, moved: false };
@@ -765,7 +763,6 @@ export class Play {
   can(act) {
     const f = this.fp;
     const h = f.h;
-    if (act === 'exit') return true;
     if (h.pause > 0 || h.deliver) return false;
     const o = f.options;
     const way = act === 'go' ? 'straight' : act;
@@ -910,6 +907,13 @@ export class Play {
     this.focus = h;
     this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk');
     this.hooks.say?.('Let’s go!');
+    // Already there (the mixer parked at the yard, say): the job's done
+    // here and now -- not off round the block and back to do it.
+    const p = this.targetPlace(h);
+    if (!p) return;
+    if (h.kind === 'walker') {
+      if (h.node === this.spot.get(p.id)) this.reached(h, h.node);
+    } else if (p.doors.some((d) => d.x === h.tile.x && d.y === h.tile.y)) this.arrive(h, h.tile);
   }
 
   // The steering wheel. On: straight into a driver's seat -- the one you
@@ -1750,13 +1754,6 @@ export class Play {
       g.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       g.fill();
       g.stroke();
-      if (b.act === 'exit') {
-        g.font = `${Math.round(b.r * 1.1)}px system-ui, sans-serif`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        emoji(g, '🗺️', b.x, b.y + 1);
-        continue;
-      }
       // An arrow: up, left or right.
       const a = { go: -Math.PI / 2, left: Math.PI, right: 0 }[b.act];
       const s = b.r * 0.55;
@@ -1794,16 +1791,25 @@ export class Play {
     return pts;
   }
 
-  // Yellow dots along a way on the ground (not within near of from).
+  // Little yellow arrows along a way on the ground, pointing the way it
+  // goes (not within near of from).
   dots(view, pts, from, near) {
     let left = 0;
     for (let i = 1; i < pts.length; i++) {
       const [a, b] = [pts[i - 1], pts[i]];
       const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 1e-6) continue;
+      const [ux, uy] = [(b.x - a.x) / len, (b.y - a.y) / len];
       for (; left < len; left += 0.35) {
         const u = left / len;
         const [px, py] = [a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u];
-        if (Math.hypot(px - from.x, py - from.y) > near && this.seen(view, px, py)) I.disc(this.g, view, px, py, 0.06, 0.06, '#ffd166', 0.01);
+        if (Math.hypot(px - from.x, py - from.y) <= near || !this.seen(view, px, py)) continue;
+        I.flat(this.g, view, [
+          [px + ux * 0.09, py + uy * 0.09],
+          [px - ux * 0.06 - uy * 0.075, py - uy * 0.06 + ux * 0.075],
+          [px - ux * 0.02, py - uy * 0.02],
+          [px - ux * 0.06 + uy * 0.075, py - uy * 0.06 - ux * 0.075],
+        ], '#ffd166', 0.01);
       }
       left -= len;
     }

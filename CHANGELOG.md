@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.91.2
+- Benji's Town: driving the cement mixer from where it's parked at the
+  yard, it loads up there and then -- no more driving round the block
+  and back to the same spot before it would.
+- Benji's Town: the way a helper's going is shown with little yellow
+  arrows on the road, pointing the way, instead of dots.
+- Benji's Town: no map button in the driver's seat -- the switch top
+  right is the one way in and out.
+
 ## 1.91.1
 - Benji's Town: the steering wheel works at once, even in the middle of a
   job: on, and you're in the driver's seat (the one you got out of last,
