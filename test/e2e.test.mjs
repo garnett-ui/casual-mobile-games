@@ -609,7 +609,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
-        return h && { fp: !!p.fp, go: p.fp?.go, live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
+        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
       });
       if (!st) {
         await page.waitForTimeout(300);
@@ -639,7 +639,9 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
         await page.mouse.click(b.x, b.y);
         faded = await page.evaluate(() => !window.__benji.fp || window.__benji.fp.intent === null);
       } else if (!st.go) {
-        const go = await pad('go');
+        // (Stopped -- at a corner, one block at a time: the way to the job.)
+        const way = st.hint === 'left' || st.hint === 'right' ? st.hint : 'go';
+        const go = await pad(st.live.includes(way) ? way : 'go');
         await page.mouse.click(go.x, go.y);
       } else if (!turned && (st.live.includes('left') || st.live.includes('right'))) {
         // (Choosing the way: at once the arrow on the road swings round,

@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.82.0
+- Benji's Town, driving: one block at a time. Each press of ◀ ▲ ▶ takes
+  you through the next corner that way; with no press, you slow down
+  coming up to the corner and stop at the line -- "Which way?" -- with the
+  way to the job glowing. Press before you get there and you go straight
+  through.
+
 ## 1.81.1
 - Benji's Town, driving: a button only works when it does something right
   away -- otherwise it's faded and does nothing. ◀ ▲ ▶ swing the arrow

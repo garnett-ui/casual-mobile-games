@@ -431,11 +431,11 @@ export class Play {
     const h = f.h;
     if (act === 'exit') return true;
     if (h.pause > 0 || h.deliver) return false;
-    if (act === 'go' && !f.go) return true;
     const o = f.options;
-    if (!o) return false;
     const way = act === 'go' ? 'straight' : act;
-    return o[way] !== (f.go ? o.now : o.straight);
+    if (!o) return act === 'go' && !f.go;
+    if (f.go) return o[way] !== o.now;
+    return way === 'straight' || o[way] !== o.straight;
   }
 
   // A button pressed (act: 'go', 'left' or 'right'): if it does anything
@@ -444,13 +444,13 @@ export class Play {
     const f = this.fp;
     this.plan(f);
     if (!this.can(act)) return false;
-    const start = !f.go;
+    const way = f.options ? { go: 'straight', left: 'left', right: 'right' }[act] : null;
     f.go = true;
-    if (act !== 'go' || !start) f.intent = act === 'go' ? 'straight' : act;
+    if (way) f.intent = way;
     this.plan(f);
     f.flash = { act, t: this.t };
     this.hooks.sfx?.('tap');
-    this.tell(act === 'go' && start ? 'Let’s go!' : { left: 'Left!', right: 'Right!', go: 'Straight on!' }[act]);
+    this.tell({ left: 'Left!', right: 'Right!', straight: 'Straight on!' }[way] || 'Let’s go!');
     return true;
   }
 
@@ -497,9 +497,17 @@ export class Play {
     const busy = h.pause > 0 || !!h.deliver;
     // (A little slower than they go by themselves: time to look about, and
     // to turn.)
-    const want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
+    let want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
+    // (Coming up to a corner with no way chosen: slowing down, to stop at
+    // the line.)
+    if (f.stopIn != null) want = Math.min(want, 0.35 + 1.6 * f.stopIn);
     f.v += clamp(want - f.v, -6 * dt, 3 * dt);
     this.plan(f);
+    // There, and still no way chosen: stop, and ask.
+    if (h.kind !== 'walker' && f.go && !f.intent && !h.path.length && !busy) {
+      f.go = false;
+      this.tell('Which way?');
+    }
     // Turning round (at a dead end): say so.
     const n = h.path[0];
     const round = h.kind !== 'walker' && !!n && n.x - h.tile.x === -h.dir.x && n.y - h.tile.y === -h.dir.y;
@@ -586,7 +594,16 @@ export class Play {
       const e = i >= 0 ? pl[i + 1] : pl[0];
       return e ? `${e.x},${e.y}` : '';
     };
-    f.options = next ? { straight: exitOf('straight'), left: exitOf('left'), right: exitOf('right'), now: `${exit.x},${exit.y}` } : null;
+    f.options = next ? { straight: exitOf('straight'), left: exitOf('left'), right: exitOf('right'), now: f.intent ? `${exit.x},${exit.y}` : '' } : null;
+    // One block at a time: with no way chosen yet, only as far as the line
+    // before the corner (no arrow on the road).
+    f.stopIn = null;
+    if (next && !f.intent && !inside) {
+      plan.length = k;
+      f.corner = null;
+      const end = plan.length ? lanePoint(plan[plan.length - 1], dir) : { x: h.x, y: h.y };
+      f.stopIn = Math.hypot(end.x - h.x, end.y - h.y);
+    }
     // Let through the intersection already, and turning another way now:
     // that crosswalk's yours too (and anyone on it, you wait for).
     if (j && exit && h.pass === `${j.x},${j.y}`) {
@@ -1045,13 +1062,13 @@ export class Play {
     g.fillRect(0, this.seatH, this.W, this.H - this.seatH);
     const glow = 0.5 + 0.5 * Math.sin(this.t * 8);
     for (const b of this.pads) {
-      // (Faded: it would do nothing now, so it does nothing. Glowing: ▲
-      // while you're stopped, waiting for you; or the way to the job, when
-      // you're going another way. Just pressed: a flash.)
+      // (Faded: it would do nothing now, so it does nothing. Glowing: the
+      // way to the job at the corner coming up -- or ▲, with no corner to
+      // choose at. Just pressed: a flash.)
       const live = this.can(b.act);
       g.globalAlpha = live ? 1 : 0.25;
       const way = b.act === 'go' ? 'straight' : b.act;
-      const lit = live && ((b.act === 'go' && !f.go) || (f.go && f.hint === way));
+      const lit = live && way === (f.options ? f.hint || 'straight' : 'straight');
       const flash = f.flash?.act === b.act ? Math.max(0, 1 - (this.t - f.flash.t) / 0.4) : 0;
       if (lit || flash) {
         g.fillStyle = `rgba(255,200,0,${Math.max(lit ? 0.35 + 0.4 * glow : 0, flash)})`;

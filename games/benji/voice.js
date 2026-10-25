@@ -11,6 +11,7 @@ export const LINES = [
   'Right!',
   'Straight on!',
   'Turn around!',
+  'Which way?',
   'Wait for green!',
   'Wait! Someone’s crossing.',
   'Wait for the car!',
@@ -24,7 +25,7 @@ export const LINES = [
 ];
 
 // The lines recorded so far. (Rewritten by tools/benji-voice.py.)
-export const RECORDED = ['Tap a truck!', 'Tap a truck and drive it!', 'Let’s go!', 'Left!', 'Right!', 'Straight on!', 'Turn around!', 'Wait for green!', 'Wait! Someone’s crossing.', 'Wait for the car!', 'Red light. Stop!', 'Green light. Go!', 'Wait for the walking man!', 'Walk!', 'Here’s your letter!', 'A package for you!', 'Yay! Great job!'];
+export const RECORDED = ['Tap a truck!', 'Tap a truck and drive it!', 'Let’s go!', 'Left!', 'Right!', 'Straight on!', 'Turn around!', 'Which way?', 'Wait for green!', 'Wait! Someone’s crossing.', 'Wait for the car!', 'Red light. Stop!', 'Green light. Go!', 'Wait for the walking man!', 'Walk!', 'Here’s your letter!', 'A package for you!', 'Yay! Great job!'];
 
 // A line's file name: 'Red light. Stop!' -> red-light-stop.
 export const slug = (text) => text.toLowerCase().replace(/’/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

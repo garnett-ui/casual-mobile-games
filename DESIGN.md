@@ -90,16 +90,19 @@ pictures and a sound for every touch.
 - Made for a three-year-old: a button you can press does something you
   can see and hear at once -- never later on -- and nothing is ever
   stuck. A button that would do nothing right now is faded, and does
-  nothing: no queued presses. Three big buttons. Stopped, ▲ starts you
-  off (it glows) -- no holding; you keep going by yourself. ◀ ▲ ▶ choose
-  the way at the corner coming up: the big yellow arrow painted on the
-  road there swings round, the yellow dots re-route, the wheel turns, and
-  it's said ("Left!", "Straight on!", "Right!"); the way you're going
-  already is faded. Choose nothing and you go the way to the job (going
-  another way, that button glows). You can change your mind right up to
-  the middle of the intersection; past that, all three fade till you're
-  out of it. Walking the dog, the same, with a smaller arrow on the
-  sidewalk where the way divides. At a dead end (the edge of town) you
+  nothing: no queued presses. Three big buttons. Driving goes one block
+  at a time: each press of ◀ ▲ ▶ is the way through the corner coming up
+  -- the big yellow arrow painted on the road there, the yellow dots
+  re-route, the wheel turns, and it's said ("Left!", "Straight on!",
+  "Right!") -- and off you go (no holding), through it and on to the
+  next. Choose nothing and, coming up to the corner, you slow down and
+  stop at the line ("Which way?"), the way to the job glowing. Pressed
+  before you get there, you go straight through. The way you're going
+  already is faded; you can change your mind right up to the middle of
+  the intersection; past that, all three fade till you're out of it.
+  Walking the dog, you keep going (round the bends, the way to the job)
+  and ◀ ▲ ▶ choose where the way next divides, a smaller arrow on the
+  sidewalk there. At a dead end (the edge of town) you
   turn round by yourself, and it's said ("Turn around!") -- no reverse
   gear to get stuck in; the arrows fade till there's a corner ahead. At
   each job you stop: the arrows fade while it's done, then ▲ glows for
