@@ -456,7 +456,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .bo-balls { flex: 1; display: flex; gap: 5px; align-items: center; }
 .bo-balls i { width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .7); }
 .bo-screen .icon-btn svg { fill: currentColor; }
-.bo-overlay, .ll-paused, .pause-card {
+.bo-overlay, .ll-paused, .tb-paused, .pause-card {
   position: absolute;
   inset: 0;
   display: grid;
@@ -464,7 +464,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   background: rgba(10, 12, 38, .55);
   z-index: 2;
 }
-.bo-overlay[hidden], .ll-paused[hidden], .pause-card[hidden] { display: none; }
+.bo-overlay[hidden], .ll-paused[hidden], .tb-paused[hidden], .pause-card[hidden] { display: none; }
 .pause-card { z-index: 4; cursor: pointer; }
 .el-screen .icon-btn svg { fill: currentColor; }
 /* Benji's Town: the car button -- lit when you drive them yourself. */
@@ -482,7 +482,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .el-screen .bar h2 { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ll-paused { z-index: 4; cursor: pointer; }
 .ll-screen .icon-btn svg { fill: currentColor; }
-.bo-overlay div, .ll-paused div, .pause-card div {
+.bo-overlay div, .ll-paused div, .tb-paused div, .pause-card div {
   background: #fff;
   color: var(--card-ink);
   border-radius: 18px;
@@ -494,8 +494,8 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   max-width: 80%;
   box-shadow: 0 8px 0 rgba(0, 0, 0, .25);
 }
-.bo-overlay b, .ll-paused b, .pause-card b { font-size: 20px; }
-.bo-overlay span, .ll-paused span, .pause-card span { color: #565a7e; }
+.bo-overlay b, .ll-paused b, .tb-paused b, .pause-card b { font-size: 20px; }
+.bo-overlay span, .ll-paused span, .tb-paused span, .pause-card span { color: #565a7e; }
 
 /* Lunar Lander */
 .ll-screen { background: #000004; }
@@ -786,6 +786,135 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   .ll-assist { padding: 7px 9px; font-size: 11px; }
 }
 .cj-penalty { color: #ff6b6b; }
+
+/* Trial Bike */
+.tb-screen { background: #07090f; }
+.tb-screen .bar { background: #07090f; }
+.tb-screen .stage.building { color: #aab4be; }
+.tb-screen .icon-btn svg { fill: currentColor; }
+.tb-screen .bar h2 { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tb-paused { z-index: 4; cursor: pointer; }
+/* GHOST in the bar: Lander's ASSIST pill, in the instruments' amber. */
+.tb-ghost {
+  margin-left: auto;
+  border: 2px solid rgba(255, 179, 71, .5);
+  background: rgba(30, 18, 0, .6);
+  color: rgba(255, 179, 71, .7);
+  font: 800 12px ui-monospace, Menlo, monospace;
+  letter-spacing: .5px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  margin-right: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tb-ghost::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: rgba(255, 179, 71, .3); vertical-align: 1px; }
+.tb-ghost.on { color: #ffb347; border-color: #ffb347; box-shadow: 0 0 12px rgba(255, 179, 71, .45); }
+.tb-ghost.on::before { background: #ffb347; box-shadow: 0 0 6px #ffb347; }
+/* The left half of the stage is the lean: no box, just an outline of the
+   rider low in the corner, faint once you've used it. */
+.tb-lean {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  /* The hint sits a thumb's width in from the edge: a thumb put on it has
+     room to slide left as well as right. */
+  padding: 0 0 calc(12px + var(--safe-b)) calc(22% + var(--safe-l));
+  box-sizing: border-box;
+  color: #fff;
+}
+.tb-rider {
+  width: 52px;
+  height: 52px;
+  opacity: .55;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .7));
+  transition: transform .05s linear, opacity .4s;
+  pointer-events: none;
+}
+.tb-lean span {
+  width: 52px;
+  text-align: center;
+  font: 600 9px ui-monospace, Menlo, monospace;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, .6);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+  transition: opacity .4s;
+}
+.tb-lean.used .tb-rider { opacity: .2; }
+.tb-lean.used span { opacity: 0; }
+.tb-lean.on .tb-rider { opacity: .7; }
+/* The brake lever and the throttle grip: two quiet outlines in the corner. */
+.tb-bars {
+  position: absolute;
+  right: calc(14px + var(--safe-r));
+  bottom: calc(12px + var(--safe-b));
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.tb-grip {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  height: 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, .45);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .25), inset 0 0 0 1px rgba(0, 0, 0, .2);
+  background: transparent;
+  color: rgba(255, 255, 255, .85);
+  font: 600 9px ui-monospace, Menlo, monospace;
+  letter-spacing: 1.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+  transition: border-color .08s, color .08s, background .08s;
+}
+.tb-grip svg { display: block; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, .7)); transition: transform .08s ease-out; transform-origin: right center; }
+.tb-brake { width: 76px; }
+.tb-brake svg { width: 52px; }
+.tb-gas { width: 104px; }
+.tb-gas svg { width: 78px; }
+.tb-brake.on { border-color: #ff5a4d; color: #ff5a4d; background: rgba(255, 90, 77, .12); }
+.tb-gas.on { border-color: #5fd38a; color: #5fd38a; background: rgba(95, 211, 138, .12); }
+.tb-gas.on svg { transform: rotate(-6deg); }
+.tb-brake.on svg { transform: translateY(3px) rotate(4deg); }
+.tb-demo, .tb-showme {
+  /* Up under the instrument band, clear of the wreck on the ground. */
+  position: absolute;
+  left: 50%;
+  top: 40px;
+  transform: translateX(-50%);
+  z-index: 3;
+  border: 1.5px solid #ffb347;
+  background: rgba(5, 7, 12, .75);
+  color: #ffb347;
+  font: 700 12px ui-monospace, Menlo, monospace;
+  letter-spacing: 1px;
+  border-radius: 6px;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+.tb-demo { animation: demo-glow 1.6s ease-in-out infinite alternate; }
+.tb-showme { border-color: rgba(255, 255, 255, .7); color: #e4eaee; }
+.tb-demo[hidden], .tb-showme[hidden] { display: none; }
+@media (max-width: 430px) {
+  .tb-screen .bar { gap: 6px; }
+  .tb-screen .bar h2 { font-size: 17px; }
+  .tb-ghost { padding: 6px 8px; font-size: 10px; letter-spacing: 0; margin-right: 0; }
+}
 
 /* About box */
 .hub-foot .about-link {

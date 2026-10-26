@@ -301,6 +301,21 @@ const SFX = {
   },
   pop: () => tone('triangle', 1200, 1800, 0.07, 0.07),
   checkpoint: () => [784, 988, 1175].forEach((f, k) => tone('square', f, f, 0.12, 0.06, k * 0.09, 4000)),
+  // Trial Bike: a flip landed (a quick rising fanfare), a flare bursting
+  // over the finish (a soft whoosh, then a crackle of sparks), and a cow.
+  flip: () => {
+    tone('square', 659, 659, 0.12, 0.07, 0, 3500);
+    tone('square', 988, 988, 0.34, 0.08, 0.11, 3500);
+    tone('triangle', 1976, 1976, 0.3, 0.06, 0.11);
+  },
+  flare: () => {
+    thump(0.3, 0.6, 900);
+    for (let k = 0; k < 7; k++) tone('square', 1800 + Math.random() * 2400, 1500, 0.03, 0.03, 0.12 + k * 0.07 + Math.random() * 0.04, 6000);
+  },
+  moo: () => {
+    tone('sawtooth', 150, 112, 0.7, 0.1, 0, 700);
+    tone('sawtooth', 300, 220, 0.7, 0.04, 0.03, 1100);
+  },
 };
 
 // Continuous sounds that play while a control is held (engine rumble,
