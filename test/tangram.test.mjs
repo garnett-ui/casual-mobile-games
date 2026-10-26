@@ -95,3 +95,24 @@ test('stars: three without a hint', () => {
   assert.equal(starsFor(2), 2);
   assert.equal(starsFor(5), 1);
 });
+
+test('the solver makes the square and the triangle, and says no to what can\'t be made', async () => {
+  const { solve } = await import('../games/tangram/solver.js');
+  const r = Math.SQRT2;
+  for (const outline of [[[[0, 0], [2 * r, 0], [2 * r, 2 * r], [0, 2 * r]]], [[[0, 0], [4 * r, 0], [2 * r, 2 * r]]]]) {
+    const [sol] = solve(outline);
+    assert.equal(sol.length, 7);
+    const f = { samples: [] };
+    for (let x = 0.011; x < 4 * r; x += 0.07) for (let y = 0.017; y < 2 * r; y += 0.07) if (outline.some((p) => inside(p, x, y))) f.samples.push([x, y]);
+    assert.equal(coverage(f, sol.map((p) => p.pts)), 1);
+  }
+  // Area 8, but a strip one wide: the large triangles don't fit.
+  assert.deepEqual(solve([[[0, 0], [8, 0], [8, 1], [0, 1]]]), []);
+  assert.deepEqual(solve([[[0, 0], [3, 0], [3, 3], [0, 3]]]), [], 'area 9');
+});
+
+test('figures.js is what tools/tangram-figures.mjs makes from the designs', async () => {
+  const { source } = await import('../tools/tangram-figures.mjs');
+  const { readFileSync } = await import('node:fs');
+  assert.equal(readFileSync(new URL('../games/tangram/figures.js', import.meta.url), 'utf8'), source(), 'run: node tools/tangram-figures.mjs');
+});
