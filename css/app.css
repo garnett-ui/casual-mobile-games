@@ -127,6 +127,7 @@ svg { display: block; }
   gap: 8px;
 }
 .card.soon .card-blurb { color: var(--muted); }
+a.card.soon { text-decoration: none; }
 .soon-emoji { font-size: 40px; }
 
 .install {

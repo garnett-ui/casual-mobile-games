@@ -1333,6 +1333,8 @@ test('tangram: tap a piece to turn it, drag it into place, flip the parallelogra
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`http://localhost:${server.address().port}/`);
+    // (Last on the home screen: a link to suggest the next game.)
+    assert.equal(await page.locator('a.card.soon').getAttribute('href'), 'https://forms.gle/c4VowgiYLaTZehYG7');
     await page.locator('[data-game=tangram]').click();
     await page.locator('.lvl[data-n="1"]').click();
     await page.waitForFunction(() => window.__tangram);

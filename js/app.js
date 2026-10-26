@@ -165,13 +165,13 @@ function renderHub() {
             <span class="play-pill">Play</span>
           </button>`).join('')}
         ${COMING_SOON.map((c) => `
-          <div class="card soon">
+          <${c.href ? `a href="${c.href}" target="_blank" rel="noopener"` : 'div'} class="card soon">
             <span class="soon-emoji">${c.emoji}</span>
             <span class="card-body">
-              <span class="card-title">${c.title}</span>
+              <span class="card-title">${c.title}${c.href ? ' ↗' : ''}</span>
               <span class="card-blurb">${c.blurb}</span>
             </span>
-          </div>`).join('')}
+          </${c.href ? 'a' : 'div'}>`).join('')}
       </section>
       <footer class="hub-foot">No accounts, no ads. Works offline.
         <button class="about-link" data-act="about">About · What's new</button>

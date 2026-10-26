@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.95.0
+- The last card on the home screen is now Suggest a game: it opens a
+  short form to tell us which game you'd like next.
+
 ## 1.94.1
 - Benji's Town: roofs aren't made of concrete. For the roof, the builder
   goes to the yard for wood and tiles -- "Get wood and tiles for the

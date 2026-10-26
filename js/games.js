@@ -100,6 +100,7 @@ export const GAMES = [
   },
 ];
 
+// The card after the games: a link to a form for suggesting the next one.
 export const COMING_SOON = [
-  { title: 'More games', blurb: 'More mini games are on the way.', emoji: '🕹️' },
+  { title: 'Suggest a game', blurb: 'More games are on the way. Which one would you like next? Tell us here.', emoji: '💡', href: 'https://forms.gle/c4VowgiYLaTZehYG7' },
 ];
