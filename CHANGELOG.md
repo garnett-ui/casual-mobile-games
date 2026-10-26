@@ -6,6 +6,9 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.96.2
+- The Suggest a game card now says "Tell me here".
+
 ## 1.96.1
 - Trial Bike is credited to the player who made it: "Contributed by
   Garnett Callis" on its card and on its course list, linked to his
@@ -39,7 +42,7 @@ anything taken away (not internal fixes or renames along the way).
 
 ## 1.95.0
 - The last card on the home screen is now Suggest a game: it opens a
-  short form to tell us which game you'd like next.
+  short form to tell me which game you'd like next.
 
 ## 1.94.1
 - Benji's Town: roofs aren't made of concrete. For the roof, the builder
