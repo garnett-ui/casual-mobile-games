@@ -294,13 +294,17 @@ export class Play {
     }
     if (h.kind === 'mixer' && !h.loaded) {
       if (this.place('yard').doors.some((d) => d.x === tile.x && d.y === tile.y)) {
+        // Concrete, for the foundation and the walls; for the roof, wood
+        // and tiles (on the back, in place of the drum).
+        const roof = this.forRoof(h);
         h.loaded = true;
-        h.pause = 0.6;
+        h.cargo = roof ? 'roof' : 'concrete';
+        h.pause = roof ? 1 : 0.6;
         h.last = 'load';
         h.next = true;
         this.stopHere(h);
-        this.pop('🪣', tile);
-        this.hooks.sfx?.('pour', 0.5);
+        this.pop(roof ? '🪵' : '🪣', tile);
+        this.hooks.sfx?.(roof ? 'hammer' : 'pour', roof ? 3 : 0.5);
       }
       return;
     }
@@ -371,6 +375,7 @@ export class Play {
       case 'build':
         this.stage[job.place] = job.stage;
         h.loaded = false;
+        h.cargo = null;
         // (A spell of hammering, and with the roof on, hooray.)
         h.pause = 2;
         this.pop(job.stage === 3 ? '🎉' : '🔨', at);
@@ -638,7 +643,7 @@ export class Play {
     const j = this.nextOf(h);
     if (!j) return null;
     const kind = j.kind === 'build' ? `${h.loaded ? 'build' : 'load'}${j.stage}` : j.kind;
-    return ({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get more concrete for the roof!', build3: 'Now put the roof on!', fire: 'Time to put out the fire!' }[kind]);
+    return ({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get wood and tiles for the roof!', build3: 'Now put the roof on!', fire: 'Time to put out the fire!' }[kind]);
   }
 
   // Night falls: everyone home to bed.
@@ -671,7 +676,7 @@ export class Play {
     // today's house.)
     this.helpers = town.helpers.map((h) => {
       const o = was.get(h.id);
-      return o && o.home === h.home ? Object.assign(o, { color: h.color, loaded: o.kind !== 'mixer', load: 0, chosen: null }) : this.newHelper(h);
+      return o && o.home === h.home ? Object.assign(o, { color: h.color, loaded: o.kind !== 'mixer', cargo: null, load: 0, chosen: null }) : this.newHelper(h);
     });
     const movers = [...this.helpers, ...this.ambient];
     this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person');
@@ -932,9 +937,15 @@ export class Play {
     }).filter(Boolean);
   }
 
+  // Is the mixer's next load for a roof (wood and tiles, not concrete)?
+  forRoof(h) {
+    const j = this.nextOf(h);
+    return j?.kind === 'build' && j.stage === 3;
+  }
+
   // The picture of a helper's next job (on its button).
   nextIcon(h) {
-    if (h.kind === 'mixer' && !h.loaded) return '🪣';
+    if (h.kind === 'mixer' && !h.loaded) return this.forRoof(h) ? '🪵' : '🪣';
     const j = this.nextOf(h);
     return j.kind === 'build' && j.stage === 3 ? '🏠' : ICONS[j.kind];
   }
@@ -2182,7 +2193,7 @@ export class Play {
         if (me || (dog && m.deliver)) model(I.dog(m.x, m.y, m.head, t, going), 0, 0);
         else model(I.person(m.x, m.y, m.head, t, dog ? COLORS.walker : m.color, { walking: going || m.playing > 0, dog, z: lift }), 0, 0.45);
       } else if (!me || this.fp.away > 0.25) {
-        const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift, !!m.deliver && this.postie(m.deliver).open, !!m.urgent);
+        const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift, !!m.deliver && this.postie(m.deliver).open, !!m.urgent, m.cargo);
         add(m.x, m.y, (a) => {
           I.paint(g, view, v.parts, a);
           if (m.urgent) this.beacon(view, m, 0.45 + lift);

@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.94.1
+- Benji's Town: roofs aren't made of concrete. For the roof, the builder
+  goes to the yard for wood and tiles -- "Get wood and tiles for the
+  roof!" -- and drives them to the house stacked on the back of the truck.
+
 ## 1.94.0
 - Benji's Town: the fire engine on its way to a fire flashes its lights,
   red and blue, and its siren keeps going all the way. It doesn't stop

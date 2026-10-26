@@ -432,9 +432,9 @@ export function firehouse(x, y, h) {
 }
 
 // A vehicle at (x, y), heading h: the garbage truck, the mail van, the
-// cement mixer (its drum turning with t), the fire engine, or a little car
-// (in color).
-export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false, lights = false) {
+// cement mixer (its drum turning with t -- or, with cargo 'roof', a flatbed
+// of timbers and tiles), the fire engine, or a little car (in color).
+export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false, lights = false, cargo = null) {
   const m = new Model(x, y, h, z);
   const L = kind === 'car' ? 0.29 : 0.38;
   for (const wx of [-L + 0.11, L - 0.11]) for (const wy of [-0.15, 0.13]) m.box(wx - 0.065, wy, 0, wx + 0.065, wy + 0.02, 0.13, '#222222');
@@ -468,6 +468,13 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
   }
   if (kind === 'mixer') {
     m.box(-0.38, -0.12, 0.11, 0.12, 0.12, 0.15, '#6c757d');
+    if (cargo === 'roof') {
+      // For a roof: a flatbed with timbers and a stack of roof tiles on it.
+      m.box(-0.38, -0.14, 0.15, 0.12, 0.14, 0.17, '#8d5524');
+      for (const [y0, z0] of [[-0.12, 0.17], [-0.07, 0.17], [-0.02, 0.17], [-0.095, 0.21], [-0.045, 0.21]]) m.box(-0.37, y0, z0, 0.1, y0 + 0.045, z0 + 0.04, '#d4a373');
+      for (let z0 = 0.17; z0 < 0.3; z0 += 0.03) m.box(-0.2, 0.02, z0, 0.02, 0.13, z0 + 0.025, z0 % 0.06 < 0.03 ? '#b5523b' : '#c8664a');
+      return m;
+    }
     m.drum(-0.36, 0.1, 0.3, 0.14, ['#ff9f1c', '#ff9f1c', '#ffffff'], Math.floor(t * 8) % 3);
     return m;
   }

@@ -119,7 +119,9 @@ pictures and a sound for every touch.
   back to hop in again (about seven seconds); the **dog walker** takes the dog to the park to play, and
   home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between
-  -- and at each, a spell of hammering (synthesised, like every sound:
+  -- concrete for the slab and the walls; for the roof, wood and tiles,
+  so the drum comes off and it's a flatbed stacked with timbers and roof
+  tiles (🪵 on its button) -- and at each, a spell of hammering (synthesised, like every sound:
   for each hit, a crack, the knock of the wood and the ring of the nail).
   Houses built stay built: the town grows from day to day.
 - **Fire!** Once a day, a little while into one part of it (which part,
@@ -151,7 +153,7 @@ pictures and a sound for every touch.
   sidewalk) pointing the way (and, once the mail van's out, the houses waiting for a letter
   or parcel show it). Every step is a tap: at the job it stops, and its
   button comes back for the next -- the dog plays in the park till you
-  send them home, the mixer waits empty till you send it for concrete.
+  send them home, the mixer waits empty till you send it to load up.
 - Jobs in any order: the bins -- trash (green) and recycling (blue) --
   whichever you like, and the dump whenever the truck has something on
   board (ticked off when it's all in); the letters and parcels any way
@@ -170,7 +172,8 @@ pictures and a sound for every touch.
   delivered all the mail!", "You took the dog for a walk!", "You built a
   house! Great job!". The cement mixer starts empty: "Time to build a
   house! Get some concrete for the foundation." -- then "Now build the
-  foundation!", "Get more concrete for the walls!", and so on.
+  foundation!", "Get more concrete for the walls!", "Now build the
+  walls!", "Get wood and tiles for the roof!", "Now put the roof on!".
 - Everything it says comes one line at a time, each after the last (and
   one that's waited too long, out of date by then, is left out). Left a moment with nothing going on, it says
   what to do next -- "The garbage needs to be picked up!", "Time to
