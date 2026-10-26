@@ -434,7 +434,7 @@ export function firehouse(x, y, h) {
 // A vehicle at (x, y), heading h: the garbage truck, the mail van, the
 // cement mixer (its drum turning with t), the fire engine, or a little car
 // (in color).
-export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false) {
+export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false, lights = false) {
   const m = new Model(x, y, h, z);
   const L = kind === 'car' ? 0.29 : 0.38;
   for (const wx of [-L + 0.11, L - 0.11]) for (const wy of [-0.15, 0.13]) m.box(wx - 0.065, wy, 0, wx + 0.065, wy + 0.02, 0.13, '#222222');
@@ -451,7 +451,8 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
   m.decal(cab.s, onY(0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
   m.decal(cab.n, onY(-0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
   if (kind === 'fire') {
-    // The fire engine: red, a ladder along the top, a light on the cab.
+    // The fire engine: red, a ladder along the top, a light bar on the cab
+    // -- flashing red and blue on its way to a fire (lights).
     const body = m.box(-0.38, -0.15, 0.11, 0.12, 0.15, 0.36, '#d62828');
     for (const f of [body.s, body.n]) {
       const at = f === body.s ? 0.152 : -0.152;
@@ -460,7 +461,9 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
     }
     for (const y0 of [-0.1, 0.07]) m.box(-0.42, y0, 0.37, 0.3, y0 + 0.03, 0.4, '#dee2e6');
     for (let x0 = -0.38; x0 < 0.28; x0 += 0.1) m.box(x0, -0.07, 0.37, x0 + 0.025, 0.07, 0.39, '#dee2e6');
-    m.box(0.2, -0.06, 0.4, 0.28, 0.06, 0.44, Math.floor(t * 4) % 2 ? '#ff1f1f' : '#ffb3b3');
+    const red = Math.floor(t * 6) % 2 === 0;
+    m.box(0.2, -0.12, 0.4, 0.29, -0.005, 0.45, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
+    m.box(0.2, 0.005, 0.4, 0.29, 0.12, 0.45, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
     return m;
   }
   if (kind === 'mixer') {

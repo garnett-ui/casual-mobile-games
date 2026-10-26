@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.94.0
+- Benji's Town: the fire engine on its way to a fire flashes its lights,
+  red and blue, and its siren keeps going all the way. It doesn't stop
+  for red lights, and drives down the middle of the street -- and every
+  car that can hear it pulls over to the curb and waits till it's gone by.
+
 ## 1.93.0
 - New game: Tangram, the classic puzzle of seven pieces cut from a square.
   Drag the pieces onto a shape in silhouette, tap one to turn it and flip

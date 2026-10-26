@@ -293,6 +293,90 @@ test('the traffic: cars stop at red and go on green (or take turns), people cros
   }
 });
 
+test('the fire engine on its way: through the red light, down the middle -- the car in front pulls over for it, and waits for the green after', () => {
+  const tr = new Traffic(walkways());
+  // A time with a red light north-south at (6, 6) for a good while.
+  const red = (t) => lights(6, 6, t).ns === 'red';
+  let t0 = 0.05;
+  while (red(t0) || !red(t0 + 0.1)) t0 += 0.1; // (just turned red)
+  const down = { x: 0, y: 1 };
+  const car = { tile: { x: 6, y: 5 }, dir: down, ...lanePoint({ x: 6, y: 5 }, down), path: drivePath({ x: 6, y: 5 }, down, { x: 6, y: 9 }).slice(1), len: 0.29 };
+  const engine = { tile: { x: 6, y: 3 }, dir: down, ...lanePoint({ x: 6, y: 3 }, down), path: drivePath({ x: 6, y: 3 }, down, { x: 6, y: 9 }).slice(1), len: 0.38, urgent: true };
+  tr.cars = [car, engine];
+  const dt = 1 / 30;
+  let passed = null;
+  let yielded = false;
+  for (let t = t0 + 0.1; red(t); t += dt) {
+    tr.t = t;
+    tr.drive(car, 1.6, dt);
+    tr.drive(engine, 2.8, dt);
+    assert.notEqual(engine.wait, 'light', 'never stops for a red light');
+    if (car.wait === 'yield') yielded = true;
+    if (passed === null && engine.y > 7) passed = t;
+    assert.ok(!bump(body(car), body(engine)), `no bump at ${t.toFixed(2)}`);
+  }
+  assert.ok(yielded, 'the car pulled over');
+  assert.ok(passed !== null, 'through the intersection on red');
+  // Gone by: the car's back in its lane, still waiting for the green.
+  assert.equal(car.wait, 'light');
+  assert.ok(car.y < 6, 'short of the intersection');
+  assert.ok(Math.abs(car.x - lanePoint({ x: 6, y: 5 }, down).x) < 0.02, `back in its lane (${car.x})`);
+});
+
+test('the fire engine across town in traffic: never held up by a light, nobody runs into it, and everyone carries on after', () => {
+  let s = 7;
+  const rand = () => ((s = (s * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  const streets = streetTiles(SIZE);
+  const anyStreet = () => streets[Math.floor(rand() * streets.length)];
+  const tr = new Traffic(walkways());
+  const taken = new Set(['2,1', '2,2', '2,3']);
+  for (let k = 0; k < 8; k++) {
+    let tile = anyStreet();
+    while (taken.has(`${tile.x},${tile.y}`)) tile = anyStreet();
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) taken.add(`${tile.x + dx},${tile.y + dy}`);
+    const dir = startDir(tile);
+    tr.cars.push({ tile, dir, ...lanePoint(tile, dir), path: [], trips: 0, len: k % 2 ? 0.29 : 0.38 });
+  }
+  const from = { x: 2, y: 2 };
+  const right = { x: 1, y: 0 };
+  const engine = { tile: from, dir: right, ...lanePoint(from, right), path: drivePath(from, right, { x: 10, y: 9 }).slice(1), len: 0.38, urgent: true };
+  tr.cars.push(engine);
+  const dt = 1 / 30;
+  let yields = 0;
+  let t = 0;
+  for (; t < 60 && engine.path.length; t += dt) {
+    tr.t = t;
+    for (const c of tr.cars) {
+      if (c !== engine && !c.path.length) {
+        c.path = drivePath(c.tile, c.dir, anyStreet()).slice(1);
+        c.trips++;
+      }
+      tr.drive(c, c === engine ? 2.8 : 1.6, dt);
+      if (c.wait === 'yield') yields++;
+      assert.ok(isRoad(Math.floor(c.x), Math.floor(c.y)), 'on the street');
+    }
+    assert.notEqual(engine.wait, 'light');
+    for (const c of tr.cars) if (c !== engine) assert.ok(!bump(body(c), body(engine)), `a car into the fire engine at ${t.toFixed(2)}`);
+  }
+  assert.equal(engine.path.length, 0, 'the fire engine got there');
+  assert.ok(yields > 0, 'cars pulled over');
+  // There, and the fire out: the others go on their way again.
+  engine.urgent = false;
+  const trips = tr.cars.map((c) => c.trips);
+  for (let u = 0; u < 60; u += dt) {
+    tr.t = t + u;
+    for (const c of tr.cars) {
+      if (c !== engine && !c.path.length) {
+        c.path = drivePath(c.tile, c.dir, anyStreet()).slice(1);
+        c.trips++;
+      }
+      tr.drive(c, c === engine ? 2.8 : 1.6, dt);
+      assert.notEqual(c.wait, 'yield');
+    }
+  }
+  tr.cars.forEach((c, i) => assert.ok(c === engine || c.trips > trips[i], 'every car carries on'));
+});
+
 test('the end of a street: round the turning circle (the island on the left), and back the other way; no car goes down one unless it is going there', async () => {
   const { circleAt, CIRCLE, atEdge } = await import('../games/benji/streets.js');
   const tr = new Traffic(walkways());

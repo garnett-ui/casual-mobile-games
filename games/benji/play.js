@@ -1319,9 +1319,23 @@ export class Play {
       this.later = null;
     }
     if (this.fp) this.fpSteer(dt);
+    // The fire engine on its way to a fire (or at it): lights flashing, siren
+    // going, and through the red lights -- and everyone pulls over for it.
+    for (const h of this.helpers) {
+      h.driven = this.fp?.h === h;
+      h.urgent = h.kind === 'fire' && !!this.fire && (this.started(h) || !!h.spray);
+      if (h.urgent && !h.spray) {
+        if (this.t >= this.sirenAt) {
+          this.hooks.sfx?.('wail');
+          this.sirenAt = this.t + 0.84;
+        }
+      } else this.sirenAt = this.t + 2.6; // (after the siren it starts with)
+    }
     const move = (m) => {
       if (m.pause > 0) {
         m.pause -= dt;
+        // (Stopped, on a job: pulls over for the fire engine all the same.)
+        if (this.traffic.cars.includes(m)) this.traffic.pullOver(m, dt);
         return;
       }
       // (At the park, waiting to be sent home: the dog still playing.)
@@ -1610,12 +1624,56 @@ export class Play {
     // In the cab: the dashboard and the wheel, turning as you turn (going
     // as the camera floats out).
     if (h.kind !== 'walker' && f.away < 0.3) this.dashboard(h, f.wheel);
+    if (h.urgent) this.cabLights();
     // Held up: why, big, up top -- a red light, the red hand, someone
     // crossing, a car.
     if (f.wait) this.waitSign(f.wait);
     g.restore();
     this.drawPads();
     this.drawTray(true);
+  }
+
+  // The fire engine's lights flashing, red and blue: a glow round each end
+  // of its light bar (on the cab of the engine m, z up), in turn.
+  beacon(view, m, z) {
+    const { g } = this;
+    const red = Math.floor(this.t * 6) % 2 === 0;
+    const c = Math.cos(m.head);
+    const s = Math.sin(m.head);
+    for (const side of [-1, 1]) {
+      const on = side < 0 ? red : !red;
+      if (!on) continue;
+      const x = m.x + c * 0.245 - s * 0.07 * side;
+      const y = m.y + s * 0.245 + c * 0.07 * side;
+      const at = view.at(x, y, z);
+      if (!at) continue;
+      const r = Math.min(110, view.scale(x, y, z) * 0.6);
+      const glow = g.createRadialGradient(at[0], at[1], 0, at[0], at[1], r);
+      glow.addColorStop(0, 'rgba(255,255,255,0.95)');
+      glow.addColorStop(0.12, side < 0 ? 'rgba(255,40,40,0.9)' : 'rgba(60,130,255,0.9)');
+      glow.addColorStop(1, side < 0 ? 'rgba(255,40,40,0)' : 'rgba(60,130,255,0)');
+      g.fillStyle = glow;
+      g.beginPath();
+      g.arc(at[0], at[1], r, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  // Driving the fire engine on its way: its lights flashing at the top
+  // corners of the windshield, red, then blue.
+  cabLights() {
+    const { g, W } = this;
+    const red = Math.floor(this.t * 6) % 2 === 0;
+    const r = Math.min(W * 0.55, 260);
+    for (const left of [true, false]) {
+      if (left !== red) continue;
+      const x = left ? 0 : W;
+      const glow = g.createRadialGradient(x, 0, 0, x, 0, r);
+      glow.addColorStop(0, left ? 'rgba(255,40,40,0.85)' : 'rgba(60,130,255,0.85)');
+      glow.addColorStop(1, left ? 'rgba(255,40,40,0)' : 'rgba(60,130,255,0)');
+      g.fillStyle = glow;
+      g.fillRect(left ? 0 : W - r, 0, r, r);
+    }
   }
 
   // Why you're waiting, as a big picture at the top of the view.
@@ -2124,9 +2182,10 @@ export class Play {
         if (me || (dog && m.deliver)) model(I.dog(m.x, m.y, m.head, t, going), 0, 0);
         else model(I.person(m.x, m.y, m.head, t, dog ? COLORS.walker : m.color, { walking: going || m.playing > 0, dog, z: lift }), 0, 0.45);
       } else if (!me || this.fp.away > 0.25) {
-        const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift, !!m.deliver && this.postie(m.deliver).open);
+        const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift, !!m.deliver && this.postie(m.deliver).open, !!m.urgent);
         add(m.x, m.y, (a) => {
           I.paint(g, view, v.parts, a);
+          if (m.urgent) this.beacon(view, m, 0.45 + lift);
           if (m.kind === 'garbage' && m.load) sign(m.x, m.y, 0.75 + lift, '🗑️'.repeat(Math.min(3, m.load)));
         });
       }

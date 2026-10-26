@@ -6,8 +6,10 @@
 // behind one that's parked, it waits (a helper with nothing to do gets out
 // of the way). People keep to the
 // sidewalks and cross only at the crosswalks, when the walk signal shows
-// (where there is one) -- and never while a car is going over it. (No DOM:
-// tested in Node.)
+// (where there is one) -- and never while a car is going over it. A fire
+// engine on its way to a fire (urgent) goes through red lights, down the
+// middle of the street, and everyone who can hear its siren pulls over to
+// the curb and stops till it's gone by. (No DOM: tested in Node.)
 //
 // Cars: { x, y, tile, dir, path (street tiles), len (half its length) };
 // people: { x, y, node, path (sidewalk points) }. drive() and walk() move one
@@ -23,6 +25,9 @@ export const STOP = { ew: 0.86, ns: 0.84 };
 const GAP = 0.16; // between cars in a queue, bumper to bumper
 const HALF_W = 0.15; // half a car's width (wheels and all)
 const PAD = 0.015; // room kept round a car, as it goes
+export const CURB = 0.34; // pulled over for a fire engine: a car's middle, off the street's middle
+export const HEAR = 3; // how near (in tiles) a fire engine's siren makes cars pull over
+const PULL = 0.8; // how fast a car pulls over (sideways, tiles a second)
 
 // A car's body, as drawn: a box round (x, y) turned to heading a -- len (half
 // its length: a car's 0.29, a truck's 0.38) along, HALF_W across.
@@ -73,11 +78,12 @@ function junctionBy(t) {
 // crosswalk), and elsewhere at the stopping place before (or after) the
 // intersection. Turning in an intersection (to go e next), where the lane in
 // meets the lane out: round the corner, and out along its lane.
-export function lanePoint(t, d, e = null) {
-  const p = { x: t.x + 0.5 - d.y * LANE, y: t.y + 0.5 + d.x * LANE };
+// (lane: how far off the middle -- none, for a fire engine on its way.)
+export function lanePoint(t, d, e = null, lane = LANE) {
+  const p = { x: t.x + 0.5 - d.y * lane, y: t.y + 0.5 + d.x * lane };
   if (e && isJunction(t.x, t.y) && (e.x ? !d.x : !d.y)) {
-    if (e.x) p.y = t.y + 0.5 + e.x * LANE;
-    else p.x = t.x + 0.5 - e.y * LANE;
+    if (e.x) p.y = t.y + 0.5 + e.x * lane;
+    else p.x = t.x + 0.5 - e.y * lane;
     return p;
   }
   const j = !isJunction(t.x, t.y) && hasCrossing(t.x, t.y) && junctionBy(t);
@@ -131,6 +137,10 @@ export class Traffic {
   drive(m, speed, dt) {
     m.head ??= Math.atan2(m.dir.y, m.dir.x);
     m.blocker = null;
+    if (this.pullOver(m, dt)) return null;
+    // (Pulled over, or down the middle for a fire: back into its lane -- even
+    // stopped.)
+    if (!m.urgent) this.slide(m, LANE, dt);
     if (!m.path.length) {
       m.wait = null;
       m.stuck = 0;
@@ -142,7 +152,7 @@ export class Traffic {
     // time.)
     const end = !same(next, m.tile) && atEdge(next.x, next.y) ? `${next.x},${next.y}` : null;
     if (m.round?.key !== end) m.round = end && { key: end, pts: roundPoints(next, d), i: 0 };
-    const goal = m.round ? m.round.pts[m.round.i] : lanePoint(next, d, m.path[1] && dirOf(next, m.path[1]));
+    const goal = m.round ? m.round.pts[m.round.i] : lanePoint(next, d, m.path[1] && dirOf(next, m.path[1]), m.urgent ? 0 : LANE);
     let dx = goal.x - m.x;
     let dy = goal.y - m.y;
     const dist = Math.hypot(dx, dy);
@@ -216,6 +226,31 @@ export class Traffic {
     return null;
   }
 
+  // A fire engine on its way within earshot: pull over to the curb and stop
+  // (along a street, going straight -- one in an intersection or turning
+  // carries on out of the way first). Not the fire engine, nor the truck
+  // you're driving. Is m pulled over (or pulling over)?
+  pullOver(m, dt) {
+    const d = m.dir;
+    if (m.urgent || m.driven || m.round || isJunction(m.tile.x, m.tile.y) || isJunction(Math.floor(m.x), Math.floor(m.y)) || Math.abs(Math.sin(m.head - Math.atan2(d.y, d.x))) > 0.2) return false;
+    if (!this.cars.some((u) => u.urgent && Math.hypot(u.x - m.x, u.y - m.y) < HEAR)) return false;
+    this.slide(m, CURB, dt);
+    m.wait = 'yield';
+    m.stuck = 0;
+    return true;
+  }
+
+  // Sideways (along a street, going straight) toward lane, that far right
+  // of the street's middle.
+  slide(m, lane, dt) {
+    const d = m.dir;
+    if (m.round || isJunction(m.tile.x, m.tile.y) || Math.abs(Math.sin(m.head - Math.atan2(d.y, d.x))) > 0.2) return;
+    const off = (m.x - m.tile.x - 0.5) * -d.y + (m.y - m.tile.y - 0.5) * d.x;
+    const step = Math.max(-PULL * dt, Math.min(PULL * dt, lane - off));
+    m.x += -d.y * step;
+    m.y += d.x * step;
+  }
+
   // The car m would run into, going on to (x, y) heading h -- one in front
   // of it it's not already touching -- if any.
   bumpInto(m, x, y, h) {
@@ -235,7 +270,7 @@ export class Traffic {
     let why = 'car';
     for (let o = m.blocker; o; o = o.blocker) {
       if (seen.has(o)) return true;
-      if (o.wait === 'light' || o.wait === 'people') return false;
+      if (o.wait === 'light' || o.wait === 'people' || o.wait === 'yield') return false;
       if (o.wait !== 'car' && o.wait !== 'turn') return why === 'car';
       why = o.wait;
       seen.add(o);
@@ -269,7 +304,7 @@ export class Traffic {
   // way, if not.
   exitFor(m, j, e) {
     const u = dirOf(j, e);
-    const lane = lanePoint(e, u);
+    const lane = lanePoint(e, u, null, m.urgent ? 0 : LANE);
     return this.cars.find((o) => {
       if (o === m || this.t - (o.movedAt ?? -1) < 0.3) return false;
       const rx = o.x - lane.x;
@@ -280,9 +315,9 @@ export class Traffic {
   }
 
   // How far a car may go before the next intersection: to its stopping
-  // place, unless it's let through -- on a green light, or (no lights) when
-  // no one else is going through -- and the crosswalks it'll drive over are
-  // clear. { room, why }
+  // place, unless it's let through -- on a green light (a fire engine on its
+  // way doesn't wait for one), or (no lights) when no one else is going
+  // through -- and the crosswalks it'll drive over are clear. { room, why }
   lightRoom(m) {
     const go = { room: Infinity, why: null };
     // In an intersection, and someone's (just) stepped onto the crosswalk
@@ -309,7 +344,7 @@ export class Traffic {
         const exit = m.path[k + 1];
         const arms = [armOf(j, prev), ...(exit ? [armOf(j, exit)] : [])];
         const lit = isLit(j.x, j.y);
-        if (lit && !mayDrive(j.x, j.y, axis, this.t)) return { room: Math.max(0, room), why: 'light' };
+        if (lit && !m.urgent && !mayDrive(j.x, j.y, axis, this.t)) return { room: Math.max(0, room), why: 'light' };
         if (this.peopleOn(j, arms)) return { room: Math.max(0, room), why: 'people' };
         const who = this.cars.find((o) => o !== m && this.through(o, key) && (!lit || clash(arms, o.passArms)));
         if (who) return { room: Math.max(0, room), why: 'turn', who };

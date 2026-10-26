@@ -576,16 +576,27 @@ test('benji’s town: fire! it breaks out at a house, and the fire engine goes a
       const engine = p.helpers.find((h) => h.kind === 'fire');
       const lit = { fire: !!p.fire, job: p.town.jobs.some((j) => j.kind === 'fire'), ready: p.ready(engine) };
       p.start(engine);
-      run(120, () => p.fire === null);
+      // On its way: lights and siren on, through any red light.
+      let urgent = 0;
+      let red = false;
+      run(120, () => {
+        if (engine.urgent && !engine.spray) urgent += 1 / 30;
+        red ||= engine.wait === 'light';
+        return p.fire === null;
+      });
       run(3, () => false); // (and then, what was done)
       const job = p.town.jobs.find((j) => j.kind === 'fire');
-      return { lit, out: p.fire === null && p.done.has(job.i), said, sounds };
+      return { lit, out: p.fire === null && p.done.has(job.i), said, sounds, urgent, red, after: engine.urgent };
     });
     assert.deepEqual(r.lit, { fire: true, job: true, ready: true }, 'a fire, its job, and the fire engine ready');
     assert.ok(r.out, 'put out');
     assert.ok(r.said.includes('Fire! Call the fire engine!'));
     assert.ok(r.said.includes('You put out the fire, great job!'));
     for (const s of ['crackle', 'siren', 'spray']) assert.ok(r.sounds.includes(s), s);
+    // (The siren the whole way: after the first, round again as it goes.)
+    assert.ok(r.urgent < 2.6 || r.sounds.includes('wail'), 'wail');
+    assert.ok(r.urgent && !r.red, 'lights flashing on the way, and no stopping for red lights');
+    assert.equal(r.after, false, 'lights off once the fire is out');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

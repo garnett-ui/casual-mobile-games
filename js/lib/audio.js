@@ -250,6 +250,14 @@ const SFX = {
       tone('sine', f, f, 0.4, 0.06, k * 0.42);
     }
   },
+  // The siren as it goes along: once round, high and low, and quieter.
+  wail: () => {
+    for (let k = 0; k < 2; k++) {
+      const f = k % 2 ? 740 : 960;
+      tone('square', f, f, 0.4, 0.02, k * 0.42, 2600);
+      tone('sine', f, f, 0.4, 0.03, k * 0.42);
+    }
+  },
   // The hose: a rush of water, swelling and dying away.
   spray: (dur = 3) => {
     const t = ac.currentTime;

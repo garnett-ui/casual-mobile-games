@@ -126,11 +126,19 @@ pictures and a sound for every touch.
   which house and when come from the day's seed), a fire breaks out at a
   house: flames licking up from the roof and smoke rising, a crackle, and
   "Fire! Call the fire engine!" -- the camera takes a look, a 🔥 joins the
-  jobs in the tray, and the **fire engine** (red, a ladder on top, its
-  light flashing) waits by the **firehouse** next to the post office
+  jobs in the tray, and the **fire engine** (red, a ladder on top, a
+  light bar on the cab) waits by the **firehouse** next to the post office
   (red brick, a big white garage door, a 🚒 sign), its button bouncing.
-  Off it goes with its siren -- driven by you, or by itself -- and at the
-  house the hose arcs water onto the roof for three seconds (a rush of
+  Off it goes with its siren -- driven by you, or by itself -- lights
+  flashing red and blue (a glow round each end of the light bar; from the
+  driver's seat, in the top corners of the windshield), and the siren
+  going round, quieter, all the way there. It doesn't stop for red
+  lights, and drives down the middle of the street; every car within
+  earshot (three tiles) pulls over to the curb and stops
+  till it's gone by -- even a helper stopped on a job -- then eases back
+  into its lane. (It still waits for anyone on a crosswalk, and never
+  drives into a car.) At the house the hose arcs water onto the roof for
+  three seconds, lights still flashing (a rush of
   water; driving, the camera floats out of the cab to watch), the flames
   die down and the smoke turns to steam: "You put out the fire, great
   job!". That part of the day isn't done till the fire's out.
