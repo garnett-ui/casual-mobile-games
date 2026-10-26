@@ -877,6 +877,9 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* Tangram: a paper board between dark wood */
+.tg-screen { --bg: #4a3726; background: #f3ead7; }
+
 /* 15 */
 .ff-screen { background: radial-gradient(ellipse at 50% 40%, #6b4a30 0%, #3d2a1c 100%); }
 .ff-screen .stage.building { color: #fff; }

@@ -59,6 +59,14 @@ export const GAMES = [
     art: () => import('../games/water/art.js'),
   },
   {
+    id: 'tangram',
+    title: 'Tangram',
+    blurb: 'The classic puzzle of seven pieces cut from a square: move, turn and flip them to make each shape in silhouette, from a house and a cat to a swan, and back to the square.',
+    color: '#e76f51',
+    load: () => import('../games/tangram/index.js'),
+    art: () => import('../games/tangram/art.js'),
+  },
+  {
     id: 'elevator',
     title: 'Elevator Operator',
     blurb: 'Run the lifts through a whole working day, from a six-storey office block to twin towers: tap a floor to send a lift there and get everyone where they’re going. Can you beat the computer?',

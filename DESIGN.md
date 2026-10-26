@@ -466,6 +466,40 @@ tells you what he needs and reacts as you go.
   tap a state to see its volumes and how far it is from the start and
   from solving.
 
+## Tangram
+
+The classic Chinese puzzle: the seven pieces cut from a square -- two large
+triangles, a medium one, two small ones, a square and a parallelogram --
+and a figure in solid silhouette to make with all seven, no overlapping.
+
+- Twelve figures, simple to hard: a house, a sailboat, a rocket, a cat, a
+  rabbit, a swan, a rectangle, a runner, then the convex shapes -- the
+  parallelogram, the trapezoid, the triangle -- and last the square the
+  pieces came from. Pictures come first because their parts give the
+  pieces away (a roof is two large triangles); the plain convex shapes
+  give nothing away, and the square is famously the hard one.
+- Every figure is stored as one way of making it (each piece's turn, flip
+  and place). They were drawn as outlines and checked with a tiling
+  solver: one that fills the topmost-leftmost corner of what's left with
+  each piece in each of its turns, so it handles figures that mix pieces
+  at 45° to each other -- the cat's head is a square on its corner over
+  a body of upright triangles.
+- Drag a piece to move it; tap it to turn it 45° (clockwise). Flip turns
+  the parallelogram over -- the one piece whose mirror image is different
+  (it says so on the first figure that needs it). The pieces start on a
+  mat beside the figure, laid out to make them as big as the screen
+  allows.
+- A piece dropped near a corner snaps onto it: a corner of the figure,
+  of another piece, or one where pieces meet in the stored solution (so a
+  piece put about right lands exactly right). A click when a piece lands
+  where the stored solution has it, a softer sound otherwise.
+- Done when the pieces cover the silhouette (checked at points spread over
+  it): they have its area between them, so covering it means nothing
+  sticks out -- and any other way of making the figure counts too.
+- Hint puts one more piece in its place (the large ones first), moving any
+  piece in the way back to the mat. Three stars without a hint, two for
+  one or two, one otherwise.
+
 ## Elevator Operator
 
 You run the lifts for a whole working day -- 7 AM to 7:30 PM, with an

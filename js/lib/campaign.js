@@ -32,13 +32,14 @@ export function loadProgress(ctx) {
   };
 }
 
-// Level grid: every unlocked level plus a few locked ones ahead. badge(n),
-// if given, puts a little mark in a level's corner (explained in the outro);
-// note(n), a few words under its stars.
-export function renderLevelSelect(root, ctx, { id, title, intro, outro, progress, badge, note }) {
+// Level grid: every unlocked level plus a few locked ones ahead (up to
+// count, for a game with only so many). badge(n), if given, puts a little
+// mark in a level's corner (explained in the outro); note(n), a few words
+// under its stars.
+export function renderLevelSelect(root, ctx, { id, title, intro, outro, progress, badge, note, count = Infinity }) {
   const { unlocked, stars } = progress.data;
   let tiles = '';
-  for (let n = 1; n <= unlocked + 11; n++) {
+  for (let n = 1; n <= Math.min(unlocked + 11, count); n++) {
     const locked = n > unlocked;
     const mark = !locked && badge?.(n);
     const words = !locked && note?.(n);

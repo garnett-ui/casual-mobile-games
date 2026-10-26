@@ -1314,6 +1314,68 @@ test('water lab: drag a beaker onto another to pour, and measure the amount aske
   }
 });
 
+test('tangram: tap a piece to turn it, drag it into place, flip the parallelogram, and finish the house', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=tangram]').click();
+    await page.locator('.lvl[data-n="1"]').click();
+    await page.waitForFunction(() => window.__tangram);
+    // Where on the page a point on the board is.
+    const at = (pt) => page.evaluate((pt) => {
+      const p = window.__tangram;
+      const r = p.canvas.getBoundingClientRect();
+      const [x, y] = p.toScreen(pt);
+      return [r.left + x, r.top + y];
+    }, pt);
+    // A large triangle, and its place in the roof the fewest turns away.
+    const { turns, rot, from, to } = await page.evaluate(() => {
+      const p = window.__tangram;
+      const piece = p.pieces[0];
+      const [best] = p.fig.slots.filter((s) => s.t === 'L').map((s) => ({ s, d: (s.rot - piece.rot + 8) % 8 })).sort((a, b) => a.d - b.d);
+      return { turns: best.d, rot: best.s.rot, from: [piece.x, piece.y], to: [best.s.x, best.s.y] };
+    });
+    assert.ok(turns > 0);
+    for (let k = 0; k < turns; k++) {
+      await page.mouse.click(...(await at(from)));
+      await page.waitForTimeout(200);
+    }
+    assert.equal(await page.evaluate(() => window.__tangram.pieces[0].rot), rot);
+    // Dragged to its place and dropped a little off, it snaps in.
+    const a = await at(from);
+    const b = await at(to);
+    await page.mouse.move(...a);
+    await page.mouse.down();
+    await page.mouse.move(b[0] + 6, b[1] - 5, { steps: 12 });
+    await page.mouse.up();
+    assert.ok(await page.evaluate(() => window.__tangram.slotOf(window.__tangram.pieces[0]) >= 0), 'snapped into place');
+    // Flip turns the parallelogram over, and back.
+    await page.locator('[data-act=flip]').click();
+    assert.equal(await page.evaluate(() => window.__tangram.pieces[6].flip), 1);
+    await page.locator('[data-act=flip]').click();
+    assert.equal(await page.evaluate(() => window.__tangram.pieces[6].flip), 0);
+    // Hints put the rest in, one at a time.
+    for (let k = 0; k < 6; k++) {
+      await page.locator('[data-act=hint]').click();
+      await page.waitForFunction(() => !window.__tangram.pieces.some((p) => p.glide));
+    }
+    assert.equal(await page.evaluate(() => window.__tangram.placed()), 7);
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
+    assert.match(await page.locator('.dialog p').textContent(), /house, with 6 hints/);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:tangram:progress')));
+    assert.equal(saved.unlocked, 2);
+    assert.equal(saved.stars[1], 1);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('morse rain: a cloud of letters; tap the one whose code you hear, and clear the screen', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

@@ -22,6 +22,8 @@ the whole arcade.
 - **Lunar Lander** -- fly over the mountains and set down gently on the base.
 - **Night Driver** -- the 1976 arcade racer: stay between the lights in the dark.
 - **Water Lab** -- pour water between beakers to measure an exact amount.
+- **Tangram** -- the classic puzzle: seven pieces cut from a square, moved,
+  turned and flipped to make each shape in silhouette, simple to hard.
 - **Elevator Operator** -- run the lifts through a working day, from a
   six-storey office block to twin towers, against the computer.
 - **Morse Rain** -- learn Morse code by ear: hear a letter and tap it in
@@ -94,6 +96,7 @@ games/lander/               Lunar Lander: engine.js (physics, terrain, autopilot
 games/night-driver/         Night Driver: engine.js (road, car, forks; runs in Node), play.js (view), signs.js
 games/morse/                Morse Rain: code.js (the code, lessons, timing; runs in Node), play.js (the cloud)
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), space.js (the solution-space map), play.js
+games/tangram/              Tangram: model.js (the pieces, the figures, coverage and snapping; runs in Node), play.js
 games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg), city.js (the city round about), pace.js (fast through the lulls)
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 games/benji/                Benji's Town: town.js (the town, routes, the days and their jobs), clock.js (the time of day, the sky), streets.js (sidewalks, crosswalks, lights), traffic.js (lanes, stopping, crossing), steer.js (driving yourself: the way ahead, which way to turn) -- all run in Node; iso.js (the 3D: from above, and from the driver's seat), draw.js, play.js

@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.93.0
+- New game: Tangram, the classic puzzle of seven pieces cut from a square.
+  Drag the pieces onto a shape in silhouette, tap one to turn it and flip
+  the parallelogram over, to make twelve figures from simple to hard: a
+  house, a sailboat, a rocket, a cat, a rabbit, a swan, a runner and more,
+  ending with the square they came from. Pieces snap into place, and Hint
+  puts one in for you.
+
 ## 1.92.2
 - Benji's Town: the little yellow arrows along the way are proper arrows
   now, with a tail, not just a triangle.
