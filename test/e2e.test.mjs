@@ -1858,7 +1858,11 @@ test('trial bike: gas and lean with two thumbs, a crash and the tap that goes ag
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`http://localhost:${server.address().port}/`);
-    await page.locator('[data-game=trial-bike]').click();
+    // (Credited to whoever contributed it, on its card and its course list.)
+    assert.equal(await page.locator('[data-game=trial-bike] .credit-link').getAttribute('data-href'), 'https://github.com/garnett-ui');
+    await page.locator('[data-game=trial-bike] .card-title').click();
+    assert.match(await page.locator('.levels-credit').textContent(), /Contributed by Garnett Callis/);
+    assert.equal(await page.locator('.levels-credit a').getAttribute('href'), 'https://github.com/garnett-ui');
     await page.locator('.lvl[data-n="1"]').click();
     // (The course is test-ridden in a worker first.)
     await page.waitForFunction(() => window.__trialBike, null, { timeout: 30000 });

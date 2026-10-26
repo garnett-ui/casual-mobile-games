@@ -38,6 +38,7 @@ export function loadProgress(ctx) {
 // under its stars.
 export function renderLevelSelect(root, ctx, { id, title, intro, outro, progress, badge, note, count = Infinity }) {
   const { unlocked, stars } = progress.data;
+  const credit = GAMES.find((g) => g.id === id)?.credit;
   let tiles = '';
   for (let n = 1; n <= Math.min(unlocked + 11, count); n++) {
     const locked = n > unlocked;
@@ -61,6 +62,7 @@ export function renderLevelSelect(root, ctx, { id, title, intro, outro, progress
         <p class="levels-intro">${intro}</p>
         <div class="lvl-grid">${tiles}</div>
         <p class="levels-intro">${outro}</p>
+        ${credit ? `<p class="levels-credit">Contributed by <a href="${credit.url}" target="_blank" rel="noopener">${credit.name}</a></p>` : ''}
         <button class="arcade-link" data-act="arcade">🕹️ Part of <b>Pocket Arcade</b> · ${GAMES.length - 1} more games</button>
       </div>
     </div>`;

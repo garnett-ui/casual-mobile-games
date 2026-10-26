@@ -104,6 +104,10 @@ svg { display: block; }
 .card-body { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 18px; }
 .card-title { font-size: 22px; font-weight: 800; }
 .card-blurb { font-size: 15px; color: #565a7e; }
+.card-credit { font-size: 13px; color: #565a7e; }
+.credit-link { color: #4361ee; font-weight: 700; text-decoration: underline; }
+.levels-credit { text-align: center; margin: 4px 0 8px; font-size: 14px; color: var(--muted); }
+.levels-credit a { color: inherit; font-weight: 700; }
 .play-pill {
   position: absolute;
   right: 14px;

@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.96.1
+- Trial Bike is credited to the player who made it: "Contributed by
+  Garnett Callis" on its card and on its course list, linked to his
+  GitHub page.
+
 ## 1.96.0
 - New game: **Trial Bike**. Ride a trials bike over a course of hills,
   jumps, logs, drops, ledges and gaps, seen from the side: hold GAS or

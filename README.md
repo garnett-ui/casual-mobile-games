@@ -32,7 +32,8 @@ the whole arcade.
   the moon, the sun across the sky) or your own photos on any level, and a
   graph of every move against the best possible.
 - **Trial Bike** -- ride a trials bike over hills, logs, ledges and gaps;
-  beat the computer rider's time without a crash.
+  beat the computer rider's time without a crash. Contributed by
+  [Garnett Callis](https://github.com/garnett-ui).
 - **Jigsaw** -- turn your own photos into jigsaw puzzles, or a pattern: a
   colour wheel, stained glass, a map and more, new every time.
 

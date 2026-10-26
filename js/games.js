@@ -1,6 +1,8 @@
 // Registry of games in the arcade. To add a game, create games/<id>/index.js
 // exporting mount(el, ctx, route) and add an entry here. The service worker
 // precaches everything under games/ automatically (npm run build).
+// credit (optional): { name, url } of whoever contributed the game, shown
+// on its card and its level list.
 export const GAMES = [
   {
     id: 'benji',
@@ -93,6 +95,7 @@ export const GAMES = [
   {
     id: 'trial-bike',
     title: 'Trial Bike',
+    credit: { name: 'Garnett Callis', url: 'https://github.com/garnett-ui' },
     blurb: 'Ride a trials bike over hills, logs, ledges and gaps: gas, brake and lean. Beat the computer rider’s time without a crash.',
     color: '#e63946',
     load: () => import('../games/trial-bike/index.js'),

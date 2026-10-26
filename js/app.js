@@ -161,6 +161,7 @@ function renderHub() {
             <span class="card-body">
               <span class="card-title">${g.title}</span>
               <span class="card-blurb">${g.blurb}</span>
+              ${g.credit ? `<span class="card-credit">Contributed by <span class="credit-link" role="link" tabindex="0" data-href="${g.credit.url}">${g.credit.name}</span></span>` : ''}
             </span>
             <span class="play-pill">Play</span>
           </button>`).join('')}
@@ -199,7 +200,13 @@ function renderHub() {
     haptic(30);
   };
   view.querySelectorAll('[data-game]').forEach((el) => {
-    el.onclick = () => {
+    el.onclick = (e) => {
+      // (The name of whoever contributed it: their page, not the game.)
+      const credit = e.target.closest('[data-href]');
+      if (credit) {
+        window.open(credit.dataset.href, '_blank', 'noopener');
+        return;
+      }
       sfx('tap');
       navigate(`#/${el.dataset.game}`);
     };
