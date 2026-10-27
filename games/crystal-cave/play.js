@@ -124,6 +124,163 @@ const CHAMBERS = [
       }
     },
   },
+  {
+    // A lava vault: black basalt, columns of it low at the walls, a glowing
+    // seam along the floor and cracks running up from it, the far wall lit
+    // red from below, embers rising.
+    name: 'lava', far: '#1a0d12', near: '#2a1418', rock: '#3a1f22', edge: '#ff7a3c', floor: '#2a1416', floorEdge: '#ff6a2c',
+    motes: { n: 22, colour: 'rgba(255,140,60,.8)', size: 1.6, rise: -5, sway: 4 },
+    dress(ctx, L, t) {
+      const { scale, cssW, floorY } = L;
+      const r = scale * R;
+      const pulse = 0.75 + 0.25 * Math.sin(t * 1.8);
+      // The far wall lit red from the lava below.
+      const under = ctx.createLinearGradient(0, floorY - r * 3, 0, floorY);
+      under.addColorStop(0, 'rgba(255,80,30,0)');
+      under.addColorStop(1, `rgba(255,80,30,${0.26 * pulse})`);
+      ctx.fillStyle = under;
+      ctx.fillRect(0, floorY - r * 3, cssW, r * 3);
+      // Basalt columns low at the walls, the tallest outermost, each lit on top.
+      for (const [dx, h, w] of [[0, 4.2, 0.9], [0.95, 2.9, 0.8], [1.8, 1.7, 0.75]]) {
+        for (const x of [dx * r, cssW - (dx + w) * r]) {
+          ctx.fillStyle = '#120709';
+          ctx.fillRect(x, floorY - h * r, w * r, h * r);
+          ctx.fillStyle = '#24100f';
+          ctx.fillRect(x + w * r * 0.15, floorY - h * r, w * r * 0.2, h * r);
+          ctx.fillStyle = '#6a3328';
+          ctx.fillRect(x, floorY - h * r, w * r, Math.max(1, r * 0.16));
+        }
+      }
+      // The cracks, each a bright line in a soft glow, breathing: a seam along
+      // the floor's edge, and two short ones up each wall (a pool of light at the foot).
+      ctx.lineJoin = 'round';
+      const crack = (pts) => {
+        ctx.beginPath();
+        for (const [x, y] of pts) ctx.lineTo(x, y);
+        for (const [w, rgb, a] of [[0.45, '255,90,30', 0.18], [0.17, '255,122,60', 0.5], [0.06, '255,220,150', 1]]) {
+          ctx.strokeStyle = `rgba(${rgb},${a * pulse})`;
+          ctx.lineWidth = Math.max(1, w * r);
+          ctx.stroke();
+        }
+      };
+      crack(Array.from({ length: Math.ceil(cssW / (r * 0.7)) + 2 }, (_, k) => [k * r * 0.7, floorY + r * (0.45 + 0.15 * Math.sin(k * r * 0.63))]));
+      for (const x of [r * 0.5, r * 2.2, cssW - r * 0.5, cssW - r * 2.2]) {
+        const pool = ctx.createRadialGradient(x, floorY, 0, x, floorY, r * 1.6);
+        pool.addColorStop(0, `rgba(255,110,40,${0.35 * pulse})`);
+        pool.addColorStop(1, 'rgba(255,110,40,0)');
+        ctx.fillStyle = pool;
+        ctx.fillRect(x - r * 1.6, floorY - r * 1.6, r * 3.2, r * 3.2);
+        const inward = Math.sign(cssW / 2 - x); // the right wall's cracks are the left's, mirrored
+        crack([[0, 0], [0.08, 0.5], [-0.12, 0.8], [-0.05, 1.5], [0.18, 1.8], [0.1, 2.4]].map(([dx, dy]) => [x + dx * r * inward, floorY - dy * r]));
+      }
+      ctx.lineJoin = 'miter';
+    },
+  },
+  {
+    // A mushroom hollow: toadstools glowing at the walls, shelves of fungus
+    // above them, a teal light low on the far wall, spores drifting up.
+    name: 'mushroom', far: '#0f2a2e', near: '#174247', rock: '#1f5559', edge: '#7af0d8', floor: '#143a3d', floorEdge: '#5ce0c8',
+    motes: { n: 24, colour: 'rgba(150,255,230,.6)', size: 2, rise: -1.2, sway: 8 },
+    dress(ctx, L, t) {
+      const { scale, cssW, floorY } = L;
+      const r = scale * R;
+      const breathe = 0.8 + 0.2 * Math.sin(t * 1.3);
+      // A teal light low on the far wall.
+      const low = ctx.createLinearGradient(0, floorY - r * 3, 0, floorY);
+      low.addColorStop(0, 'rgba(92,224,200,0)');
+      low.addColorStop(1, 'rgba(92,224,200,.16)');
+      ctx.fillStyle = low;
+      ctx.fillRect(0, floorY - r * 3, cssW, r * 3);
+      const caps = [['#ff7fb6', '255,127,182'], ['#5ce0c8', '92,224,200']]; // the cap, and its glow
+      for (const side of [-1, 1]) {
+        const wx = (dx) => (side < 0 ? dx * r : cssW - dx * r);
+        // Shelves of fungus on the wall, a little higher (half-ellipses, flat side up).
+        for (const [dy, w] of [[4.4, 1.3], [5.6, 0.9], [6.9, 1.1]]) {
+          const y = floorY - (dy + (side > 0 ? 0.6 : 0)) * r;
+          ctx.fillStyle = '#2f8f86';
+          ctx.beginPath();
+          ctx.ellipse(wx(0), y, w * r, w * r * 0.4, 0, 0, Math.PI);
+          ctx.fill();
+          ctx.fillStyle = '#7af0d8';
+          ctx.fillRect(wx(0) - w * r, y - 1, w * r * 2, Math.max(1, r * 0.08));
+        }
+        // The toadstools: a pale stalk, a domed cap with spots, a glow under it.
+        for (const [dx, h, cr, c] of [[0.8, 2.6, 0.95, 0], [1.75, 1.5, 0.62, 1], [2.55, 0.35, 0.34, 0], [1.2, 0.6, 0.32, 1]]) {
+          const [x, top, s] = [wx(dx), floorY - h * r, cr * r];
+          const [cap, rgb] = caps[side > 0 ? 1 - c : c];
+          const glow = ctx.createRadialGradient(x, top, 0, x, top, s * 2.4);
+          glow.addColorStop(0, `rgba(${rgb},${0.45 * breathe})`);
+          glow.addColorStop(1, `rgba(${rgb},0)`);
+          ctx.fillStyle = glow;
+          ctx.fillRect(x - s * 2.4, top - s * 2.4, s * 4.8, s * 4.8);
+          ctx.fillStyle = '#e9fbf4';
+          ctx.fillRect(x - s * 0.22, top, s * 0.44, h * r);
+          ctx.fillStyle = cap;
+          ctx.beginPath();
+          ctx.ellipse(x, top, s, s * 0.78, 0, Math.PI, 0);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,.8)';
+          for (const [sx, sy, d] of [[-0.45, -0.35, 0.14], [0.15, -0.58, 0.11], [0.52, -0.22, 0.1]]) {
+            ctx.beginPath();
+            ctx.arc(x + sx * s, top + sy * s, d * s, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    },
+  },
+  {
+    // A cenote: an underground pool under a shaft of daylight (kept to the
+    // right wall), ripples of light on the water, lily pads, roots hanging
+    // down the left wall, dust turning in the sun.
+    name: 'cenote', far: '#10324a', near: '#174866', rock: '#245c7a', edge: '#bfe8ff', floor: '#1d6b80', floorEdge: '#9fe7ff',
+    motes: { n: 14, colour: 'rgba(255,255,255,.5)', size: 1.4, rise: 3, sway: 2 },
+    dress(ctx, L, t) {
+      const { oy, scale, cssW, cssH, floorY } = L;
+      const r = scale * R;
+      const blob = (x, y, rx, ry, turn = 0, a0 = 0, a1 = Math.PI * 2) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.ellipse(x, y, rx, ry, turn, a0, a1); ctx.fill(); };
+      // The shaft of daylight from the top-right corner down to the water (a
+      // broad soft beam and a brighter core in it), and the light where it lands.
+      const sun = ctx.createLinearGradient(0, 0, 0, floorY);
+      sun.addColorStop(0, 'rgba(255,255,240,.1)');
+      sun.addColorStop(1, 'rgba(255,255,240,.02)');
+      ctx.fillStyle = sun;
+      for (const quad of [[1.8, -1, 0.4, 3], [1.2, -0.2, 1, 2.3]]) {
+        ctx.beginPath();
+        quad.forEach((dx, k) => ctx.lineTo(cssW - dx * r, k < 2 ? 0 : floorY)); // two corners at the top, two on the floor
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,240,.12)';
+      blob(cssW - r * 1.7, floorY + r * 0.5, r * 1.4, r * 0.3);
+      // Light on the water: pale ripples drifting across.
+      ctx.fillStyle = 'rgba(200,245,255,.22)';
+      for (let k = 0, span = cssW + r * 4; k < 7; k++) {
+        const x = ((k * 0.37 * span + t * r * (0.4 + 0.15 * (k % 3))) % span) - r * 2;
+        blob(x, floorY + Math.min(cssH - floorY - r * 0.2, r * (0.45 + 1.4 * ((k * 0.61) % 1))), r * (0.7 + 0.4 * (k % 2)), Math.max(1, r * 0.1));
+      }
+      // Lily pads (a notch cut from each), a flower on one.
+      ctx.fillStyle = '#3aa86a';
+      blob(r * 1.6, floorY + r * 1.2, r * 0.9, r * 0.36, 0, 0.35, Math.PI * 2 - 0.1);
+      blob(cssW - r * 2.2, floorY + r * 0.8, r * 0.68, r * 0.27, 0, 0.35, Math.PI * 2 - 0.1);
+      ctx.fillStyle = '#ffb3d1';
+      blob(r * 1.4, floorY + r * 1.08, r * 0.2, r * 0.2);
+      // Roots hanging down the left wall from the roof, swaying a little, leafed.
+      ctx.strokeStyle = '#1e4d2c';
+      ctx.lineWidth = Math.max(1, r * 0.12);
+      for (const [x0, len, ph] of [[r * 0.4, 14, 0], [r * 1.3, 9, 2], [r * 2.2, 6, 4]]) {
+        const pts = [];
+        for (let k = 0; k <= len * 2; k++) pts.push([x0 + Math.sin(k * 0.6 + ph + t * 0.7) * r * 0.25 * (k / (len * 2)), oy + k * r * 0.5]);
+        ctx.beginPath();
+        for (const [x, y] of pts) ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.fillStyle = '#4fbf6a';
+        for (let k = 2; k < pts.length; k += 3) {
+          const side = k % 6 === 2 ? -1 : 1;
+          blob(pts[k][0] + side * r * 0.22, pts[k][1], r * 0.28, r * 0.12, side * 0.6);
+        }
+      }
+    },
+  },
 ];
 export const chamberFor = (n) => CHAMBERS[Math.floor((n - 1) / 5) % CHAMBERS.length];
 
