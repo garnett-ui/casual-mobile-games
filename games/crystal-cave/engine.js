@@ -261,7 +261,8 @@ const SHAPE_ORDER = ['block', 'vee', 'teeth', 'wings', 'pillars', 'arch'];
 // The roof for level n, attempt a: a shape of coloured crystals that lean
 // toward their neighbours' colours, so there are pairs and small clumps to
 // go for -- never more than four of a colour touching, so no roof falls at
-// a touch -- with a few stones set among them. Rows are strings, one
+// a touch (a cell where every colour would make five is left empty) --
+// with a few stones set among them. Rows are strings, one
 // character a cell: a digit for a colour, S for stone, . for empty.
 export function makeRoof(n, attempt = 0) {
   const r = rng(seedFor(n * 16 + attempt, BASE_SEED));
@@ -294,8 +295,11 @@ export function makeRoof(n, attempt = 0) {
         }
       }
       for (let k = 0; k < spec.colours; k++) options.push(Math.floor(r() * spec.colours));
-      const colour = options.find((v) => clump(row, c, v) <= 4) ?? options[0];
-      cells.push(colour);
+      for (let k = 0; k < spec.colours; k++) options.push(k); // (every colour, last)
+      // No colour fits (every one has four already touching this cell):
+      // the cell stays empty, a small hole. The top row always has a fit,
+      // with only the cell to its left placed.
+      cells.push(options.find((v) => clump(row, c, v) <= 4) ?? null);
     }
   }
   // Stones go in below the top row, never two touching.
@@ -437,8 +441,9 @@ export function solve(level, maxShots = 150) {
   const G = newGame(level);
   const angles = [];
   while (!G.over && G.shots < maxShots) {
-    const angle = bestShot(G);
-    angles.push(Math.round(angle * 1000) / 1000);
+    // (Fired as stored, to the thousandth, so the saved run replays exactly.)
+    const angle = Math.round(bestShot(G) * 1000) / 1000;
+    angles.push(angle);
     fire(G, angle);
   }
   return { cleared: G.over === 'cleared', shots: G.shots, angles };
