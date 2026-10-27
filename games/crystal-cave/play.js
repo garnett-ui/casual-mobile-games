@@ -12,8 +12,126 @@ import { newGame, fire, swap, trace, cloneGame, KINDS, W, H, R, ROW_H, DEAD_ROW,
 export const GEMS = ['#ff4f7d', '#ffb13b', '#3ddc84', '#3fa9ff', '#b06bff', '#f6e94b'];
 const STONE = '#8a8794';
 const POWER = { blast: '#ff6b3b', prism: '#ffffff', drill: '#c9d3e0' };
-const CAVE = { far: '#2c1f44', near: '#4a3368', rock: '#5b4a78', edge: '#7c68a3', lamp: 'rgba(255,220,140,.22)', ink: '#f3eaff', dim: 'rgba(243,234,255,.55)', line: '#ff6b7b' };
+const CAVE = { ink: '#f3eaff', dim: 'rgba(243,234,255,.55)', line: '#ff6b7b' };
 const HUD = { h: 30, font: 'ui-monospace, Menlo, Consolas, monospace' };
+
+// ------------------------------------------------------------------ chambers
+//
+// The cave changes every five levels: each chamber is a palette (the far
+// wall, the near rock at the sides, the roof's rock and its lit edge, the
+// floor), its dressing on the walls and floor (`dress`, drawn behind the
+// game; the middle of the screen is left quiet so the shot reads), and
+// what drifts in its air (`motes`). Adding a chamber is adding to this
+// table. L is the layout: ox, oy, scale, the canvas size, the floor's y.
+const CHAMBERS = [
+  {
+    // A lamplit mine: timber props at the walls, a lantern on each, rails
+    // under the cart, dust in the air.
+    name: 'mine', far: '#2c1f44', near: '#4a3368', rock: '#5b4a78', edge: '#7c68a3', floor: '#3b2b55', floorEdge: '#5b4a78',
+    motes: { n: 18, colour: 'rgba(255,220,160,.35)', size: 1.6, rise: -2, sway: 3 },
+    dress(ctx, L, t) {
+      const { ox, scale, cssW, floorY } = L;
+      const r = scale * R;
+      for (const side of [-1, 1]) {
+        const x = side < 0 ? Math.max(ox, 0) + r * 0.9 : Math.min(ox + W * scale, cssW) - r * 0.9;
+        // The prop: a post from the floor up into the dark, a lantern hung on it.
+        const top = floorY - r * 7;
+        ctx.fillStyle = '#5a3a22';
+        ctx.fillRect(x - r * 0.28, top, r * 0.56, floorY - top);
+        ctx.fillStyle = '#6f4a2c';
+        ctx.fillRect(x - r * 0.28, top, r * 0.18, floorY - top);
+        const ly = top + r * 1.6;
+        const flicker = 0.85 + 0.15 * Math.sin(t * 7 + side);
+        const glow = ctx.createRadialGradient(x, ly, 0, x, ly, r * 4.5);
+        glow.addColorStop(0, `rgba(255,190,90,${0.35 * flicker})`);
+        glow.addColorStop(1, 'rgba(255,190,90,0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(x - r * 4.5, ly - r * 4.5, r * 9, r * 9);
+        ctx.strokeStyle = '#2a1a10';
+        ctx.lineWidth = Math.max(1, r * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(x, top + r * 0.4);
+        ctx.lineTo(x, ly - r * 0.6);
+        ctx.stroke();
+        ctx.fillStyle = '#3a2a1a';
+        ctx.fillRect(x - r * 0.32, ly - r * 0.6, r * 0.64, r * 1.1);
+        ctx.fillStyle = `rgba(255,214,120,${0.7 + 0.3 * flicker})`;
+        ctx.fillRect(x - r * 0.2, ly - r * 0.42, r * 0.4, r * 0.75);
+      }
+      // Rails along the floor.
+      ctx.strokeStyle = '#6a5a62';
+      ctx.lineWidth = Math.max(1, r * 0.1);
+      for (const dy of [r * 0.55, r * 0.95]) {
+        ctx.beginPath();
+        ctx.moveTo(0, floorY + dy);
+        ctx.lineTo(cssW, floorY + dy);
+        ctx.stroke();
+      }
+    },
+  },
+  {
+    // An ice grotto: blue and white, icicles under the roof, frost and
+    // snow heaped at the walls, a frozen pool shining on the floor, snow
+    // drifting down.
+    name: 'ice', far: '#162a4e', near: '#243f6e', rock: '#35578c', edge: '#a9dcff', floor: '#2c4d7e', floorEdge: '#bfe4ff',
+    motes: { n: 26, colour: 'rgba(255,255,255,.7)', size: 1.8, rise: 2.5, sway: 6 },
+    dress(ctx, L, t) {
+      const { ox, oy, scale, cssW, floorY } = L;
+      const r = scale * R;
+      // Big faint ice crystals set into the far wall, low at the sides.
+      ctx.fillStyle = 'rgba(170,220,255,.1)';
+      for (const [sx, h, w] of [[0.06, 9, 2.2], [0.14, 5, 1.6], [0.9, 7, 2], [0.82, 4, 1.4]]) {
+        const x = sx * cssW;
+        ctx.beginPath();
+        ctx.moveTo(x, floorY);
+        ctx.lineTo(x - w * r, floorY - h * r * 0.35);
+        ctx.lineTo(x - w * r * 0.3, floorY - h * r);
+        ctx.lineTo(x + w * r * 0.4, floorY - h * r * 0.8);
+        ctx.lineTo(x + w * r, floorY - h * r * 0.2);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // Snow heaped against the walls.
+      ctx.fillStyle = '#dff1ff';
+      for (const side of [-1, 1]) {
+        const x = side < 0 ? 0 : cssW;
+        ctx.beginPath();
+        ctx.moveTo(x, floorY + r * 0.2);
+        ctx.quadraticCurveTo(x - side * r * 2, floorY - r * 1.6, x - side * r * 4.5, floorY + r * 0.2);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // The frozen pool: a pale sheen across the floor, a glint sliding over it.
+      const sheen = ctx.createLinearGradient(0, floorY, cssW, floorY + r);
+      const g = (Math.sin(t * 0.6) + 1) / 2;
+      sheen.addColorStop(Math.max(0, g - 0.2), 'rgba(255,255,255,.04)');
+      sheen.addColorStop(g, 'rgba(255,255,255,.22)');
+      sheen.addColorStop(Math.min(1, g + 0.2), 'rgba(255,255,255,.04)');
+      ctx.fillStyle = sheen;
+      ctx.fillRect(0, floorY + r * 0.2, cssW, r * 1.2);
+    },
+    // Icicles under the rock's edge, drawn with the roof.
+    fringe(ctx, x0, x1, y, r) {
+      ctx.fillStyle = '#cfeaff';
+      for (let x = x0 + r * 0.6; x < x1; x += r * 1.35) {
+        const h = r * (0.5 + 0.45 * Math.abs(Math.sin(x * 0.37)));
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.2, y - 1);
+        ctx.lineTo(x + r * 0.2, y - 1);
+        ctx.lineTo(x, y + h);
+        ctx.closePath();
+        ctx.fill();
+      }
+    },
+  },
+];
+export const chamberFor = (n) => CHAMBERS[Math.floor((n - 1) / 5) % CHAMBERS.length];
+
+// Every tenth level from 15, the lights are out: the roof shows only in
+// the headlamp's beam, which follows the aim. (Par is the same -- the
+// computer miner needs no light.)
+export const lightsOut = (n) => n >= 15 && n % 10 === 5;
+const BEAM = { narrow: (11 * Math.PI) / 180, wide: (20 * Math.PI) / 180, dark: 0.9, dusk: 0.5 }; // the beam's two cones (half-angles) and how dark it is outside them
 const VIEW_H = SHOOT.y + 4.6 * R; // the board with the mole under it
 const FLY = 42; // the shot's speed (units per second)
 const FALL = 60; // how fast a dropped crystal picks up speed (units/s^2)
@@ -223,6 +341,9 @@ export class Play {
     this.paused = false;
     this.timeScale = 1; // the browser tests fast-forward
     this.sprites = new Map();
+    this.chamber = chamberFor(level.n);
+    this.dark = lightsOut(level.n);
+    this.motes = [];
     this.reset();
     this.resize();
     this.last = performance.now();
@@ -436,6 +557,14 @@ export class Play {
       }
     }
     this.shake = Math.max(0, this.shake - dt * 1.6);
+    const m = this.chamber.motes;
+    for (const mote of this.motes) {
+      mote.p += dt;
+      mote.y += m.rise * mote.s * dt * this.scale * 0.5;
+      mote.x += Math.sin(mote.p) * m.sway * dt;
+      if (mote.y < -4) mote.y = this.cssH + 2;
+      if (mote.y > this.cssH + 4) mote.y = -2;
+    }
     // The demo: the computer miner's shots, one after another as each lands.
     if (this.demo && this.ready) {
       this.demoWait -= dt;
@@ -467,7 +596,12 @@ export class Play {
     this.scale = Math.min(this.cssW / W, (this.cssH - top) / VIEW_H);
     this.ox = (this.cssW - W * this.scale) / 2;
     this.oy = top + Math.min(R * this.scale, (this.cssH - top - VIEW_H * this.scale) / 2);
+    this.floorY = this.oy + (SHOOT.y + 3.9 * R) * this.scale; // where the mole stands
     this.sprites.clear();
+    // What drifts in this chamber's air, scattered afresh.
+    const m = this.chamber.motes;
+    this.motes = [];
+    for (let k = 0; k < m.n; k++) this.motes.push({ x: Math.random() * this.cssW, y: Math.random() * this.cssH, p: Math.random() * Math.PI * 2, s: 0.6 + Math.random() * 0.8 });
   }
 
   toBoard(px, py) {
@@ -510,39 +644,7 @@ export class Play {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.save();
     if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 8 * this.shake, (Math.random() - 0.5) * 8 * this.shake);
-    // The cave: a dark far wall, lit warmly from the mole's lamp below.
-    ctx.fillStyle = CAVE.far;
-    ctx.fillRect(-10, -10, cssW + 20, cssH + 20);
-    const lamp = ctx.createRadialGradient(ox + SHOOT.x * scale, oy + SHOOT.y * scale, 10, ox + SHOOT.x * scale, oy + SHOOT.y * scale, H * scale * 0.95);
-    lamp.addColorStop(0, 'rgba(255,214,130,.3)');
-    lamp.addColorStop(0.5, 'rgba(255,190,120,.08)');
-    lamp.addColorStop(1, 'rgba(255,190,120,0)');
-    ctx.fillStyle = lamp;
-    ctx.fillRect(-10, -10, cssW + 20, cssH + 20);
-    // The headlamp's beam up the aim.
-    if (!this.outcome) {
-      ctx.save();
-      ctx.translate(ox + SHOOT.x * scale, oy + SHOOT.y * scale);
-      ctx.rotate(this.aim);
-      const beam = ctx.createLinearGradient(0, 0, 0, -H * scale);
-      beam.addColorStop(0, 'rgba(255,240,180,.16)');
-      beam.addColorStop(1, 'rgba(255,240,180,0)');
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-H * scale * 0.22, -H * scale);
-      ctx.lineTo(H * scale * 0.22, -H * scale);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
-    // The walls either side of the board, rock to the edges of the screen.
-    ctx.fillStyle = CAVE.near;
-    if (ox > 0) {
-      ctx.fillRect(0, 0, ox, cssH);
-      ctx.fillRect(ox + W * scale, 0, cssW - ox - W * scale, cssH);
-    }
-    this.drawRock(ctx, ox, oy, scale);
+    this.drawScene(ctx);
     // The line a crystal mustn't cross: the foot of the last safe row.
     const dead = oy + (cellY(DEAD_ROW - 1) + R) * scale;
     ctx.strokeStyle = CAVE.line;
@@ -583,6 +685,7 @@ export class Play {
       const [x, y] = pointAlong(this.flight.path, this.flight.at);
       this.drawCrystal(ctx, this.flight.crystal, x, y, this.flight.crystal.kind === 'drill' ? this.aim : 0);
     }
+    if (this.dark && !this.outcome && !this.collapse) this.drawDark(ctx);
     this.drawBat(ctx);
     this.drawMole(ctx);
     if (this.party) this.drawBanner(ctx);
@@ -619,7 +722,7 @@ export class Play {
     const x = ox + (W - 1.0 * R) * scale;
     const y = oy + (cellY(DEAD_ROW - 1) - 3.2 * R) * scale;
     // The ledge: a knob of rock out of the wall.
-    ctx.fillStyle = CAVE.rock;
+    ctx.fillStyle = this.chamber.rock;
     ctx.beginPath();
     ctx.moveTo(x + r * 1.4, y - r * 0.7);
     ctx.lineTo(x + r * 0.3, y - r * 0.55);
@@ -629,7 +732,7 @@ export class Play {
     ctx.lineTo(x + r * 1.4, y + r * 0.3);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = CAVE.edge;
+    ctx.strokeStyle = this.chamber.edge;
     ctx.lineWidth = 1.5;
     ctx.stroke();
     const yawn = this.yawn ? Math.sin((this.yawn / YAWN.t) * Math.PI) : 0; // 0..1..0
@@ -699,12 +802,93 @@ export class Play {
     ctx.restore();
   }
 
+  // The chamber: the far wall (darker toward the roof, lit from the floor),
+  // its dressing, the mole's lamp pooling warm light about him, the near
+  // rock either side of the board on a wide screen, the floor, and the
+  // rock the roof hangs from.
+  drawScene(ctx) {
+    const { cssW, cssH, scale, ox, oy, floorY, chamber } = this;
+    const L = { ox, oy, scale, cssW, cssH, floorY };
+    const wall = ctx.createLinearGradient(0, 0, 0, cssH);
+    wall.addColorStop(0, chamber.far);
+    wall.addColorStop(1, chamber.near);
+    ctx.fillStyle = wall;
+    ctx.fillRect(-10, -10, cssW + 20, cssH + 20);
+    // The floor the mole stands on.
+    ctx.fillStyle = chamber.floor;
+    ctx.fillRect(0, floorY, cssW, cssH - floorY + 10);
+    ctx.fillStyle = chamber.floorEdge;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(0, floorY, cssW, 2);
+    ctx.globalAlpha = 1;
+    chamber.dress(ctx, L, this.time);
+    // The lamp: a pool of warm light about the mole and his cart.
+    const lx = ox + SHOOT.x * scale;
+    const ly = oy + (SHOOT.y + 2) * scale;
+    const lamp = ctx.createRadialGradient(lx, ly, scale, lx, ly, scale * 8.5);
+    lamp.addColorStop(0, 'rgba(255,214,130,.32)');
+    lamp.addColorStop(0.6, 'rgba(255,200,120,.08)');
+    lamp.addColorStop(1, 'rgba(255,200,120,0)');
+    ctx.fillStyle = lamp;
+    ctx.fillRect(lx - scale * 9, ly - scale * 9, scale * 18, scale * 18);
+    // What drifts in the air.
+    const m = chamber.motes;
+    ctx.fillStyle = m.colour;
+    for (const mote of this.motes) {
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(mote.p * 2);
+      ctx.beginPath();
+      ctx.arc(mote.x, mote.y, m.size * mote.s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // The near rock either side of the board, to the edges of the screen.
+    if (ox > 0) {
+      ctx.fillStyle = chamber.near;
+      ctx.fillRect(0, 0, ox, cssH);
+      ctx.fillRect(ox + W * scale, 0, cssW - ox - W * scale, cssH);
+    }
+    this.drawRock(ctx, ox, oy, scale);
+  }
+
+  // Lights out: everything above the mole is dark but for the headlamp's
+  // beam up the aim -- a bright cone, a dimmer one about it.
+  drawDark(ctx) {
+    const { cssW, scale, ox, oy } = this;
+    const sx = ox + SHOOT.x * scale;
+    const sy = oy + SHOOT.y * scale;
+    const bottom = oy + (SHOOT.y - 1.3 * R) * scale;
+    const reach = sy + 10;
+    const cone = (half) => {
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + Math.sin(this.aim - half) * reach, sy - Math.cos(this.aim - half) * reach);
+      ctx.lineTo(sx + Math.sin(this.aim + half) * reach, sy - Math.cos(this.aim + half) * reach);
+      ctx.closePath();
+    };
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-10, -10, cssW + 20, bottom + 10);
+    ctx.clip();
+    // Dark everywhere but the wide cone...
+    ctx.fillStyle = `rgba(8,4,18,${BEAM.dark})`;
+    ctx.beginPath();
+    ctx.rect(-10, -10, cssW + 20, bottom + 10);
+    cone(BEAM.wide);
+    ctx.fill('evenodd');
+    // ...and dusk in the wide cone but the narrow one.
+    ctx.fillStyle = `rgba(8,4,18,${BEAM.dusk})`;
+    ctx.beginPath();
+    cone(BEAM.wide);
+    cone(BEAM.narrow);
+    ctx.fill('evenodd');
+    ctx.restore();
+  }
+
   // The rock the roof hangs from: a jagged ceiling that comes down as the
-  // roof creeps, with a lighter edge.
+  // roof creeps, with a lit edge -- and whatever the chamber hangs from it.
   drawRock(ctx, ox, oy, scale) {
     const edge = oy + (this.shift * ROW_H) * scale;
     const seed = 7;
-    ctx.fillStyle = CAVE.rock;
+    ctx.fillStyle = this.chamber.rock;
     ctx.beginPath();
     ctx.moveTo(ox, -10);
     ctx.lineTo(ox, edge);
@@ -717,9 +901,10 @@ export class Play {
     ctx.lineTo(ox + W * scale, -10);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = CAVE.edge;
+    ctx.strokeStyle = this.chamber.edge;
     ctx.lineWidth = 2;
     ctx.stroke();
+    this.chamber.fringe?.(ctx, ox, ox + W * scale, edge, R * scale);
   }
 
   drawGuide(ctx) {

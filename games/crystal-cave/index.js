@@ -15,6 +15,7 @@ const TIPS = {
   3: 'Every few shots the roof creeps down a row. A crystal reaching the line at the bottom is a cave-in.',
   4: 'A full cart pays a power-up: BLAST shatters everything around it, PRISM matches any colour, DRILL bores straight up through the lot.',
   6: 'Grey stone never matches. Shatter what holds it up and it drops like anything else.',
+  15: 'Lights out! Your headlamp shows only where you aim. The computer miner doesn’t need light, so par is the same.',
 };
 
 export function mount(root, ctx, sub) {
