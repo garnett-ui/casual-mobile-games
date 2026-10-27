@@ -7,13 +7,13 @@ import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/
 import { levelSource } from '../../js/lib/level-source.js';
 
 // Bump when generation changes, so levels cached on devices are rebuilt.
-export const GEN_VERSION = 1;
+export const GEN_VERSION = 2;
 
 const TIPS = {
-  1: 'Drag anywhere to aim, let go to fire. Three crystals of a colour touching shatter -- and whatever they were holding up drops into your cart. Tap the loaded crystal to swap it for the next.',
+  1: 'Drag anywhere to aim, let go to fire. Three crystals of a colour touching shatter -- and whatever they were holding up drops into your cart. Tap the loaded crystal, or NEXT, to swap them.',
   2: 'Bounce it off a wall to reach round the side. Cut a clump loose from the roof and the whole lot drops: that fills the cart fastest.',
   3: 'Every few shots the roof creeps down a row. A crystal reaching the line at the bottom is a cave-in.',
-  4: 'A full cart pays a power-up: BLAST shatters everything around it, PRISM matches any colour, DRILL bores straight up through the lot.',
+  4: 'A full cart pays a power-up: BLAST shatters everything around it, PRISM matches any colour, DRILL bores through everything on its way to the roof.',
   6: 'Grey stone never matches. Shatter what holds it up and it drops like anything else.',
   15: 'Lights out! Your headlamp shows only where you aim. The computer miner doesn’t need light, so par is the same.',
 };
@@ -69,8 +69,8 @@ export function mount(root, ctx, sub) {
 
   function startPlay(n, level) {
     ctx.track('level_start', { level: n });
-    // (The generator gave up on this one: it's never happened in testing,
-    // but if it does, the player should know par is a guess.)
+    // (The generator gave up on this one: none of levels 1-50 does, but if
+    // one ever does, the player should know par is a guess.)
     if (!level.checked) ctx.toast?.('The computer miner couldn’t clear this roof, so par is a guess.');
     // Build the next level in the background while this one is played.
     levels.get(n + 1);
@@ -116,8 +116,11 @@ export function mount(root, ctx, sub) {
         return;
       }
       const rect = canvas.getBoundingClientRect();
-      grab = { id: e.pointerId, x: e.clientX - rect.left, y: e.clientY - rect.top, moved: false };
-      if (!play.onLoaded(grab.x, grab.y)) play.aimAt(grab.x, grab.y);
+      grab = { id: e.pointerId, x: e.clientX - rect.left, y: e.clientY - rect.top, moved: false, aimed: false };
+      // A press on the loaded crystal or the NEXT bucket is a swap in the
+      // making; anywhere else above the catapult is an aim.
+      grab.swap = play.onLoaded(grab.x, grab.y) || play.onNext(grab.x, grab.y);
+      if (!grab.swap) grab.aimed = play.aimAt(grab.x, grab.y);
     });
     canvas.addEventListener('pointermove', (e) => {
       if (!grab || e.pointerId !== grab.id || !play) return;
@@ -125,15 +128,17 @@ export function mount(root, ctx, sub) {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       if (Math.hypot(x - grab.x, y - grab.y) > 6) grab.moved = true;
-      if (grab.moved) play.aimAt(x, y);
+      if (grab.moved && play.aimAt(x, y)) grab.aimed = true;
     });
+    // Let go: a tap on the loaded crystal or NEXT swaps; a press that aimed
+    // (or a drag that did) fires; a tap below the catapult does nothing.
     const release = (e) => {
       if (!grab || e.pointerId !== grab.id) return;
       const g = grab;
       grab = null;
       if (!play || e.type === 'pointercancel') return;
-      if (!g.moved && play.onLoaded(g.x, g.y)) play.swap();
-      else play.fire();
+      if (!g.moved && g.swap) play.swap();
+      else if (g.aimed) play.fire();
     };
     canvas.addEventListener('pointerup', release);
     canvas.addEventListener('pointercancel', release);
@@ -150,7 +155,7 @@ export function mount(root, ctx, sub) {
         else pause();
         return;
       }
-      if (play.demo || !dialog.hidden) return;
+      if (play.demo || play.paused || !dialog.hidden) return;
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'ArrowRight' || e.key === 'd') {
         e.preventDefault();
         const dir = e.key === 'ArrowLeft' || e.key === 'a' ? -1 : 1;
@@ -269,10 +274,12 @@ export function mount(root, ctx, sub) {
       title: 'Cave-in!',
       text: `A crystal crossed the line after ${res.shots} shot${res.shots === 1 ? '' : 's'}. The computer miner clears this roof in ${play.level.par}.`,
       buttons: [
-        { label: 'Show me', act: 'showme', run: () => {
+        // (SHOW ME only where there's a run to show: a level the miner
+        // couldn't clear has none.)
+        ...(play.level.solution.length ? [{ label: 'Show me', act: 'showme', run: () => {
           root.querySelector('.dialog').hidden = true;
           play.showMe();
-        } },
+        } }] : []),
         { label: 'Try again', act: 'retry', primary: true, run: () => {
           root.querySelector('.dialog').hidden = true;
           play.reset();

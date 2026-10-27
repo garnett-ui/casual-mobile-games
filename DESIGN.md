@@ -856,7 +856,8 @@ it for the next. Arrows, space and down on a keyboard. Upright.
   joined to the roof drops into the mole's cart. Every few shots the roof
   creeps down a row; a crystal crossing the line at the bottom is a
   cave-in, and you go again from the start. The crystal you're handed is
-  always a colour still on the roof. Clear the roof to win.
+  always a colour still on the roof (one waiting when its colour goes is
+  drawn again). Clear the roof to win.
 - **Levels from a seed**, and every one proved. Level *n* is a roof built
   from its seed in one of six shapes from level 3 (a slab, a V, stalactites,
   wings, pillars, an arch), its colours leaning on their neighbours' so there
@@ -870,24 +871,31 @@ it for the next. Arrows, space and down on a keyboard. Upright.
   a star, a smiley, a diamond, the mole himself.
 - **The computer miner** plays every roof as it is generated: it tries an
   aim every two degrees across the arc, scores each shot by what it shatters
-  and drops (and against adding to a low row), looks one shot ahead, and
-  takes the best. A roof it can't clear, or clears in fewer shots than the
-  level deserves or more than twice that, is re-rolled from the same seed
-  (up to sixteen tries); its shot count is **par**, and its run is kept, so
-  **SHOW ME** after a cave-in plays it back.
+  and drops (and against adding to a low row), looks one shot ahead for its
+  three best, and takes the best. A roof it can't clear, or clears in fewer
+  shots than the level deserves (six, rising to eighteen by level 30) or
+  more than twice that, is re-rolled from the same seed (up to sixteen
+  tries; if none lands in that band, the nearest that clears is taken); its
+  shot count is **par**, and its run is kept, so **SHOW ME** after a cave-in
+  plays it back. (A roof none of sixteen tries can clear -- none of levels
+  1-50 is -- would ship with a guessed par, no SHOW ME, and a word on screen.)
 - **Stars** against par: three for clearing the roof in par or fewer shots,
   two within half as many again, one for clearing it. The level tile shows
   your fewest shots.
-- **The cart pays.** Every twelve crystals dropped -- dropped, not
-  shattered, so the shot that cuts a clump loose is rewarded twice -- the
-  cart is full and the next crystal loaded is a power-up, in turn: **BLAST**
-  shatters itself and everything around it, **PRISM** matches any colour
-  and joins every group around it that reaches three, **DRILL** flies
-  straight (no bounce) and bores out everything on its line up to the
-  roof. The computer miner earns and uses them the same way, so par is
-  fair. Each kind is a package in the engine's table -- the engine traces
-  the shot and the kind says what happens where it lands -- so a new kind
-  is a new entry, not an edit to the engine.
+- **The cart pays.** Every eight crystals dropped -- dropped, not
+  shattered: a shatter clears the roof, a drop fills the cart, so the shot
+  that cuts a clump loose does both -- the cart is full and the crystal
+  put up NEXT is a power-up (a drop big enough for two pays the second on
+  the shot after), in turn: **BLAST** shatters itself and everything around
+  it, **PRISM** matches any colour and joins every group around it that
+  reaches three, **DRILL** stops at nothing and bores out everything on its
+  way, off the walls and all, up to the roof. Each level's first payout is
+  one further round, so all three come up. A power-up can be swapped like
+  any crystal. The computer miner earns and uses them the same way, so par
+  is fair. Each kind is a package: an entry in the engine's table (the
+  engine traces the shot and the kind says what happens where it lands) and
+  one in the view's table of looks -- a new kind is a new entry in each,
+  not an edit to either.
 - **Chambers.** The cave changes every five levels: a lamplit mine, an ice
   grotto, a lava vault, a mushroom hollow, a cenote under a shaft of
   daylight -- each its own palette, its own dressing on the walls and floor,

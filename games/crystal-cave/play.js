@@ -290,6 +290,7 @@ export const chamberFor = (n) => CHAMBERS[Math.floor((n - 1) / 5) % CHAMBERS.len
 export const lightsOut = (n) => n >= 15 && n % 10 === 5;
 const BEAM = { narrow: (11 * Math.PI) / 180, wide: (20 * Math.PI) / 180, dark: 0.9, dusk: 0.5 }; // the beam's two cones (half-angles) and how dark it is outside them
 const VIEW_H = SHOOT.y + 4.6 * R; // the board with the mole under it
+const NEXT = { x: SHOOT.x + 3.6, y: SHOOT.y + 1.1 }; // where the next crystal waits
 const FLY = 42; // the shot's speed (units per second)
 const FALL = 60; // how fast a dropped crystal picks up speed (units/s^2)
 const CREEP_T = 0.35; // the roof takes this long to come down a row (s)
@@ -378,67 +379,102 @@ export function paintStone(ctx, r) {
   ctx.stroke();
 }
 
-// The power-ups: a blast is a hot orange gem with a burst on it, a prism a
-// white gem with a rainbow across it, a drill a steel bit, point up.
-export function paintPower(ctx, kind, r) {
-  if (kind === 'blast') {
-    paintGem(ctx, POWER.blast, r);
-    ctx.strokeStyle = '#fff3c4';
-    ctx.lineWidth = r * 0.12;
-    for (let k = 0; k < 8; k++) {
-      const a = (k * Math.PI) / 4;
-      const len = k % 2 ? r * 0.42 : r * 0.6;
+// How each kind of crystal looks and behaves in the air: its colour (for
+// sparks), `paint(ctx, r)` drawing it about the origin, whether it turns to
+// the aim in flight and throws sparks as it goes, and the shake when it
+// lands. A kind the table doesn't know is painted loud (a magenta gem with
+// a question mark), never quietly as something else. Adding a kind to the
+// engine is adding its look here.
+export const LOOKS = {
+  gem: { colour: (c) => GEMS[c.colour], paint: (ctx, r, c) => paintGem(ctx, GEMS[c.colour], r) },
+  stone: { colour: () => STONE, paint: (ctx, r) => paintStone(ctx, r) },
+  // A blast: a hot orange gem with a burst on it; the cave shakes when it goes off.
+  blast: {
+    colour: () => POWER.blast,
+    shake: 0.5,
+    paint(ctx, r) {
+      paintGem(ctx, POWER.blast, r);
+      ctx.strokeStyle = '#fff3c4';
+      ctx.lineWidth = r * 0.12;
+      for (let k = 0; k < 8; k++) {
+        const a = (k * Math.PI) / 4;
+        const len = k % 2 ? r * 0.42 : r * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r * 0.15, Math.sin(a) * r * 0.15);
+        ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+        ctx.stroke();
+      }
+    },
+  },
+  // A prism: a white gem with a rainbow across it.
+  prism: {
+    colour: () => POWER.prism,
+    paint(ctx, r) {
+      paintGem(ctx, POWER.prism, r);
+      const band = ctx.createLinearGradient(-r * 0.7, r * 0.5, r * 0.7, -r * 0.5);
+      GEMS.slice(0, 5).forEach((c, k) => band.addColorStop(k / 4, c));
+      ctx.strokeStyle = band;
+      ctx.lineWidth = r * 0.26;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * r * 0.15, Math.sin(a) * r * 0.15);
-      ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+      ctx.moveTo(-r * 0.55, r * 0.4);
+      ctx.lineTo(r * 0.55, -r * 0.4);
       ctx.stroke();
-    }
-  } else if (kind === 'prism') {
-    paintGem(ctx, POWER.prism, r);
-    const band = ctx.createLinearGradient(-r * 0.7, r * 0.5, r * 0.7, -r * 0.5);
-    GEMS.slice(0, 5).forEach((c, k) => band.addColorStop(k / 4, c));
-    ctx.strokeStyle = band;
-    ctx.lineWidth = r * 0.26;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.55, r * 0.4);
-    ctx.lineTo(r * 0.55, -r * 0.4);
-    ctx.stroke();
-    ctx.lineCap = 'butt';
-  } else {
-    const halo = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 1.4);
-    halo.addColorStop(0, 'rgba(201,211,224,.55)');
-    halo.addColorStop(1, 'rgba(201,211,224,0)');
-    ctx.fillStyle = halo;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = POWER.drill;
-    ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.7, r * 0.3);
-    ctx.lineTo(r * 0.5, r * 0.9);
-    ctx.lineTo(-r * 0.5, r * 0.9);
-    ctx.lineTo(-r * 0.7, r * 0.3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(40,50,70,.6)';
-    ctx.lineWidth = r * 0.1;
-    for (let k = 0; k < 3; k++) {
+      ctx.lineCap = 'butt';
+    },
+  },
+  // A drill: a steel bit, point up, turning to the aim and throwing sparks as it bores.
+  drill: {
+    colour: () => POWER.drill,
+    spins: true,
+    sparks: true,
+    paint(ctx, r) {
+      const halo = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 1.4);
+      halo.addColorStop(0, 'rgba(201,211,224,.55)');
+      halo.addColorStop(1, 'rgba(201,211,224,0)');
+      ctx.fillStyle = halo;
       ctx.beginPath();
-      ctx.moveTo(-r * 0.5 + k * r * 0.15, r * (0.35 - k * 0.3));
-      ctx.lineTo(r * 0.5 - k * r * 0.15, r * (0.2 - k * 0.3));
-      ctx.stroke();
-    }
-    ctx.fillStyle = 'rgba(255,255,255,.6)';
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.15, -r * 0.6);
-    ctx.lineTo(-r * 0.4, r * 0.2);
-    ctx.lineTo(-r * 0.25, r * 0.2);
-    ctx.closePath();
-    ctx.fill();
-  }
-}
+      ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = POWER.drill;
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.7, r * 0.3);
+      ctx.lineTo(r * 0.5, r * 0.9);
+      ctx.lineTo(-r * 0.5, r * 0.9);
+      ctx.lineTo(-r * 0.7, r * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(40,50,70,.6)';
+      ctx.lineWidth = r * 0.1;
+      for (let k = 0; k < 3; k++) {
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.5 + k * r * 0.15, r * (0.35 - k * 0.3));
+        ctx.lineTo(r * 0.5 - k * r * 0.15, r * (0.2 - k * 0.3));
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.15, -r * 0.6);
+      ctx.lineTo(-r * 0.4, r * 0.2);
+      ctx.lineTo(-r * 0.25, r * 0.2);
+      ctx.closePath();
+      ctx.fill();
+    },
+  },
+};
+const UNKNOWN = {
+  colour: () => '#ff00ff',
+  paint(ctx, r, c) {
+    paintGem(ctx, '#ff00ff', r);
+    ctx.fillStyle = '#000';
+    ctx.font = `900 ${r * 1.2}px ${HUD.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', 0, r * 0.05);
+  },
+};
+export const lookOf = (crystal) => LOOKS[crystal.kind] ?? UNKNOWN;
 
 // The mole: a round brown fellow in a yellow hard hat with a headlamp,
 // pink nose, two eyes that look where he aims, drawn with his feet at the
@@ -562,14 +598,21 @@ export class Play {
     const [x, y] = this.toBoard(px, py);
     const dx = x - SHOOT.x;
     const dy = SHOOT.y - y;
-    if (dy < 0.5) return;
+    if (dy < 0.5) return false; // (below the catapult: nowhere to aim)
     this.aim = clamp(Math.atan2(dx, dy), -AIM_MAX, AIM_MAX);
+    return true;
   }
 
   // Is this point (CSS pixels) on the loaded crystal? (A tap there swaps.)
   onLoaded(px, py) {
     const [x, y] = this.toBoard(px, py);
     return Math.hypot(x - SHOOT.x, y - SHOOT.y) < R * 1.8;
+  }
+
+  // Or on the NEXT bucket? (A tap there swaps too: it's what players reach for.)
+  onNext(px, py) {
+    const [x, y] = this.toBoard(px, py);
+    return Math.hypot(x - NEXT.x, y - NEXT.y) < R * 1.8;
   }
 
   swap() {
@@ -579,7 +622,7 @@ export class Play {
   }
 
   fire(angle = this.aim) {
-    if (!this.ready) return null;
+    if (!this.ready || this.paused) return null;
     const before = cloneGame(this.game).cells;
     const ev = fire(this.game, angle);
     if (!ev) return null;
@@ -613,7 +656,7 @@ export class Play {
     if (ev.shattered.length) {
       this.hooks.sfx?.('shatter', ev.shattered.length);
       this.hooks.haptic?.(ev.shattered.length > 5 ? 40 : 20);
-      if (ev.crystal.kind === 'blast') this.shake = 0.5;
+      this.shake = Math.max(this.shake, lookOf(ev.crystal).shake ?? 0);
     } else if (ev.landed) this.hooks.sfx?.('stick');
     if (ev.paid) {
       this.paid = ev.paid;
@@ -647,10 +690,10 @@ export class Play {
     this.time += dt;
     if (this.flight) {
       this.flight.at += FLY * dt;
-      if (this.flight.crystal.kind === 'drill') {
-        // (A drill throws sparks as it bores.)
+      const look = lookOf(this.flight.crystal);
+      if (look.sparks) {
         const [x, y] = pointAlong(this.flight.path, this.flight.at);
-        for (let k = 0; k < 2; k++) this.sparks.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: 4 + Math.random() * 6, t: 0, life: 0.25 + Math.random() * 0.2, colour: k ? '#fff3c4' : POWER.drill });
+        for (let k = 0; k < 2; k++) this.sparks.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: 4 + Math.random() * 6, t: 0, life: 0.25 + Math.random() * 0.2, colour: k ? '#fff3c4' : look.colour(this.flight.crystal) });
       }
       if (this.flight.at >= this.flight.len) this.land();
     }
@@ -777,9 +820,7 @@ export class Play {
     const c = s.getContext('2d');
     c.scale(this.dpr, this.dpr);
     c.translate(size / 2, size / 2);
-    if (crystal.kind === 'gem') paintGem(c, GEMS[crystal.colour], r * 0.94);
-    else if (crystal.kind === 'stone') paintStone(c, r * 0.94);
-    else paintPower(c, crystal.kind, r * 0.94);
+    lookOf(crystal).paint(c, r * 0.94, crystal);
     s.size = size;
     this.sprites.set(key, s);
     return s;
@@ -840,7 +881,7 @@ export class Play {
     // The shot in flight.
     if (this.flight) {
       const [x, y] = pointAlong(this.flight.path, this.flight.at);
-      this.drawCrystal(ctx, this.flight.crystal, x, y, this.flight.crystal.kind === 'drill' ? this.aim : 0);
+      this.drawCrystal(ctx, this.flight.crystal, x, y, lookOf(this.flight.crystal).spins ? headingAlong(this.flight.path, this.flight.at) : 0);
     }
     if (this.dark && !this.outcome && !this.collapse) this.drawDark(ctx);
     this.drawBat(ctx);
@@ -1142,8 +1183,8 @@ export class Play {
     // The loaded crystal in the pouch (not while it flies).
     if (!this.flight && !this.outcome && !this.collapse) this.drawCrystal(ctx, this.game.loaded, SHOOT.x, SHOOT.y);
     // Next: in a little bucket to the right.
-    const nx = SHOOT.x + 3.6;
-    const ny = SHOOT.y + 1.1;
+    const nx = NEXT.x;
+    const ny = NEXT.y;
     ctx.fillStyle = '#5a4a3a';
     ctx.beginPath();
     ctx.moveTo(ox + (nx - 1.3) * scale, oy + (ny - 0.3) * scale);
@@ -1197,7 +1238,7 @@ export class Play {
     ctx.fillStyle = CAVE.dim;
     ctx.font = `600 ${Math.max(9, scale * 0.5)}px ${HUD.font}`;
     ctx.textAlign = 'center';
-    ctx.fillText(`CART ${n}/${CART}`, x, y + h / 2 + Math.max(12, scale * 0.9));
+    ctx.fillText(`CART ${n}/${CART}${this.game.owed ? ` +${this.game.owed}` : ''}`, x, y + h / 2 + Math.max(12, scale * 0.9));
     // A power-up just paid: a word about it over the bucket.
     if (this.paid) {
       const u = this.paidT < 0.3 ? this.paidT / 0.3 : this.paidT > 1.2 ? Math.max(0, (1.6 - this.paidT) / 0.4) : 1;
@@ -1232,12 +1273,26 @@ export class Play {
   }
 }
 
-const crystalColour = (crystal) => (crystal.kind === 'gem' ? GEMS[crystal.colour] : crystal.kind === 'stone' ? STONE : POWER[crystal.kind] ?? '#fff');
+const crystalColour = (crystal) => lookOf(crystal).colour(crystal);
 
 function pathLength(path) {
   let len = 0;
   for (let k = 1; k < path.length; k++) len += Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
   return len;
+}
+
+// The way a path is heading `at` units along it, as an angle from straight
+// up (positive to the right), so a drill points where it's going, off a
+// wall too.
+function headingAlong(path, at) {
+  for (let k = 1; k < path.length; k++) {
+    const dx = path[k][0] - path[k - 1][0];
+    const dy = path[k][1] - path[k - 1][1];
+    const d = Math.hypot(dx, dy);
+    if (at <= d || k === path.length - 1) return Math.atan2(dx, -dy);
+    at -= d;
+  }
+  return 0;
 }
 
 // The point `at` units along a path of points.

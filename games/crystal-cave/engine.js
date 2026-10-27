@@ -28,8 +28,8 @@ export const DEAD_ROW = 12; // a crystal in this row (or lower) is a cave-in
 export const SHOOT = { x: W / 2, y: (DEAD_ROW + 1.6) * ROW_H }; // where the shot starts
 export const H = SHOOT.y + 2 * R; // the board's height, for the view
 export const AIM_MAX = (78 * Math.PI) / 180; // the shot can't go flatter than this (from straight up)
-export const CART = 12; // crystals dropped to fill the cart, which pays a power-up
-export const POWERS = ['blast', 'prism', 'drill']; // the cart pays these in turn
+export const CART = 8; // crystals dropped to fill the cart, which pays a power-up
+export const POWERS = ['blast', 'prism', 'drill']; // the cart pays these in turn, each level starting one further round
 export const MATCH = 3; // this many of a colour touching shatter
 export const BASE_SEED = 20261027;
 export const SPEED = 0.5; // the shot moves this far per step when traced
@@ -144,9 +144,9 @@ export const KINDS = {
       return [...out.values()];
     },
   },
-  // Drill: flies straight (no bounce) and bores out everything on its line
-  // up to the roof.
-  drill: { bounces: false, stops: false, land: (cells, through) => through },
+  // Drill: doesn't stop at anything -- it bores out everything on its way,
+  // off the walls and all, up to the roof.
+  drill: { bounces: true, stops: false, land: (cells, through) => through },
 };
 
 // ------------------------------------------------------------------ the shot
@@ -241,13 +241,14 @@ export function specFor(n) {
     colours: Math.min(5, 3 + Math.floor(k / 8)),
     stones: n >= 6 ? Math.min(6, 1 + Math.floor((n - 6) / 5)) : 0,
     creep: Math.max(5, 10 - Math.floor(k / 6)), // the roof comes down a row every this many shots
-    par: 8 + Math.floor(0.8 * n), // the fewest shots a roof should take the computer miner (see makeLevel)
+    par: 6 + Math.floor(0.4 * Math.min(n, 30)), // the fewest shots a roof should take the computer miner (see makeLevel); roofs stop growing, so this stops at level 30
   };
 }
 
 // The shapes a roof can take: `has(row, c, rows)` says whether a cell is
 // part of the roof. Each gives the shot different surfaces to work at.
-// A roof's top row is always full, so there's something to hang from.
+// A shape's top row is always full, so there's something to hang from (a
+// picture hangs by its own top).
 const SHAPES = {
   block: () => true, // the solid slab
   teeth: (row, c) => row < 2 || (row % 2 ? c % 2 === 1 : c % 2 === 0), // stalactites, every other column
@@ -339,12 +340,12 @@ export function makeRoof(n, attempt = 0) {
 const parseCell = (ch) => (ch === '.' ? null : ch === 'S' ? { kind: 'stone' } : { kind: 'gem', colour: Number(ch) });
 
 // A fresh game of a level: the roof, the shot loaded and the next one
-// shown, the cart empty. The i-th crystal drawn is a colour still on the
-// roof, from the level's own seed, so the same shots always get the same
-// crystals.
+// shown, the cart empty (its first payout one further round the POWERS
+// each level). The i-th crystal drawn is a colour still on the roof, from
+// the level's own seed, so the same shots always get the same crystals.
 export function newGame(level) {
   const cells = level.rows.map((row) => [...row].map(parseCell));
-  const G = { cells, shift: 0, shots: 0, drawn: 0, dropped: 0, cart: 0, paid: 0, loaded: null, next: null, over: null, creep: level.creep, queue: level.queue };
+  const G = { cells, shift: 0, shots: 0, drawn: 0, dropped: 0, cart: 0, owed: 0, paid: ((level.n ?? 1) - 1) % POWERS.length, loaded: null, next: null, over: null, creep: level.creep, queue: level.queue };
   G.loaded = draw(G);
   G.next = draw(G);
   return G;
@@ -353,7 +354,7 @@ export function newGame(level) {
 function draw(G) {
   const colours = coloursOn(G.cells);
   const r = rng(seedFor(G.drawn++, G.queue));
-  if (!colours.length) return { kind: 'gem', colour: 0 };
+  if (!colours.length) return { kind: 'gem', colour: 0 }; // (nothing but prisms or stone left: any colour will do)
   return { kind: 'gem', colour: colours[Math.floor(r() * colours.length)] };
 }
 
@@ -392,8 +393,14 @@ export function fire(G, angle) {
   G.shots++;
   G.dropped += ev.dropped.length;
   G.cart += ev.dropped.length;
-  if (G.cart >= CART) {
+  // A cartful pays a power-up; a drop big enough for two pays one now and
+  // owes the other, paid on the next shot.
+  while (G.cart >= CART) {
     G.cart -= CART;
+    G.owed++;
+  }
+  if (G.owed) {
+    G.owed--;
     ev.paid = POWERS[G.paid++ % POWERS.length];
   }
   if (!G.cells.length) {
@@ -407,6 +414,9 @@ export function fire(G, angle) {
   }
   G.loaded = G.next;
   G.next = ev.paid ? { kind: ev.paid } : draw(G);
+  // (The crystal loaded was drawn a shot ago: if its colour has gone from
+  // the roof since, it's drawn again, so you're never handed a dead one.)
+  if (G.loaded.kind === 'gem' && !coloursOn(G.cells).includes(G.loaded.colour)) G.loaded = draw(G);
   return ev;
 }
 
@@ -469,10 +479,10 @@ export function solve(level, maxShots = 150) {
 // Level n: its roof re-rolled from the same seed (up to sixteen times) until
 // the computer miner clears it in a sensible number of shots for the level
 // -- not under spec.par, which would be a roof that falls at a touch, and
-// not over twice it -- and its shot count is par. If no
-// attempt lands in that band, the nearest one that clears is taken; if
-// none clears at all, the level ships anyway with a guessed par, and
-// `checked` false for the screen to say so.
+// not over twice it -- and its shot count is par. If no attempt lands in
+// that band, the nearest one that clears is taken (still proved, so still
+// `checked`); if none clears at all, the level ships anyway with a guessed
+// par, no solution, and `checked` false for the screen to say so.
 export function makeLevel(n) {
   const { par: want } = specFor(n);
   let best = null;

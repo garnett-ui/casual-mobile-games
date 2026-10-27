@@ -197,7 +197,7 @@ test('a prism with no group to finish stays put, and later counts as a gem\'s co
   assert.deepEqual(where(other.shattered), where([[2, 3], [1, 3], [0, 3]]));
 });
 
-test('a drill flies straight without bouncing and bores out the crystals on its line; what they held drops', () => {
+test('a drill stops at nothing: it bores out the crystals on its way, off the walls and all, up to the roof; what they held drops', () => {
   const rows = ['01201201', '2012012', '01.12201', '..0....'];
   // Straight up the middle it takes every crystal within reach of x = 8, to
   // the roof, landing nowhere; (3, 2) hung only from (2, 3), so it drops.
@@ -209,19 +209,15 @@ test('a drill flies straight without bouncing and bores out the crystals on its 
   assert.deepEqual(where(ev.dropped), where([[3, 2]]));
   assert.ok(ev.path.at(-1)[1] < 0, 'it went out through the roof');
   assert.equal(G.loaded.kind, 'gem', 'and the next crystal is up');
-  // At a wide angle a gem comes off the wall; a drill goes straight out the side.
+  // At a wide angle it comes off the wall like a gem and goes on boring
+  // (nothing spent on a shot that leaves through the side).
   for (const angle of [-1.2, -0.6, 0.6, 1.3]) {
-    const gemShot = trace(G.cells, 0, angle);
-    assert.ok(gemShot.path.some(([x]) => x === R || x === W - R), `a gem at ${angle} bounces`);
     const H = newGame(level(rows));
     H.loaded = { kind: 'drill' };
     const drill = fire(H, angle);
-    assert.ok(!drill.path.some(([x]) => x === R || x === W - R), `a drill at ${angle} never bounces: ${JSON.stringify(drill.path)}`);
-    const [x0, y0] = drill.path[0];
-    for (const [x, y] of drill.path.slice(1)) {
-      assert.ok(Math.abs((x - x0) - (y0 - y) * Math.tan(angle)) < 1e-6, `every point of the path is on one straight line at ${angle}`);
-    }
-    assert.ok(drill.path.at(-1)[0] < 0 || drill.path.at(-1)[0] > W, `it leaves through the side: ${drill.path.at(-1)}`);
+    assert.ok(drill.path.some(([x]) => x === R || x === W - R), `a drill at ${angle} bounces`);
+    assert.ok(drill.path.at(-1)[1] < 0, `and still leaves through the roof: ${drill.path.at(-1)}`);
+    assert.ok(drill.shattered.length >= 3, `boring out crystals on the way: ${drill.shattered.length}`);
     assert.equal(drill.landed, null);
   }
 });
@@ -274,26 +270,31 @@ test('shattering the last crystal clears the roof and ends the game', () => {
   assert.equal(fire(G, 0), null);
 });
 
-test('the crystal drawn is always a colour still on the roof', () => {
+test('the crystal drawn is always a colour still on the roof, and so is the one loaded', () => {
   // A roof of one colour deals only that colour.
   for (let queue = 1; queue <= 20; queue++) {
     const G = newGame({ ...level(['22222222']), queue });
     assert.deepEqual([G.loaded, G.next], [gem(2), gem(2)]);
   }
-  // Shatter the only 1s: whatever's drawn after is a 0.
+  // Shatter the only 1s: whatever's drawn after is a 0 -- and so is the
+  // crystal loaded, drawn again if the one waiting was a 1 (it was drawn a
+  // shot ago, before the 1s went).
   for (let queue = 1; queue <= 20; queue++) {
     const G = newGame({ ...level(['00011000']), queue });
     G.loaded = gem(1);
+    G.next = gem(1);
     fire(G, 0);
     assert.deepEqual(G.next, gem(0), `queue ${queue}`);
+    assert.deepEqual(G.loaded, gem(0), `queue ${queue}: loaded again`);
   }
-  // And through a whole game played by the computer miner.
+  // And through a whole game played by the computer miner: neither the
+  // crystal loaded nor the next is ever a colour gone from the roof.
   const G = newGame(makeRoof(4));
   while (!G.over && G.shots < 60) {
     fire(G, bestShot(G));
     if (G.over) break;
     const on = coloursOn(G.cells);
-    if (G.next.kind === 'gem') assert.ok(on.includes(G.next.colour), `shot ${G.shots}: drew ${G.next.colour}, roof has ${on}`);
+    for (const c of [G.loaded, G.next]) if (c.kind === 'gem') assert.ok(on.includes(c.colour), `shot ${G.shots}: holding ${c.colour}, roof has ${on}`);
   }
   assert.ok(G.shots >= 10, `a game of ${G.shots} shots`);
 });
@@ -334,7 +335,7 @@ test('dropping a cartful of crystals pays a power-up into next, each in turn', (
   // The pair at (0, 3) and (0, 4) holds up seven crystals each side (14 in all).
   const rows = ['00.11.00', '..2.2..', '222..222', '222.222'];
   const G = newGame(level(rows));
-  assert.equal(CART, 12);
+  assert.equal(CART, 8);
   const paid = [];
   for (let k = 0; k < 4; k++) {
     G.cells = newGame(level(rows)).cells;
@@ -343,10 +344,17 @@ test('dropping a cartful of crystals pays a power-up into next, each in turn', (
     assert.equal(ev.dropped.length, 14);
     paid.push(ev.paid);
     assert.deepEqual(G.next, { kind: ev.paid }, 'paid into next');
-    assert.equal(G.cart, 2 * (k + 1), 'what\'s over the cartful stays in the cart');
+    assert.equal(G.cart, (6 * (k + 1)) % CART, 'what\'s over the cartful stays in the cart');
+    assert.equal(G.owed, Math.floor((6 * (k + 1)) / CART), 'and a second cartful in one drop is owed, paid on the next shot');
   }
   assert.deepEqual(paid, [...POWERS, POWERS[0]]);
   assert.deepEqual(POWERS, ['blast', 'prism', 'drill']);
+  // Each level's first payout is one further round: level 2 starts at prism, level 3 at drill, level 4 at blast again.
+  for (const [n, first] of [[1, 'blast'], [2, 'prism'], [3, 'drill'], [4, 'blast'], [5, 'prism']]) {
+    const K = newGame({ ...level(rows), n });
+    K.loaded = gem(1);
+    assert.equal(fire(K, 0).paid, first, `level ${n} pays ${first} first`);
+  }
   // Short of a cartful, nothing is paid.
   const H = newGame(level(['00.11.00', '..2.2..']));
   H.loaded = gem(1);
