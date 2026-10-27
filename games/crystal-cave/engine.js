@@ -258,17 +258,34 @@ const SHAPES = {
 };
 const SHAPE_ORDER = ['block', 'vee', 'teeth', 'wings', 'pillars', 'arch'];
 
-// The roof for level n, attempt a: a shape of coloured crystals that lean
-// toward their neighbours' colours, so there are pairs and small clumps to
-// go for -- never more than four of a colour touching, so no roof falls at
-// a touch (a cell where every colour would make five is left empty) --
-// with a few stones set among them. Rows are strings, one
-// character a cell: a digit for a colour, S for stone, . for empty.
+// Every tenth level the roof is a picture, taken in turn from these: a
+// cell per character, # a crystal, rows as the grid has them (eight and
+// seven about), each hanging from the roof by its top. Eyes and mouths
+// are holes.
+export const PICTURES = {
+  heart: ['.##..##.', '#######', '########', '.#####.', '..####..', '...#...'],
+  star: ['...##...', '...#...', '########', '.#####.', '..####..', '.##.##.', '.#....#.'],
+  smiley: ['..####..', '.#####.', '##.##.##', '#######', '##....##', '.#####.', '..####..'],
+  diamond: ['...##...', '..###..', '.######.', '#######', '.######.', '..###..', '...##...'],
+  mole: ['##....##', '.#####.', '########', '##.#.##', '########', '..###..', '...##...'],
+};
+const PICTURE_ORDER = ['heart', 'star', 'smiley', 'diamond', 'mole'];
+export const pictureFor = (n) => (n >= 10 && n % 10 === 0 ? PICTURE_ORDER[(n / 10 - 1) % PICTURE_ORDER.length] : null);
+
+// The roof for level n, attempt a (a picture on every tenth): a shape of
+// coloured crystals that lean toward their neighbours' colours, so there
+// are pairs and small clumps to go for -- never more than four of a colour
+// touching, so no roof falls at a touch (a cell where every colour would
+// make five is left empty) -- with a few stones set among them. Rows are
+// strings, one character a cell: a digit for a colour, S for stone, . for
+// empty.
 export function makeRoof(n, attempt = 0) {
   const r = rng(seedFor(n * 16 + attempt, BASE_SEED));
   const spec = specFor(n);
-  const shape = n < 3 ? 'block' : SHAPE_ORDER[Math.floor(r() * SHAPE_ORDER.length)];
-  const has = SHAPES[shape];
+  const picture = pictureFor(n);
+  const shape = picture ? `picture:${picture}` : n < 3 ? 'block' : SHAPE_ORDER[Math.floor(r() * SHAPE_ORDER.length)];
+  const has = picture ? (row, c) => PICTURES[picture][row]?.[c] === '#' : SHAPES[shape];
+  const depth = picture ? PICTURES[picture].length : spec.rows;
   const rows = [];
   // How many of this colour would touch, with a crystal of it here (itself
   // included), among the cells placed so far.
@@ -277,11 +294,11 @@ export function makeRoof(n, attempt = 0) {
     grid[row][c] = { colour };
     return flood(grid, row, c, (cell) => cell.colour === colour).length;
   };
-  for (let row = 0; row < spec.rows; row++) {
+  for (let row = 0; row < depth; row++) {
     const cells = [];
     rows.push(cells);
     for (let c = 0; c < rowLen(row); c++) {
-      if (!has(row, c, spec.rows)) { cells.push(null); continue; }
+      if (!has(row, c, depth)) { cells.push(null); continue; }
       const above = row > 0 ? rows[row - 1] : null;
       // Lean on a neighbour already placed -- the one to the left, or one
       // above -- else any colour; never one that makes five.
@@ -305,7 +322,7 @@ export function makeRoof(n, attempt = 0) {
   // Stones go in below the top row, never two touching.
   for (let st = 0; st < spec.stones; st++) {
     for (let tries = 0; tries < 20; tries++) {
-      const row = 1 + Math.floor(r() * (spec.rows - 1));
+      const row = 1 + Math.floor(r() * (depth - 1));
       const c = Math.floor(r() * rowLen(row));
       if (typeof rows[row][c] !== 'number' || neighbours(row, c).some(([nr, nc]) => rows[nr]?.[nc] === 'S')) continue;
       rows[row][c] = 'S';

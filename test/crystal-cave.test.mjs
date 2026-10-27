@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   makeRoof, makeLevel, specFor, newGame, fire, swap, stars, bestShot,
   rowLen, cellX, cellY, inGrid, neighbours, filled, unsupported, coloursOn, trace, cloneGame,
-  COLS, R, ROW_H, W, DEAD_ROW, SHOOT, AIM_MAX, CART, POWERS, MATCH,
+  COLS, R, ROW_H, W, DEAD_ROW, SHOOT, AIM_MAX, CART, POWERS, MATCH, PICTURES, pictureFor,
 } from '../games/crystal-cave/engine.js';
 
 // A hand-made roof for the rule tests: rows as strings ('.' empty, 'S' stone,
@@ -360,9 +360,10 @@ test('a roof has a full top row, stones apart and below it, nothing hanging loos
       const roof = makeRoof(n, attempt);
       const tag = `level ${n} attempt ${attempt}`;
       assert.equal(roof.rows[0].length, COLS);
-      assert.ok(/^\d+$/.test(roof.rows[0]), `${tag}: top row full of gems (${roof.rows[0]})`);
+      // (A picture hangs by its own top; every other shape has a full top row.)
+      if (!pictureFor(n)) assert.ok(/^\d+$/.test(roof.rows[0]), `${tag}: top row full of gems (${roof.rows[0]})`);
       roof.rows.forEach((row, r) => assert.equal(row.length, rowLen(r), `${tag}: row ${r} is ${rowLen(r)} long`));
-      assert.ok(roof.rows.length <= specFor(n).rows);
+      if (!pictureFor(n)) assert.ok(roof.rows.length <= specFor(n).rows);
       const G = newGame(roof);
       assert.deepEqual(unsupported(G.cells), [], `${tag}: nothing hangs in the air`);
       for (const [r, c] of filled(G.cells)) {
@@ -396,6 +397,27 @@ test('no roof has five of a colour touching', () => {
         assert.ok(size <= 4, `level ${n} attempt ${attempt}: ${size} of colour ${G.cells[r][c].colour} touching at (${r}, ${c})`);
       }
     }
+  }
+});
+
+test('every tenth level is a picture, taken in turn, and the roof is that picture', () => {
+  assert.equal(pictureFor(1), null);
+  assert.equal(pictureFor(9), null);
+  assert.deepEqual([10, 20, 30, 40, 50, 60].map(pictureFor), ['heart', 'star', 'smiley', 'diamond', 'mole', 'heart']);
+  for (const n of [10, 20, 30, 40, 50]) {
+    const roof = makeRoof(n);
+    const mask = PICTURES[pictureFor(n)];
+    assert.equal(roof.shape, `picture:${pictureFor(n)}`);
+    assert.equal(roof.rows.length, mask.length, `level ${n}: as many rows as the picture`);
+    // A crystal (or stone) wherever the picture has one, nothing elsewhere.
+    roof.rows.forEach((row, r) => [...row].forEach((ch, c) => assert.equal(ch !== '.', mask[r][c] === '#', `level ${n} (${r}, ${c}): '${ch}' against '${mask[r][c]}'`)));
+    assert.equal(unsupported(newGame(roof).cells).length, 0, `level ${n}: the picture hangs together`);
+  }
+  // Every picture's cells all hang from the roof, whatever the colours.
+  for (const [name, mask] of Object.entries(PICTURES)) {
+    const cells = mask.map((row) => [...row].map((ch) => (ch === '#' ? { kind: 'gem', colour: 0 } : null)));
+    assert.equal(unsupported(cells).length, 0, `${name} hangs together`);
+    mask.forEach((row, r) => assert.equal(row.length, rowLen(r), `${name} row ${r} is the grid's width`));
   }
 });
 

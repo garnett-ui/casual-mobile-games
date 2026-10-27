@@ -19,6 +19,9 @@ const FLY = 42; // the shot's speed (units per second)
 const FALL = 60; // how fast a dropped crystal picks up speed (units/s^2)
 const CREEP_T = 0.35; // the roof takes this long to come down a row (s)
 const SPARKS = 10; // sparks a shattered crystal throws
+const PARTY = { gems: 70, spread: 30, card: 1.4 }; // the roof cleared: gems showering from this far above, and the card after this long (s)
+const HOP = { t: 0.5, h: 0.9 }; // the mole's jump: how long (s) and how high (units)
+const YAWN = { t: 1.6 }; // the bat's yawn (s)
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
@@ -254,6 +257,9 @@ export class Play {
     this.time = 0;
     this.paid = null; // a power-up just paid, for a moment's notice
     this.paidT = 0;
+    this.hop = 0; // the mole's jump for joy, seconds since
+    this.party = null; // the roof cleared: { t, gems } -- a shower of gems and the banner
+    this.yawn = 0; // the bat's yawn, seconds since
   }
 
   // Watch the computer miner do it, from the start.
@@ -329,10 +335,12 @@ export class Play {
     if (ev.shattered.length) {
       this.hooks.sfx?.('shatter', ev.shattered.length);
       this.hooks.haptic?.(ev.shattered.length > 5 ? 40 : 20);
+      if (ev.crystal.kind === 'blast') this.shake = 0.5;
     } else if (ev.landed) this.hooks.sfx?.('stick');
     if (ev.paid) {
       this.paid = ev.paid;
       this.paidT = 0;
+      this.hop = 0.001;
       this.hooks.sfx?.('cartfull');
     }
     if (ev.crept) this.creeping = { from: this.shift, t: 0 };
@@ -343,10 +351,17 @@ export class Play {
       this.hooks.haptic?.([60, 40, 80]);
     }
     if (ev.over === 'cleared') {
+      // The celebration: a shower of gems from the roof, the banner, the
+      // mole jumping, the bat waking; the card comes after.
       this.outcome = 'cleared';
+      this.party = { t: 0, gems: [] };
+      for (let k = 0; k < PARTY.gems; k++) {
+        this.party.gems.push({ x: Math.random() * W, y: -R - Math.random() * PARTY.spread, vx: (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 6, spin: (Math.random() - 0.5) * 10, a: 0, crystal: { kind: 'gem', colour: Math.floor(Math.random() * 5) }, size: 0.45 + Math.random() * 0.4 });
+      }
+      this.hop = 0.001;
+      this.yawn = 0.001;
       this.hooks.sfx?.('win');
       this.hooks.haptic?.(40);
-      this.hooks.onCleared?.({ shots: this.game.shots, par: this.level.par });
     }
   }
 
@@ -354,6 +369,11 @@ export class Play {
     this.time += dt;
     if (this.flight) {
       this.flight.at += FLY * dt;
+      if (this.flight.crystal.kind === 'drill') {
+        // (A drill throws sparks as it bores.)
+        const [x, y] = pointAlong(this.flight.path, this.flight.at);
+        for (let k = 0; k < 2; k++) this.sparks.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: 4 + Math.random() * 6, t: 0, life: 0.25 + Math.random() * 0.2, colour: k ? '#fff3c4' : POWER.drill });
+      }
       if (this.flight.at >= this.flight.len) this.land();
     }
     if (this.creeping) {
@@ -387,6 +407,21 @@ export class Play {
     if (this.paid) {
       this.paidT += dt;
       if (this.paidT > 1.6) this.paid = null;
+    }
+    if (this.hop) this.hop = this.hop + dt > HOP.t ? 0 : this.hop + dt;
+    if (this.yawn) this.yawn = this.yawn + dt > YAWN.t ? 0 : this.yawn + dt;
+    if (this.party) {
+      this.party.t += dt;
+      for (const g of this.party.gems) {
+        g.vy += FALL * 0.4 * dt;
+        g.x += g.vx * dt;
+        g.y += g.vy * dt;
+        g.a += g.spin * dt;
+      }
+      if (this.party.t > PARTY.card && !this.party.told) {
+        this.party.told = true;
+        this.hooks.onCleared?.({ shots: this.game.shots, par: this.level.par });
+      }
     }
     if (this.collapse) {
       this.collapse.t += dt;
@@ -540,13 +575,127 @@ export class Play {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+    if (this.party) {
+      for (const g of this.party.gems) if (g.y > -R) this.drawCrystal(ctx, g.crystal, g.x, g.y, g.a, g.size);
+    }
     // The shot in flight.
     if (this.flight) {
       const [x, y] = pointAlong(this.flight.path, this.flight.at);
       this.drawCrystal(ctx, this.flight.crystal, x, y, this.flight.crystal.kind === 'drill' ? this.aim : 0);
     }
+    this.drawBat(ctx);
     this.drawMole(ctx);
+    if (this.party) this.drawBanner(ctx);
     this.drawHud(ctx);
+    ctx.restore();
+  }
+
+  // ROOF CLEARED! swelling in over the board, then holding.
+  drawBanner(ctx) {
+    const { cssW, cssH } = this;
+    const t = this.party.t;
+    // (In quick, out again as the card comes.)
+    const u = ease(Math.min(1, t / 0.25)) * (t > PARTY.card - 0.3 ? Math.max(0, (PARTY.card - t) / 0.3) : 1);
+    if (u <= 0) return;
+    const size = Math.min(cssW * 0.11, 44) * (0.6 + 0.4 * u) * (1 + 0.04 * Math.sin(t * 6));
+    ctx.save();
+    ctx.globalAlpha = u;
+    ctx.font = `900 ${size}px ${HUD.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = size * 0.18;
+    ctx.strokeStyle = 'rgba(40,20,70,.85)';
+    ctx.strokeText('ROOF CLEARED!', cssW / 2, cssH * 0.38);
+    ctx.fillStyle = '#fff3c4';
+    ctx.fillText('ROOF CLEARED!', cssW / 2, cssH * 0.38);
+    ctx.restore();
+  }
+
+  // The bat, hanging from a ledge on the right wall above the line, who
+  // yawns when the roof is cleared (a wing stretch and a wide mouth).
+  drawBat(ctx) {
+    const { scale, ox, oy } = this;
+    const r = R * scale * 1.4;
+    const x = ox + (W - 1.0 * R) * scale;
+    const y = oy + (cellY(DEAD_ROW - 1) - 3.2 * R) * scale;
+    // The ledge: a knob of rock out of the wall.
+    ctx.fillStyle = CAVE.rock;
+    ctx.beginPath();
+    ctx.moveTo(x + r * 1.4, y - r * 0.7);
+    ctx.lineTo(x + r * 0.3, y - r * 0.55);
+    ctx.lineTo(x - r * 0.6, y - r * 0.3);
+    ctx.lineTo(x - r * 0.75, y + r * 0.05);
+    ctx.lineTo(x - r * 0.3, y + r * 0.2);
+    ctx.lineTo(x + r * 1.4, y + r * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = CAVE.edge;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    const yawn = this.yawn ? Math.sin((this.yawn / YAWN.t) * Math.PI) : 0; // 0..1..0
+    const sway = Math.sin(this.time * 1.3) * 0.06;
+    ctx.save();
+    ctx.translate(x - r * 0.1, y + r * 0.15);
+    ctx.rotate(sway);
+    // Feet, then the body hanging below them, wings folded (or spread).
+    ctx.strokeStyle = '#2a1a3a';
+    ctx.lineWidth = r * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.15, 0);
+    ctx.lineTo(-r * 0.15, r * 0.25);
+    ctx.moveTo(r * 0.15, 0);
+    ctx.lineTo(r * 0.15, r * 0.25);
+    ctx.stroke();
+    ctx.fillStyle = '#5a4080';
+    for (const sgn of [-1, 1]) {
+      // A wing: folded down the body, or stretched out wide in a yawn.
+      const spread = yawn;
+      ctx.beginPath();
+      ctx.moveTo(sgn * r * 0.25, r * 0.35);
+      ctx.quadraticCurveTo(sgn * r * (0.45 + 0.8 * spread), r * (0.2 + 0.2 * spread), sgn * r * (0.5 + 1.1 * spread), r * (0.9 - 0.5 * spread));
+      ctx.quadraticCurveTo(sgn * r * (0.4 + 0.6 * spread), r * (1.1 - 0.1 * spread), sgn * r * 0.2, r * 1.15);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = '#7a5aa8';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.75, r * 0.3, r * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#a088c8';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.62, r * 0.17, r * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Ears (pointing down, he's upside down), eyes shut unless yawning,
+    // and the yawn itself.
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.22, r * 1.1);
+    ctx.lineTo(-r * 0.3, r * 1.4);
+    ctx.lineTo(-r * 0.05, r * 1.2);
+    ctx.moveTo(r * 0.22, r * 1.1);
+    ctx.lineTo(r * 0.3, r * 1.4);
+    ctx.lineTo(r * 0.05, r * 1.2);
+    ctx.fill();
+    ctx.strokeStyle = '#1b1020';
+    ctx.lineWidth = r * 0.07;
+    if (yawn > 0.2) {
+      ctx.fillStyle = '#ffe9a8';
+      for (const sgn of [-1, 1]) {
+        ctx.beginPath();
+        ctx.arc(sgn * r * 0.11, r * 1.0, r * 0.05, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#ff8fb0';
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.82, r * 0.08, r * 0.1 * yawn + 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.17, r * 1.0);
+      ctx.lineTo(-r * 0.05, r * 1.0);
+      ctx.moveTo(r * 0.05, r * 1.0);
+      ctx.lineTo(r * 0.17, r * 1.0);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -641,9 +790,11 @@ export class Play {
     ctx.stroke();
     ctx.lineCap = 'butt';
     ctx.restore();
-    // The mole behind it, looking where he aims.
+    // The mole behind it, looking where he aims -- and jumping for joy
+    // when the cart's full or the roof's cleared.
+    const hop = this.hop ? Math.sin((this.hop / HOP.t) * Math.PI) * HOP.h * r : 0;
     ctx.save();
-    ctx.translate(sx, sy + r * 2.9);
+    ctx.translate(sx, sy + r * 2.9 - hop);
     paintMole(ctx, r * 0.95, this.aim / AIM_MAX);
     ctx.restore();
     // The loaded crystal in the pouch (not while it flies).
@@ -711,7 +862,7 @@ export class Play {
       ctx.globalAlpha = u;
       ctx.fillStyle = '#fff3c4';
       ctx.font = `800 ${Math.max(12, scale * 0.8)}px ${HUD.font}`;
-      ctx.fillText(`CART FULL · ${this.paid.toUpperCase()}!`, ox + (W / 2) * scale, oy + (SHOOT.y - 2.6) * scale);
+      ctx.fillText(`CART FULL · ${this.paid.toUpperCase()}!`, ox + (W / 2) * scale, oy + (SHOOT.y - 4.4) * scale);
       ctx.globalAlpha = 1;
     }
   }

@@ -247,7 +247,7 @@ export function mount(root, ctx, sub) {
     showDialog(root.querySelector('.dialog'), ctx, {
       title: got === 3 ? 'Roof cleared!' : got === 2 ? 'Cleared!' : 'All down',
       stars: got,
-      text: `<b>${res.shots} shots</b>, ${vs} (the computer miner’s ${par}).
+      text: `<b>${res.shots} shot${res.shots === 1 ? '' : 's'}</b>, ${vs} (the computer miner’s ${par}).
         ${got < 3 ? '<br><small>Three stars: clear the roof in the computer miner’s number of shots or fewer.</small>' : ''}`,
       buttons: [
         { label: 'Play again', act: 'replay', run: () => {
@@ -287,7 +287,7 @@ export function mount(root, ctx, sub) {
     ctx.track('crystal_cave_demo', { level: n, shots: res.shots });
     showDialog(root.querySelector('.dialog'), ctx, {
       title: 'That’s how it’s done',
-      text: `The computer miner cleared the roof in <b>${res.shots} shots</b>. Your turn!`,
+      text: `The computer miner cleared the roof in <b>${res.shots} shot${res.shots === 1 ? '' : 's'}</b>. Your turn!`,
       buttons: [
         { label: 'Watch again', act: 'showme', run: () => {
           root.querySelector('.dialog').hidden = true;
