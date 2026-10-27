@@ -1,0 +1,761 @@
+// Crystal Cave in play: the drawing (the cave walls and the rock the roof
+// hangs from, which comes down as the roof creeps; the crystals as faceted
+// gems with a glow, drawn once each to a sprite; stone, and the power-ups the
+// cart pays; the mole in his hard hat with the catapult, his headlamp lighting
+// the way; the cart; the line at the bottom), the aim and its dotted guide,
+// the shot in flight, the shatter and the fall into the cart, a cave-in, and
+// the roof cleared. The engine holds the game; this only shows it.
+import { newGame, fire, swap, trace, cloneGame, KINDS, W, H, R, ROW_H, DEAD_ROW, SHOOT, AIM_MAX, CART, cellX, cellY } from './engine.js';
+
+// The colours of the crystals, by colour number: ruby, amber, emerald,
+// sapphire, amethyst, citrine.
+export const GEMS = ['#ff4f7d', '#ffb13b', '#3ddc84', '#3fa9ff', '#b06bff', '#f6e94b'];
+const STONE = '#8a8794';
+const POWER = { blast: '#ff6b3b', prism: '#ffffff', drill: '#c9d3e0' };
+const CAVE = { far: '#2c1f44', near: '#4a3368', rock: '#5b4a78', edge: '#7c68a3', lamp: 'rgba(255,220,140,.22)', ink: '#f3eaff', dim: 'rgba(243,234,255,.55)', line: '#ff6b7b' };
+const HUD = { h: 30, font: 'ui-monospace, Menlo, Consolas, monospace' };
+const VIEW_H = SHOOT.y + 4.6 * R; // the board with the mole under it
+const FLY = 42; // the shot's speed (units per second)
+const FALL = 60; // how fast a dropped crystal picks up speed (units/s^2)
+const CREEP_T = 0.35; // the roof takes this long to come down a row (s)
+const SPARKS = 10; // sparks a shattered crystal throws
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+
+// A six-sided gem, pointy-top, in the colour, with a lighter top-left
+// facet, a darker bottom-right, and a highlight: the one picture of a
+// crystal, drawn at radius r about (0, 0).
+export function paintGem(ctx, colour, r, glow = true) {
+  const pts = [];
+  for (let k = 0; k < 6; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 3;
+    pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  if (glow) {
+    const halo = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 1.45);
+    halo.addColorStop(0, colour + 'aa');
+    halo.addColorStop(1, colour + '00');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.45, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.beginPath();
+  pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.fillStyle = colour;
+  ctx.fill();
+  // Facets: the top-left three catch the lamp, the bottom-right fall away.
+  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(...pts[5]);
+  ctx.lineTo(...pts[0]);
+  ctx.lineTo(...pts[1]);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(...pts[2]);
+  ctx.lineTo(...pts[3]);
+  ctx.lineTo(...pts[4]);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.lineWidth = r * 0.08;
+  ctx.beginPath();
+  pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.3, -r * 0.42, r * 0.18, r * 0.1, -0.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// A lump of stone: grey, rounded, a crack across it.
+export function paintStone(ctx, r) {
+  ctx.fillStyle = STONE;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.9, -r * 0.3);
+  ctx.quadraticCurveTo(-r * 0.6, -r, r * 0.2, -r * 0.9);
+  ctx.quadraticCurveTo(r, -r * 0.7, r * 0.92, r * 0.1);
+  ctx.quadraticCurveTo(r * 0.8, r * 0.95, -r * 0.1, r * 0.92);
+  ctx.quadraticCurveTo(-r, r * 0.8, -r * 0.9, -r * 0.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.14)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.25, -r * 0.35, r * 0.4, r * 0.25, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.35)';
+  ctx.lineWidth = r * 0.09;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.5, r * 0.1);
+  ctx.lineTo(-r * 0.1, r * 0.35);
+  ctx.lineTo(r * 0.2, r * 0.15);
+  ctx.lineTo(r * 0.55, r * 0.5);
+  ctx.stroke();
+}
+
+// The power-ups: a blast is a hot orange gem with a burst on it, a prism a
+// white gem with a rainbow across it, a drill a steel bit, point up.
+export function paintPower(ctx, kind, r) {
+  if (kind === 'blast') {
+    paintGem(ctx, POWER.blast, r);
+    ctx.strokeStyle = '#fff3c4';
+    ctx.lineWidth = r * 0.12;
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4;
+      const len = k % 2 ? r * 0.42 : r * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.15, Math.sin(a) * r * 0.15);
+      ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+      ctx.stroke();
+    }
+  } else if (kind === 'prism') {
+    paintGem(ctx, POWER.prism, r);
+    const band = ctx.createLinearGradient(-r * 0.7, r * 0.5, r * 0.7, -r * 0.5);
+    GEMS.slice(0, 5).forEach((c, k) => band.addColorStop(k / 4, c));
+    ctx.strokeStyle = band;
+    ctx.lineWidth = r * 0.26;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.55, r * 0.4);
+    ctx.lineTo(r * 0.55, -r * 0.4);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  } else {
+    const halo = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 1.4);
+    halo.addColorStop(0, 'rgba(201,211,224,.55)');
+    halo.addColorStop(1, 'rgba(201,211,224,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = POWER.drill;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r * 0.7, r * 0.3);
+    ctx.lineTo(r * 0.5, r * 0.9);
+    ctx.lineTo(-r * 0.5, r * 0.9);
+    ctx.lineTo(-r * 0.7, r * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40,50,70,.6)';
+    ctx.lineWidth = r * 0.1;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.5 + k * r * 0.15, r * (0.35 - k * 0.3));
+      ctx.lineTo(r * 0.5 - k * r * 0.15, r * (0.2 - k * 0.3));
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.6)';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.15, -r * 0.6);
+    ctx.lineTo(-r * 0.4, r * 0.2);
+    ctx.lineTo(-r * 0.25, r * 0.2);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// The mole: a round brown fellow in a yellow hard hat with a headlamp,
+// pink nose, two eyes that look where he aims, drawn with his feet at the
+// origin, r his body's radius.
+export function paintMole(ctx, r, look = 0) {
+  ctx.fillStyle = '#6b4a3a';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.9, r, r * 0.95, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#8b6a56';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.7, r * 0.62, r * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Hands up on the catapult.
+  ctx.fillStyle = '#e8b89a';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * r * 0.95, -r * 1.3, r * 0.22, r * 0.17, s * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Eyes, looking where he aims, and the nose.
+  ctx.fillStyle = '#1b1020';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * r * 0.3 + look * r * 0.12, -r * 1.05, r * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#ff8fb0';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.78, r * 0.2, r * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.06, -r * 0.83, r * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+  // The hard hat and its lamp.
+  ctx.fillStyle = '#ffcf3b';
+  ctx.beginPath();
+  ctx.arc(0, -r * 1.35, r * 0.78, Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(-r * 0.95, -r * 1.42, r * 1.9, r * 0.14);
+  ctx.fillStyle = '#e0a800';
+  ctx.fillRect(-r * 0.1, -r * 2.1, r * 0.2, r * 0.7);
+  ctx.fillStyle = '#fff6c8';
+  ctx.beginPath();
+  ctx.arc(0, -r * 1.75, r * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+export class Play {
+  constructor(canvas, level, hooks) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.level = level;
+    this.hooks = hooks;
+    this.paused = false;
+    this.timeScale = 1; // the browser tests fast-forward
+    this.sprites = new Map();
+    this.reset();
+    this.resize();
+    this.last = performance.now();
+    const loop = (now) => {
+      // (A first frame's time can be from just before the constructor ran.)
+      const dt = clamp((now - this.last) / 1000, 0, 0.05) * this.timeScale;
+      this.last = now;
+      if (!this.paused) this.update(dt);
+      this.draw();
+      this.raf = requestAnimationFrame(loop);
+    };
+    this.raf = requestAnimationFrame(loop);
+  }
+
+  // A fresh go at the level.
+  reset() {
+    this.game = newGame(this.level);
+    this.shown = this.game.cells; // what's drawn: the roof before the shot, until it lands
+    this.aim = 0;
+    this.aiming = false;
+    this.flight = null; // the shot on its way: { path, at, crystal, ev, before }
+    this.sparks = [];
+    this.falling = [];
+    this.shift = 0; // the roof as drawn, easing toward the game's
+    this.creeping = null; // { from, t }
+    this.outcome = null; // 'cleared' | 'cavein', once the picture has caught up
+    this.collapse = null; // the cave-in: every crystal falling
+    this.shake = 0;
+    this.demo = false; // SHOW ME: the computer miner's run
+    this.demoAt = 0;
+    this.demoWait = 0;
+    this.time = 0;
+    this.paid = null; // a power-up just paid, for a moment's notice
+    this.paidT = 0;
+  }
+
+  // Watch the computer miner do it, from the start.
+  showMe() {
+    this.reset();
+    this.demo = true;
+    this.demoWait = 0.6;
+  }
+
+  destroy() {
+    cancelAnimationFrame(this.raf);
+  }
+
+  // Can a shot be fired now?
+  get ready() {
+    return !this.flight && !this.creeping && !this.outcome && !this.collapse && !this.game.over;
+  }
+
+  // Aim at a point on the canvas (CSS pixels): the angle from the catapult
+  // to it, within the arc.
+  aimAt(px, py) {
+    const [x, y] = this.toBoard(px, py);
+    const dx = x - SHOOT.x;
+    const dy = SHOOT.y - y;
+    if (dy < 0.5) return;
+    this.aim = clamp(Math.atan2(dx, dy), -AIM_MAX, AIM_MAX);
+  }
+
+  // Is this point (CSS pixels) on the loaded crystal? (A tap there swaps.)
+  onLoaded(px, py) {
+    const [x, y] = this.toBoard(px, py);
+    return Math.hypot(x - SHOOT.x, y - SHOOT.y) < R * 1.8;
+  }
+
+  swap() {
+    if (!this.ready) return;
+    swap(this.game);
+    this.hooks.sfx?.('tap');
+  }
+
+  fire(angle = this.aim) {
+    if (!this.ready) return null;
+    const before = cloneGame(this.game).cells;
+    const ev = fire(this.game, angle);
+    if (!ev) return null;
+    this.shown = before;
+    this.flight = { path: ev.path, at: 0, crystal: ev.crystal, ev, before, len: pathLength(ev.path) };
+    this.hooks.sfx?.('twang');
+    this.hooks.haptic?.(15);
+    this.hooks.onShot?.(this.game.shots);
+    return ev;
+  }
+
+  // The shot has arrived: the roof as the engine has it, the shatter, the
+  // fall, and the roof's creep if it crept.
+  land() {
+    const { ev } = this.flight;
+    this.flight = null;
+    this.shown = this.game.cells;
+    const shift = this.game.shift - (ev.crept ? 1 : 0);
+    for (const [r, c, crystal] of ev.shattered) {
+      const x = cellX(r, c);
+      const y = cellY(r, shift);
+      for (let k = 0; k < SPARKS; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const v = 4 + Math.random() * 10;
+        this.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 4, t: 0, life: 0.35 + Math.random() * 0.3, colour: crystalColour(crystal) });
+      }
+    }
+    for (const [r, c, crystal] of ev.dropped) {
+      this.falling.push({ x: cellX(r, c), y: cellY(r, shift), vx: (Math.random() - 0.5) * 3, vy: -2 - Math.random() * 3, spin: (Math.random() - 0.5) * 8, a: 0, crystal, t: 0 });
+    }
+    if (ev.shattered.length) {
+      this.hooks.sfx?.('shatter', ev.shattered.length);
+      this.hooks.haptic?.(ev.shattered.length > 5 ? 40 : 20);
+    } else if (ev.landed) this.hooks.sfx?.('stick');
+    if (ev.paid) {
+      this.paid = ev.paid;
+      this.paidT = 0;
+      this.hooks.sfx?.('cartfull');
+    }
+    if (ev.crept) this.creeping = { from: this.shift, t: 0 };
+    if (ev.over === 'cavein') {
+      this.collapse = { t: 0, cells: this.game.cells.map((row, r) => row.map((cell, c) => (cell ? { crystal: cell, x: cellX(r, c), y: cellY(r, this.game.shift), vy: -1 - Math.random() * 2, delay: Math.random() * 0.25 } : null)).filter(Boolean)).flat() };
+      this.shake = 1;
+      this.hooks.sfx?.('rumble');
+      this.hooks.haptic?.([60, 40, 80]);
+    }
+    if (ev.over === 'cleared') {
+      this.outcome = 'cleared';
+      this.hooks.sfx?.('win');
+      this.hooks.haptic?.(40);
+      this.hooks.onCleared?.({ shots: this.game.shots, par: this.level.par });
+    }
+  }
+
+  update(dt) {
+    this.time += dt;
+    if (this.flight) {
+      this.flight.at += FLY * dt;
+      if (this.flight.at >= this.flight.len) this.land();
+    }
+    if (this.creeping) {
+      this.creeping.t += dt;
+      const u = ease(this.creeping.t / CREEP_T);
+      this.shift = this.creeping.from + u;
+      if (u >= 1) {
+        this.shift = this.game.shift;
+        this.creeping = null;
+      }
+    }
+    for (const s of this.sparks) {
+      s.t += dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy += 20 * dt;
+    }
+    this.sparks = this.sparks.filter((s) => s.t < s.life);
+    for (const f of this.falling) {
+      f.t += dt;
+      f.vy += FALL * dt;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      f.a += f.spin * dt;
+      if (f.y > H + R && !f.done) {
+        f.done = true;
+        this.hooks.sfx?.('clink');
+      }
+    }
+    this.falling = this.falling.filter((f) => f.y < H + 3 * R);
+    if (this.paid) {
+      this.paidT += dt;
+      if (this.paidT > 1.6) this.paid = null;
+    }
+    if (this.collapse) {
+      this.collapse.t += dt;
+      for (const c of this.collapse.cells) {
+        if (this.collapse.t < c.delay) continue;
+        c.vy += FALL * dt;
+        c.y += c.vy * dt;
+      }
+      if (this.collapse.t > 1.2 && !this.outcome) {
+        this.outcome = 'cavein';
+        this.hooks.onCaveIn?.({ shots: this.game.shots });
+      }
+    }
+    this.shake = Math.max(0, this.shake - dt * 1.6);
+    // The demo: the computer miner's shots, one after another as each lands.
+    if (this.demo && this.ready) {
+      this.demoWait -= dt;
+      if (this.demoWait <= 0) {
+        const angle = this.level.solution[this.demoAt++];
+        if (angle === undefined) this.demo = false;
+        else {
+          this.aim = angle;
+          this.fire(angle);
+          this.demoWait = 0.45;
+        }
+      }
+    }
+  }
+
+  // --------------------------------------------------------------- drawing
+
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    this.cssW = Math.max(1, rect.width);
+    this.cssH = Math.max(1, rect.height);
+    this.dpr = dpr;
+    this.canvas.width = Math.round(this.cssW * dpr);
+    this.canvas.height = Math.round(this.cssH * dpr);
+    // The board fits under the instrument band, centred across, the roof
+    // close under the band (what's left over goes under the mole).
+    const top = HUD.h;
+    this.scale = Math.min(this.cssW / W, (this.cssH - top) / VIEW_H);
+    this.ox = (this.cssW - W * this.scale) / 2;
+    this.oy = top + Math.min(R * this.scale, (this.cssH - top - VIEW_H * this.scale) / 2);
+    this.sprites.clear();
+  }
+
+  toBoard(px, py) {
+    return [(px - this.ox) / this.scale, (py - this.oy) / this.scale];
+  }
+
+  // A crystal's picture at the board's scale, drawn once and kept.
+  sprite(crystal) {
+    const key = crystal.kind === 'gem' ? `g${crystal.colour}` : crystal.kind;
+    let s = this.sprites.get(key);
+    if (s) return s;
+    const r = R * this.scale;
+    const size = Math.ceil(r * 3.2);
+    s = document.createElement('canvas');
+    s.width = s.height = Math.round(size * this.dpr);
+    const c = s.getContext('2d');
+    c.scale(this.dpr, this.dpr);
+    c.translate(size / 2, size / 2);
+    if (crystal.kind === 'gem') paintGem(c, GEMS[crystal.colour], r * 0.94);
+    else if (crystal.kind === 'stone') paintStone(c, r * 0.94);
+    else paintPower(c, crystal.kind, r * 0.94);
+    s.size = size;
+    this.sprites.set(key, s);
+    return s;
+  }
+
+  drawCrystal(ctx, crystal, x, y, angle = 0, scale = 1) {
+    const s = this.sprite(crystal);
+    ctx.save();
+    ctx.translate(this.ox + x * this.scale, this.oy + y * this.scale);
+    if (angle) ctx.rotate(angle);
+    if (scale !== 1) ctx.scale(scale, scale);
+    ctx.drawImage(s, -s.size / 2, -s.size / 2, s.size, s.size);
+    ctx.restore();
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    const { cssW, cssH, scale, ox, oy } = this;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.save();
+    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * 8 * this.shake, (Math.random() - 0.5) * 8 * this.shake);
+    // The cave: a dark far wall, lit warmly from the mole's lamp below.
+    ctx.fillStyle = CAVE.far;
+    ctx.fillRect(-10, -10, cssW + 20, cssH + 20);
+    const lamp = ctx.createRadialGradient(ox + SHOOT.x * scale, oy + SHOOT.y * scale, 10, ox + SHOOT.x * scale, oy + SHOOT.y * scale, H * scale * 0.95);
+    lamp.addColorStop(0, 'rgba(255,214,130,.3)');
+    lamp.addColorStop(0.5, 'rgba(255,190,120,.08)');
+    lamp.addColorStop(1, 'rgba(255,190,120,0)');
+    ctx.fillStyle = lamp;
+    ctx.fillRect(-10, -10, cssW + 20, cssH + 20);
+    // The headlamp's beam up the aim.
+    if (!this.outcome) {
+      ctx.save();
+      ctx.translate(ox + SHOOT.x * scale, oy + SHOOT.y * scale);
+      ctx.rotate(this.aim);
+      const beam = ctx.createLinearGradient(0, 0, 0, -H * scale);
+      beam.addColorStop(0, 'rgba(255,240,180,.16)');
+      beam.addColorStop(1, 'rgba(255,240,180,0)');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-H * scale * 0.22, -H * scale);
+      ctx.lineTo(H * scale * 0.22, -H * scale);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // The walls either side of the board, rock to the edges of the screen.
+    ctx.fillStyle = CAVE.near;
+    if (ox > 0) {
+      ctx.fillRect(0, 0, ox, cssH);
+      ctx.fillRect(ox + W * scale, 0, cssW - ox - W * scale, cssH);
+    }
+    this.drawRock(ctx, ox, oy, scale);
+    // The line a crystal mustn't cross: the foot of the last safe row.
+    const dead = oy + (cellY(DEAD_ROW - 1) + R) * scale;
+    ctx.strokeStyle = CAVE.line;
+    ctx.globalAlpha = 0.6;
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ox, dead);
+    ctx.lineTo(ox + W * scale, dead);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    // The guide: the shot's way to its first bounce, and where it would
+    // land if that's before one.
+    if (this.ready && !this.demo) this.drawGuide(ctx);
+    // The roof.
+    const shift = this.shift;
+    const cells = this.collapse ? [] : this.shown; // (the roof before the shot, while it flies)
+    cells.forEach((row, r) => row.forEach((cell, c) => {
+      if (cell) this.drawCrystal(ctx, cell, cellX(r, c), cellY(r, shift));
+    }));
+    if (this.collapse) for (const c of this.collapse.cells) this.drawCrystal(ctx, c.crystal, c.x, c.y, c.vy * 0.05);
+    for (const f of this.falling) this.drawCrystal(ctx, f.crystal, f.x, f.y, f.a);
+    for (const s of this.sparks) {
+      const u = 1 - s.t / s.life;
+      ctx.globalAlpha = u;
+      ctx.fillStyle = s.colour;
+      ctx.beginPath();
+      ctx.arc(ox + s.x * scale, oy + s.y * scale, R * scale * 0.22 * u + 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // The shot in flight.
+    if (this.flight) {
+      const [x, y] = pointAlong(this.flight.path, this.flight.at);
+      this.drawCrystal(ctx, this.flight.crystal, x, y, this.flight.crystal.kind === 'drill' ? this.aim : 0);
+    }
+    this.drawMole(ctx);
+    this.drawHud(ctx);
+    ctx.restore();
+  }
+
+  // The rock the roof hangs from: a jagged ceiling that comes down as the
+  // roof creeps, with a lighter edge.
+  drawRock(ctx, ox, oy, scale) {
+    const edge = oy + (this.shift * ROW_H) * scale;
+    const seed = 7;
+    ctx.fillStyle = CAVE.rock;
+    ctx.beginPath();
+    ctx.moveTo(ox, -10);
+    ctx.lineTo(ox, edge);
+    const n = 14;
+    for (let k = 0; k <= n; k++) {
+      const x = ox + (k / n) * W * scale;
+      const jag = ((Math.sin(k * seed * 1.7) + Math.cos(k * 2.3)) * 0.18 + 0.1) * R * scale;
+      ctx.lineTo(x, edge - jag);
+    }
+    ctx.lineTo(ox + W * scale, -10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = CAVE.edge;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  drawGuide(ctx) {
+    const { scale, ox, oy } = this;
+    const kind = KINDS[this.game.loaded.kind];
+    const t = trace(this.game.cells, this.game.shift, this.aim, kind);
+    // Up to the first bounce, then a little way on.
+    const pts = [];
+    let bounced = false;
+    for (let k = 0; k < t.path.length; k++) {
+      const p = t.path[k];
+      if (bounced) {
+        const q = t.path[k - 1];
+        const d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+        const f = Math.min(1, 2.5 / Math.max(d, 1e-6));
+        pts.push([q[0] + (p[0] - q[0]) * f, q[1] + (p[1] - q[1]) * f]);
+        break;
+      }
+      pts.push(p);
+      if (k > 0 && (p[0] <= R + 1e-6 || p[0] >= W - R - 1e-6) && k < t.path.length - 1) bounced = true;
+    }
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 7]);
+    ctx.lineDashOffset = -this.time * 30;
+    ctx.beginPath();
+    pts.forEach(([x, y], k) => (k ? ctx.lineTo(ox + x * scale, oy + y * scale) : ctx.moveTo(ox + x * scale, oy + y * scale)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (!bounced && t.cell && kind.stops) {
+      ctx.strokeStyle = 'rgba(255,255,255,.45)';
+      ctx.beginPath();
+      ctx.arc(ox + cellX(...t.cell) * scale, oy + cellY(t.cell[0], this.game.shift) * scale, R * scale * 0.9, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // The mole and his catapult, the loaded crystal in its pouch, the next one
+  // in the bucket beside him, and the cart on the other side.
+  drawMole(ctx) {
+    const { scale, ox, oy } = this;
+    const sx = ox + SHOOT.x * scale;
+    const sy = oy + SHOOT.y * scale;
+    const r = R * scale;
+    // The catapult: a forked post, turned to the aim, the band drawn back
+    // to the pouch.
+    ctx.save();
+    ctx.translate(sx, sy + r * 1.6);
+    ctx.rotate(this.aim);
+    ctx.strokeStyle = '#8a5a2b';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = r * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(0, r * 0.8);
+    ctx.lineTo(0, -r * 0.3);
+    ctx.lineTo(-r * 1.6, -r * 2.1);
+    ctx.moveTo(0, -r * 0.3);
+    ctx.lineTo(r * 1.6, -r * 2.1);
+    ctx.stroke();
+    ctx.strokeStyle = '#3b2a24';
+    ctx.lineWidth = r * 0.12;
+    ctx.beginPath();
+    ctx.moveTo(-r * 1.6, -r * 2.1);
+    ctx.lineTo(0, -r * 1.1);
+    ctx.lineTo(r * 1.6, -r * 2.1);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.restore();
+    // The mole behind it, looking where he aims.
+    ctx.save();
+    ctx.translate(sx, sy + r * 2.9);
+    paintMole(ctx, r * 0.95, this.aim / AIM_MAX);
+    ctx.restore();
+    // The loaded crystal in the pouch (not while it flies).
+    if (!this.flight && !this.outcome && !this.collapse) this.drawCrystal(ctx, this.game.loaded, SHOOT.x, SHOOT.y);
+    // Next: in a little bucket to the right.
+    const nx = SHOOT.x + 3.6;
+    const ny = SHOOT.y + 1.1;
+    ctx.fillStyle = '#5a4a3a';
+    ctx.beginPath();
+    ctx.moveTo(ox + (nx - 1.3) * scale, oy + (ny - 0.3) * scale);
+    ctx.lineTo(ox + (nx + 1.3) * scale, oy + (ny - 0.3) * scale);
+    ctx.lineTo(ox + (nx + 1.0) * scale, oy + (ny + 1.2) * scale);
+    ctx.lineTo(ox + (nx - 1.0) * scale, oy + (ny + 1.2) * scale);
+    ctx.closePath();
+    ctx.fill();
+    if (!this.outcome && !this.collapse) this.drawCrystal(ctx, this.game.next, nx, ny, 0, 0.72);
+    ctx.fillStyle = CAVE.dim;
+    ctx.font = `600 ${Math.max(9, r * 0.5)}px ${HUD.font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText('NEXT', ox + nx * scale, oy + (ny + 2.0) * scale);
+    // The cart on the left, filling with what's dropped.
+    this.drawCart(ctx, SHOOT.x - 4.4, SHOOT.y + 1.4);
+  }
+
+  drawCart(ctx, cx, cy) {
+    const { scale, ox, oy } = this;
+    const x = ox + cx * scale;
+    const y = oy + cy * scale;
+    const w = 3.0 * scale;
+    const h = 1.6 * scale;
+    ctx.fillStyle = '#4a3a3a';
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y - h / 2);
+    ctx.lineTo(x + w / 2, y - h / 2);
+    ctx.lineTo(x + w * 0.4, y + h / 2);
+    ctx.lineTo(x - w * 0.4, y + h / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#7a6a6a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Its fill: a heap of little gems, one per crystal in the cart.
+    const n = this.game.cart;
+    for (let k = 0; k < n; k++) {
+      const gx = x - w * 0.32 + ((k % 6) + 0.5) * (w * 0.64 / 6);
+      const gy = y + h * 0.3 - Math.floor(k / 6) * h * 0.3;
+      ctx.fillStyle = GEMS[k % 5];
+      ctx.beginPath();
+      ctx.arc(gx, gy, Math.max(2, scale * 0.17), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#2a2020';
+      ctx.beginPath();
+      ctx.arc(x + s * w * 0.28, y + h / 2 + 2, Math.max(3, scale * 0.22), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = CAVE.dim;
+    ctx.font = `600 ${Math.max(9, scale * 0.5)}px ${HUD.font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`CART ${n}/${CART}`, x, y + h / 2 + Math.max(12, scale * 0.9));
+    // A power-up just paid: a word about it over the bucket.
+    if (this.paid) {
+      const u = this.paidT < 0.3 ? this.paidT / 0.3 : this.paidT > 1.2 ? Math.max(0, (1.6 - this.paidT) / 0.4) : 1;
+      ctx.globalAlpha = u;
+      ctx.fillStyle = '#fff3c4';
+      ctx.font = `800 ${Math.max(12, scale * 0.8)}px ${HUD.font}`;
+      ctx.fillText(`CART FULL · ${this.paid.toUpperCase()}!`, ox + (W / 2) * scale, oy + (SHOOT.y - 2.6) * scale);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // The instrument band along the top: shots taken, par, the level.
+  drawHud(ctx) {
+    const { cssW } = this;
+    ctx.fillStyle = 'rgba(20,10,35,.7)';
+    ctx.fillRect(0, 0, cssW, HUD.h);
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.fillRect(0, HUD.h - 1, cssW, 1);
+    ctx.font = `700 13px ${HUD.font}`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = CAVE.ink;
+    ctx.fillText(`SHOTS ${this.game.shots}`, 12, HUD.h / 2);
+    ctx.textAlign = 'right';
+    const over = this.game.shots > this.level.par;
+    ctx.fillStyle = over ? '#ffb347' : CAVE.dim;
+    ctx.fillText(`PAR ${this.level.par}`, cssW - 12, HUD.h / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = CAVE.dim;
+    ctx.fillText(this.demo ? 'THE COMPUTER MINER' : `LEVEL ${this.level.n}`, cssW / 2, HUD.h / 2);
+    ctx.textBaseline = 'alphabetic';
+  }
+}
+
+const crystalColour = (crystal) => (crystal.kind === 'gem' ? GEMS[crystal.colour] : crystal.kind === 'stone' ? STONE : POWER[crystal.kind] ?? '#fff');
+
+function pathLength(path) {
+  let len = 0;
+  for (let k = 1; k < path.length; k++) len += Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
+  return len;
+}
+
+// The point `at` units along a path of points.
+function pointAlong(path, at) {
+  for (let k = 1; k < path.length; k++) {
+    const d = Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
+    if (at <= d) {
+      const f = d ? at / d : 0;
+      return [path[k - 1][0] + (path[k][0] - path[k - 1][0]) * f, path[k - 1][1] + (path[k][1] - path[k - 1][1]) * f];
+    }
+    at -= d;
+  }
+  return path[path.length - 1];
+}
