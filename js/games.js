@@ -102,6 +102,14 @@ export const GAMES = [
     art: () => import('../games/trial-bike/art.js'),
   },
   {
+    id: 'marble-garden',
+    title: 'Marble Garden',
+    blurb: 'A chain of marbles rolls along the garden path toward the drain. Flick marbles into it from the middle: three of a colour touching pop. Clear the path before it gets there.',
+    color: '#6cc04a',
+    load: () => import('../games/marble-garden/index.js'),
+    art: () => import('../games/marble-garden/art.js'),
+  },
+  {
     id: 'jigsaw',
     title: 'Jigsaw',
     blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',

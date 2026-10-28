@@ -920,6 +920,12 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   .tb-ghost { padding: 6px 8px; font-size: 10px; letter-spacing: 0; margin-right: 0; }
 }
 
+/* Marble Garden */
+.mg-screen { background: #5a4028; }
+.mg-screen .bar { background: #5a4028; }
+.mg-screen .stage.building { color: #f1e3c6; }
+.mg-screen .icon-btn svg { fill: currentColor; }
+
 /* About box */
 .hub-foot .about-link {
   display: block;
